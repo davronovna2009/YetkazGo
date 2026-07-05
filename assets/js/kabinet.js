@@ -354,7 +354,8 @@
       const disc=d.discount>0;
       return `<div class="kcard${disc?' kcard-disc':''}" data-id="${d.id}" data-discounted="${disc}">
         <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
-          <img src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
+          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:''}
+          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
           ${disc?'<span class="kcard-disc-badge">🏷</span>':''}
         </div>
         <div class="kbody">
@@ -468,9 +469,13 @@
     koPay="card";
     const fee=koDeliveryFee();
     const kt3=typeof KT==="function"?KT:function(k){return k;};
+    var savedAddr=USER.address||""; try{ savedAddr=savedAddr||localStorage.getItem("yz_user_addr")||""; }catch(e){}
     $("#koContent").innerHTML=`
-      <h2 style="margin-bottom:4px">${kt3('buyurtma_title')||'📋 Buyurtma'}</h2>
-      <p class="ko-sub" style="margin-bottom:14px">${kt3('buyurtma_sub')||"Ma'lumotlarni to'ldiring"}</p>
+      <div class="ko-wave-head">
+        <h2>${kt3('buyurtma_title')||'📋 Buyurtma'}</h2>
+        <p class="ko-sub">${kt3('buyurtma_sub')||"Ma'lumotlarni to'ldiring"}</p>
+        <svg class="ko-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,14 C240,42 480,2 720,18 C960,34 1200,44 1440,20 L1440,40 L0,40 Z" fill="#fff"/></svg>
+      </div>
       <div class="set-field" style="margin-bottom:10px">
         <label>${kt3('ism')||'Ismingiz'}</label>
         <input id="koName" placeholder="Ism Familiya" value="${USER.name||''}" autocomplete="name" />
@@ -482,7 +487,7 @@
       </div>
       <div class="set-field" style="margin-bottom:10px">
         <label>${kt3('manzil')||'Yetkazish manzili'}</label>
-        <input id="koAddr" placeholder="Ko'cha, uy, kvartira..." value="${USER.address||''}" autocomplete="street-address" />
+        <input id="koAddr" placeholder="Ko'cha, uy, kvartira..." value="${savedAddr}" autocomplete="street-address" />
         <div class="ko-err" id="koAddrErr" style="display:none;color:var(--red);font-size:12px;margin-top:3px">Manzilni to'ldiring</div>
         <button type="button" id="koGeoBtn" class="btn btn-outline" style="width:100%;margin-top:8px;font-size:14px;padding:9px">📍 Joylashuvimni aniqlash</button>
       </div>
@@ -696,7 +701,8 @@
         :`<div class="kcard-qty"><button class="kqty-btn" data-id="${d.id}" data-m="-1">−</button><span class="kqty-num">${qty}</span><button class="kqty-btn" data-id="${d.id}" data-m="1">+</button></div>`;
       return `<div class="kcard${disc?' kcard-disc':''}" data-id="${d.id}" data-discounted="${disc}">
         <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
-          <img src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
+          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:''}
+          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
           ${disc?'<span class="kcard-disc-badge">🏷 CHEGIRMA</span>':''}
         </div>
         <div class="kbody"><h4 data-id="${d.id}">${d.name}</h4>
