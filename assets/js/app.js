@@ -416,7 +416,7 @@
     restList().forEach(r=>{
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
-        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}</div>
+        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}</div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
