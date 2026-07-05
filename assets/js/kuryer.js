@@ -50,20 +50,30 @@
              done:{t:"Yetkazildi",p:"ok",next:null,btn:null},
              cancelled:{t:"Bekor qilingan",p:"red",next:null,btn:null}};
 
+  /* Daromad davri: kunlik/haftalik/oylik/yillik */
+  let kIncomePeriod="oylik";
+  function kOrderTime(o){ var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)):0; }
+  function kInPeriod(o,p){ var t=kOrderTime(o); if(!t) return p==="oylik"; var d=(Date.now()-t)/86400000; if(p==="kunlik")return d<1; if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31; }
   function renderDash(){
     const c=CUR;
     /* Real: faqat yetkazilgan (done) buyurtmalar hisoblanadi, 0 dan boshlanadi */
-    const doneCount=ORDERS.filter(o=>o.status==="done").length;
+    const doneAll=ORDERS.filter(o=>o.status==="done");
+    const doneCount=doneAll.length;
     const active=ORDERS.filter(o=>o.status!=="done"&&o.status!=="cancelled").length;
-    const earn=doneCount*PER;
+    const periodDone=doneAll.filter(o=>kInPeriod(o,kIncomePeriod));
+    const earn=periodDone.length*PER;
+    const kpLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[kIncomePeriod];
+    const kseg=(k,t)=>`<button class="k-inc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     /* Real reyting — mijozlar bergan kuryer baholari o'rtachasi */
     var _rv=(typeof STORE!=="undefined"?STORE.reviews():[]).filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
     const rating=_rv.length?(_rv.reduce(function(s,r){return s+(r.rating||0);},0)/_rv.length).toFixed(1):(c.rating||0);
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💵</div><b>${money(earn)}</b><span>Daromad (so'm)</span></div>
-      <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan</span></div>
+      <div class="scard c1"><div class="si">💵</div><b>${money(earn)}</b><span>Daromad (${kpLabel}, so'm)</span>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap">${kseg("kunlik","Kunlik")}${kseg("haftalik","Haftalik")}${kseg("oylik","Oylik")}${kseg("yillik","Yillik")}</div></div>
+      <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan (jami)</span></div>
       <div class="scard c3"><div class="si">🚀</div><b>${active}</b><span>Faol buyurtma</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${rating||"—"}</b><span>Reyting</span></div>`;
+    $$("#statCards .k-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); kIncomePeriod=b.dataset.kp; renderDash(); }); });
     $("#revChart").innerHTML='<p style="color:var(--grey);font-size:13px;padding:16px">Daromad grafigi real yetkazilgan buyurtmalar asosida to\'ladi.</p>';
     $("#restNote").innerHTML=`Bitta yetkazish haqi: <b>${PER?money(PER)+" so'm":"belgilanmagan"}</b> · Yetkazilgan: <b>${doneCount}</b> · Daromad: <b>${money(earn)} so'm</b>`;
     /* Mijoz izohlari (barcha panelda ko'rinadi) */

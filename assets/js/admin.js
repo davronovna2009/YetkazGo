@@ -242,20 +242,26 @@
     if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); }
   });
 
+  /* Admin daromad davri: kunlik/haftalik/oylik/yillik */
+  let aIncomePeriod="oylik";
+  function aOrderTime(o){ var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)):0; }
+  function aInPeriod(o,p){ var t=aOrderTime(o); if(!t) return p==="oylik"; var d=(Date.now()-t)/86400000; if(p==="kunlik")return d<1; if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31; }
   function renderDash(){
-    /* Real (backend) buyurtmalarni tarixiy demo ko'rsatkichlarga qo'shamiz */
+    /* REAL: komissiya faqat mijoz tasdiqlagan (done) buyurtmalardan; har restoran komissiyasi bo'yicha */
     const live=(typeof STORE!=="undefined")?STORE.orders():[];
-    const liveRev=live.reduce((s,o)=>s+(o.amount||0),0);
-    const liveSite=Math.round(liveRev*COMMISSION);
-    const totalGMV=RESTS.reduce((s,r)=>s+r.rev,0)+liveRev;
-    const totalSite=RESTS.reduce((s,r)=>s+r.siteCut,0)+liveSite;
-    const totalOrders=RESTS.reduce((s,r)=>s+r.orders,0)+live.length;
-    const totalCourierPay=COURIERS.reduce((s,c)=>s+c.earn,0);
+    const done=live.filter(o=>o.status==="done");
+    const commOf=o=>{ const r=RESTS.find(x=>x.name===o.rest); const c=(r&&r.commission!=null?r.commission:18); return Math.round((o.amount||0)*c/100); };
+    const periodSite=done.filter(o=>aInPeriod(o,aIncomePeriod)).reduce((s,o)=>s+commOf(o),0);
+    const totalOrders=live.filter(o=>o.status!=="cancelled").length;
+    const apLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[aIncomePeriod];
+    const aseg=(k,t)=>`<button class="a-inc-seg" data-ap="${k}" style="border:none;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${aIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${aIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${mln(totalSite)}</b><span>Komissiya daromadi (real)</span></div></div>
+      <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${money(periodSite)}</b><span>Komissiya daromadi (${apLabel})</span>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap">${aseg("kunlik","Kunlik")}${aseg("haftalik","Haftalik")}${aseg("oylik","Oylik")}${aseg("yillik","Yillik")}</div></div></div>
       <div class="scard c2"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar</span></div></div>
       <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span></div></div>
       <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span></div></div>`;
+    $$("#statCards .a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderDash(); }); });
     $("#revChart").innerHTML='<p style="color:var(--grey);font-size:13px;padding:16px;text-align:center">Daromad grafigi real buyurtmalar bilan to\'ladi.</p>';
     /* Real: top restoranlar haqiqiy buyurtmalar bo'yicha */
     const rAgg={};
@@ -268,7 +274,8 @@
         <span class="ti-val">${money(r.rev)}</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha buyurtma yo\'q</p>';
     $$("#topRests .topitem").forEach(function(it){ it.addEventListener("click",function(){ showTopRestModal(rAgg[it.dataset.toprest]); }); });
     const note=$("#gmvNote");
-    if(note) note.innerHTML=`Jami aylanma: <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`;
+    if(note){ const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0); const totalSite=done.reduce((s,o)=>s+commOf(o),0);
+      note.innerHTML=`Jami aylanma (tasdiqlangan): <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`; }
   }
 
   /* =========================================================

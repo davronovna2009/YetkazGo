@@ -121,6 +121,7 @@
     var days=(Date.now()-t)/86400000;
     if(period==="kunlik") return days<1;
     if(period==="haftalik") return days<7;
+    if(period==="yillik") return days<366;
     return days<31;  // oylik
   }
   function renderDash(){
@@ -135,11 +136,11 @@
     const orders=live.filter(o=>o.status!=="cancelled").length;
     const allGross=paid.reduce((s,o)=>s+(o.amount||0),0);
     const avg=paid.length?Math.round(allGross/paid.length):0;
-    const pLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik"}[incomePeriod];
+    const pLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[incomePeriod];
     const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
     $("#statCards").innerHTML=`
       <div class="scard c1"><div class="si">💰</div><b>${mln(periodNet)}</b><span>Sof daromad (${pLabel}, komissiyadan keyin)</span>
-        <div style="margin-top:8px">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}</div></div>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div></div>
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
       <div class="scard c3"><div class="si">🧮</div><b>${money(avg)}</b><span>O'rtacha chek (so'm)</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
