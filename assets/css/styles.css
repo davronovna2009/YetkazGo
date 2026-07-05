@@ -1693,3 +1693,40 @@ body{ animation:siteHues 45s ease-in-out infinite; }
   50%    { background:#D0E1FA }   /* osmon */
   75%    { background:#FBD3E7 }   /* pushti */
 }
+
+/* ===================================================
+   DIZAYN v6 — to'lqinli inputlar, chiplar, "+" tugma
+   =================================================== */
+/* Qidiruv input — pill + pastida to'lqin chizig'i */
+.dish-search{position:relative}
+#dishSearch{border-radius:999px !important;box-shadow:0 5px 18px rgba(140,10,31,.07), inset 0 1px 0 rgba(255,255,255,.7) !important;transition:box-shadow .2s, border-color .2s}
+#dishSearch:focus{box-shadow:0 6px 22px rgba(200,16,46,.14), 0 0 0 4px rgba(200,16,46,.09) !important}
+.dish-search::after{content:"";position:absolute;left:9%;right:9%;bottom:-5px;height:7px;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='7' viewBox='0 0 24 7'%3E%3Cpath d='M0 3.5 Q6 0 12 3.5 T24 3.5' stroke='%23E8A33D' stroke-width='2' fill='none'/%3E%3C/svg%3E") repeat-x;
+  background-size:22px 7px;opacity:.55}
+
+/* Kategoriya chiplari — pill; faol chip ostida to'lqin */
+.chip{border-radius:999px;position:relative}
+.chip.on::after{content:"";position:absolute;left:16%;right:16%;bottom:-7px;height:6px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='6' viewBox='0 0 20 6'%3E%3Cpath d='M0 3 Q5 0 10 3 T20 3' stroke='%23C8102E' stroke-width='2' fill='none'/%3E%3C/svg%3E") repeat-x;
+  background-size:18px 6px}
+
+/* Savatga qo'shish "+" — biroz qiyshiq + organik to'lqinsimon shakl */
+.add-btn,.rpromo-add,.card-pod-action .add-btn{
+  border-radius:46% 54% 52% 48% / 54% 46% 54% 46% !important;
+  transform:rotate(-7deg);
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease, filter .18s ease !important;
+}
+.add-btn:hover,.rpromo-add:hover,.card-pod-action .add-btn:hover{ transform:rotate(0deg) translateY(-2px) scale(1.06) !important; }
+.add-btn:active,.rpromo-add:active,.card-pod-action .add-btn:active{ transform:rotate(-3deg) scale(.9) !important; }
+
+/* ===== Restoran kartasi — ko'proq ma'lumot ===== */
+.rest-openbadge{position:absolute;top:8px;left:8px;z-index:3;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.rest-openbadge.is-open{background:rgba(22,163,74,.94)}
+.rest-openbadge.is-closed{background:rgba(120,120,130,.94)}
+.rest-info2{display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;font-size:12.5px;color:var(--grey);font-weight:600}
+.rest-addr{font-size:12px;color:var(--grey);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rest-descr{font-size:12px;color:#8a8a8a;margin-top:5px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Izoh — sana + qaysi restoran */
+.rv-head{position:relative}
+.rv-date{position:absolute;top:0;right:0;font-size:11px;color:var(--grey);font-weight:600}

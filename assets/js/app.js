@@ -455,12 +455,23 @@
       return /^\/uploads\/|^data:/.test(p) ? p : "";
     }catch(e){ return ""; }
   }
+  /* Restoran haqida backend qo'shimcha ma'lumoti */
+  function restExtra(name){
+    try{ return (typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===name)||{}:{}; }catch(e){ return {}; }
+  }
   function renderRests(){
     const g=$("#restGrid"); g.innerHTML="";
     restList().forEach(r=>{
+      const be=restExtra(r.name);
+      const dishCount=catalog().filter(d=>d.rest===r.name).length;
+      const addr=be.addr||r.addr||"";
+      const hours=(be.open_h!=null&&be.close_h!=null)?(String(be.open_h).padStart(2,"0")+":00–"+String(be.close_h).padStart(2,"0")+":00"):"";
+      const openLbl=(typeof restOpenLabel==="function")?restOpenLabel(r.name):"";
+      const isOpen=/ochiq|open|очиқ/i.test(openLbl);
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
-        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}</div>
+        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}
+          ${openLbl?`<span class="rest-openbadge ${isOpen?'is-open':'is-closed'}">${isOpen?'🟢':'🔴'} ${esc(openLbl)}</span>`:""}</div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
@@ -468,6 +479,12 @@
             <span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
             <span>📍 ${r.dist}</span>
           </div>
+          <div class="rest-info2">
+            <span>🍽️ ${dishCount} ta taom</span>
+            ${hours?`<span>🕒 ${hours}</span>`:""}
+          </div>
+          ${addr?`<div class="rest-addr">📍 ${esc(addr)}</div>`:""}
+          ${be.descr?`<div class="rest-descr">${esc(String(be.descr).slice(0,90))}</div>`:""}
         </div>`;
       c.querySelector(".rest-img").style.position="relative";
       c.addEventListener("click",()=>{ location.hash="restoran/"+r.id; });
@@ -483,14 +500,20 @@
     const live=(typeof STORE!=="undefined")?STORE.reviews():[];
     /* Kuryer reytinglari (dish "🛵 Kuryer: ...") saytda ko'rsatilmaydi — faqat kuryer/admin panelida */
     const isCourierReview = r => /^🛵\s*Kuryer:/.test(String(r&&r.dish||""));
-    [...live, ...REVIEWS].filter(r=>!isCourierReview(r)).slice(0,9).forEach(r=>{
+    /* Qaysi restoran taomi ekanligini topamiz */
+    const reviewRest = r => { const d=catalog().find(x=>x.name===r.dish); return d?d.rest:(r.rest||""); };
+    const revDate = r => { const raw=String(r.date||r.created_at||""); const m=raw.match(/(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+"."+m[2]+"."+m[1]):(raw.length<=12?raw:""); };
+    /* Ommaviy izohlar: faqat 3+ yulduz qabul qilinadi (kuryer reytinglaridan tashqari) */
+    [...live, ...REVIEWS].filter(r=>!isCourierReview(r) && (r.rating||0)>=3).slice(0,9).forEach(r=>{
       const stars="★".repeat(r.rating)+"☆".repeat(5-r.rating);
       const txt = (I18N.current()==="cyr" && r.textCyr) ? r.textCyr : r.text;
+      const rest=reviewRest(r), dt=revDate(r);
       const el=document.createElement("div"); el.className="review-card";
       el.innerHTML=`<div class="rv-head"><span class="rv-ava">${r.ava}</span>
-        <div><div class="rv-name">${esc(r.name)}</div><div class="rv-stars">${stars}</div></div></div>
+        <div><div class="rv-name">${esc(r.name)}</div><div class="rv-stars">${stars}</div></div>
+        ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
         <p class="rv-text">${esc(txt)}</p>
-        <div class="rv-dish">🍽️ ${esc(r.dish)}</div>`;
+        <div class="rv-dish">🍽️ ${esc(r.dish)}${rest?` · 🏪 ${esc(rest)}`:""}</div>`;
       g.appendChild(el);
     });
   }
