@@ -5,6 +5,9 @@ server/node_modules/
 # Ma'lumotlar bazasi (SQLite)
 server/data/
 
+# Zaxira nusxalar (backup)
+server/backups/
+
 # Yuklangan rasmlar
 server/uploads/
 
