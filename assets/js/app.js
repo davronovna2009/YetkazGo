@@ -226,6 +226,7 @@
     c.innerHTML = `
         <div class="card-img tone-${d.kw}" style="cursor:pointer">
           <span class="food-emoji">${d.emoji}</span>
+          ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:""}
           <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" onerror="this.remove()">
           ${d.badge?`<span class="card-badge">${d.badge}</span>`:""}
         </div>
@@ -1355,44 +1356,75 @@
      Chapda sarlavha + "Batafsil", o'ngda dinamik reklama rasmi (announcements/
      discounts manbasidan), pastida to'lqin. Tagida shu aksiya/chegirma taomlari
      yangi yoysimon kartochkalarda, foni navbatma-navbat olovrang palitrada. */
+  let adPromoTimer = null;
   function renderAdPromo(){
     const sec = document.getElementById("adPromo");
     if(!sec) return;
+    if(adPromoTimer){ clearInterval(adPromoTimer); adPromoTimer=null; }
     const promos = getAllPromos();
     const disc   = getDiscountedDishes();
     if(!promos.length && !disc.length){ sec.style.display="none"; sec.innerHTML=""; return; }
     sec.style.display="";
 
-    const p = promos[0] || {rest:"Yetkaz.uz", text:"Bugungi maxsus takliflar sizni kutmoqda!", tag:"AKSIYA", emoji:"🔥"};
-    /* Reklama rasmi: avval restoran o'zi yuklagan e'lon rasmi (p.img),
-       bo'lmasa taom/restoran rasmi (promoPhoto). */
-    const photo = p.img || promoPhoto(p);
-    const photoInner = `<span class="apb-emoji">${p.emoji||"🔥"}</span>` +
-      (photo ? `<img class="apb-img" src="${photo}" alt="${esc(p.rest||"")}" onerror="this.remove()">` : "");
+    /* Reklamalar ro'yxati — bittadan ko'p bo'lsa slider sekin almashadi */
+    const list = promos.length ? promos
+      : [{rest:"Yetkaz.uz", text:"Bugungi maxsus takliflar sizni kutmoqda!", tag:"AKSIYA", emoji:"🔥"}];
 
-    /* Kartalar: avval chegirmali taomlar; bo'lmasa banner restoranining taomlari */
-    let cards = disc;
-    if(!cards.length) cards = catalog().filter(x=>x.rest===p.rest).slice(0,4);
-
-    sec.innerHTML = `
-      <div class="container">
-        <div class="adpromo-banner">
+    const slideHtml = (p)=>{
+      /* Rasm: avval restoran yuklagan e'lon rasmi (p.img), bo'lmasa taom/restoran rasmi */
+      const photo = p.img || promoPhoto(p);
+      const photoInner = `<span class="apb-emoji">${p.emoji||"🔥"}</span>` +
+        (photo ? `<img class="apb-img" src="${photo}" alt="${esc(p.rest||"")}" onerror="this.remove()">` : "");
+      return `
+        <div class="apb-slide">
           <div class="apb-left">
             <span class="apb-tag">${p.emoji||"🔥"} ${esc(p.tag||"AKSIYA")}</span>
             <h2 class="apb-title">${esc(p.text)}</h2>
             ${p.rest?`<div class="apb-rest">🏪 ${esc(p.rest)}</div>`:""}
+            ${p.dish?`<div class="apb-dish">🍽️ ${esc(p.dish)}</div>`:""}
             <button class="apb-cta" type="button">Batafsil →</button>
           </div>
-          <div class="apb-right"><div class="apb-photo">${photoInner}</div></div>
-          <svg class="apb-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0,18 C240,42 480,2 720,16 C960,30 1200,44 1440,20 L1440,40 L0,40 Z" fill="rgba(255,255,255,.20)"/>
+          <div class="apb-right">
+            <div class="apb-photo">${photoInner}</div>
+          </div>
+        </div>`;
+    };
+    const dots = list.length>1
+      ? `<div class="apb-dots">${list.map((_,i)=>`<span${i===0?' class="on"':''}></span>`).join("")}</div>` : "";
+
+    /* Tagidagi kartalar: avval chegirmali taomlar; bo'lmasa 1-reklama restoranining taomlari */
+    let cards = disc;
+    if(!cards.length) cards = catalog().filter(x=>x.rest===list[0].rest).slice(0,4);
+
+    sec.innerHTML = `
+      <div class="container">
+        <div class="adpromo-banner${list.length>1?' has-slider':''}">
+          <div class="apb-slider">${list.map(slideHtml).join("")}</div>
+          ${dots}
+          <svg class="apb-wave" viewBox="0 0 1440 44" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,12 C160,46 340,-4 540,18 C740,40 940,44 1140,20 C1270,6 1360,10 1440,24 L1440,44 L0,44 Z" fill="rgba(255,255,255,.24)"/>
           </svg>
         </div>
         ${cards.length?`<div class="grid dishes-grid adpromo-grid" id="adPromoGrid"></div>`:""}
       </div>`;
 
-    const cta = sec.querySelector(".apb-cta");
-    if(cta) cta.addEventListener("click", openPromoModal);
+    /* Slider mantiqi */
+    const slides = [...sec.querySelectorAll(".apb-slide")];
+    const dotEls = [...sec.querySelectorAll(".apb-dots span")];
+    let cur = 0;
+    slides.forEach((s,i)=>s.classList.toggle("active", i===0));
+    function go(i){
+      if(!slides.length) return;
+      slides[cur].classList.remove("active"); if(dotEls[cur]) dotEls[cur].classList.remove("on");
+      cur = (i+slides.length)%slides.length;
+      slides[cur].classList.add("active"); if(dotEls[cur]) dotEls[cur].classList.add("on");
+    }
+    if(slides.length>1){
+      adPromoTimer = setInterval(()=>go(cur+1), 5000);
+      dotEls.forEach((d,i)=>d.addEventListener("click",()=>{ go(i); }));
+    }
+
+    sec.querySelectorAll(".apb-cta").forEach(b=>b.addEventListener("click", openPromoModal));
     const grid = sec.querySelector("#adPromoGrid");
     if(grid) cards.forEach((d,i)=>{ const card = makeDishCard(d); card.classList.add("apd-"+(i%3)); grid.appendChild(card); });
   }

@@ -121,14 +121,26 @@
     const net=r.net+liveNet;
     const avg=Math.round((r.gross+liveGross)/(orders||1));
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><b>${mln(net)}</b><span>Sof daromad (oy, komissiyadan keyin)</span><div class="delta up">▲ 6.2%</div></div>
-      <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Buyurtmalar (oy)</span><div class="delta up">▲ 4.0%</div></div>
+      <div class="scard c1"><div class="si">💰</div><b>${mln(net)}</b><span>Sof daromad (komissiyadan keyin)</span></div>
+      <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
       <div class="scard c3"><div class="si">🧮</div><b>${money(avg)}</b><span>O'rtacha chek (so'm)</span></div>
-      <div class="scard c4"><div class="si">⭐</div><b>${r.rating}</b><span>Reyting</span></div>`;
-    const max=Math.max(...r.monthly)||1;
-    $("#revChart").innerHTML=r.monthly.map((v,i)=>`
-      <div class="bar-col"><div class="bv">${mln(v).replace(" mln","")}</div>
-        <div class="bar" style="height:${Math.round(v/max*150)}px"></div><small>${MONTHS[i]}</small></div>`).join("");
+      <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
+    /* REAL oylik daromad — buyurtmalarni created_at oyiga guruhlab (so'nggi 6 oy) */
+    const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+    const now=new Date();
+    const slots=[];
+    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],sum:0}); }
+    (live||[]).forEach(function(o){
+      const raw=String(o.created_at||""); const mm=raw.match(/^(\d{4})-(\d{2})/);
+      const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth();
+      const oNet=Math.round((o.amount||0)*(100-pct)/100);
+      const slot=slots.find(function(x){return x.y===y&&x.m===mo;});
+      if(slot) slot.sum+=oNet;
+    });
+    const max=Math.max.apply(null,slots.map(function(x){return x.sum;}).concat([1]));
+    $("#revChart").innerHTML=slots.map(function(x){return `
+      <div class="bar-col"><div class="bv">${x.sum?mln(x.sum).replace(" mln",""):"0"}</div>
+        <div class="bar" style="height:${Math.max(4,Math.round(x.sum/max*150))}px"></div><small>${x.label}</small></div>`;}).join("");
     /* Real: eng ko'p sotilgan va talab — haqiqiy buyurtmalar bo'yicha (0 dan) */
     const agg={};
     (live||[]).forEach(function(o){ if(!o.item) return; const k=o.item; if(!agg[k]) agg[k]={name:o.item,emoji:o.emoji||"🍽️",sold:0,rev:0}; agg[k].sold++; agg[k].rev+=(o.amount||0); });

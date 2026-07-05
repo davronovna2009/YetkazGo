@@ -246,10 +246,10 @@
     const totalOrders=RESTS.reduce((s,r)=>s+r.orders,0)+live.length;
     const totalCourierPay=COURIERS.reduce((s,c)=>s+c.earn,0);
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${mln(totalSite)}</b><span>Komissiya daromadi</span><div class="delta up">▲ 7.4%</div></div></div>
-      <div class="scard c2"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar</span><div class="delta up">▲ 5.1%</div></div></div>
-      <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span><div class="delta up">▲ faol</div></div></div>
-      <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span><div class="delta up">▲ faol</div></div></div>`;
+      <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${mln(totalSite)}</b><span>Komissiya daromadi (real)</span></div></div>
+      <div class="scard c2"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar</span></div></div>
+      <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span></div></div>
+      <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span></div></div>`;
     $("#revChart").innerHTML='<p style="color:var(--grey);font-size:13px;padding:16px;text-align:center">Daromad grafigi real buyurtmalar bilan to\'ladi.</p>';
     /* Real: top restoranlar haqiqiy buyurtmalar bo'yicha */
     const rAgg={};
