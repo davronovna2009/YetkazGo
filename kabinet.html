@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1c1416" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+  <title>Yetkaz — Mening kabinetim</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/admin.css" />
+</head>
+<body>
+  <div class="sb-overlay" id="sbOverlay"></div>
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <img src="assets/logo.png" alt="Yetkaz.uz" />
+      <h1>Mening kabinetim</h1>
+      <p>Foydalanuvchi uchun shaxsiy kabinet</p>
+      <div class="field"><label>Login</label><input id="ulUser" placeholder="Foydalanuvchi logini" /></div>
+      <div class="field"><label>Parol</label><input id="ulPass" type="password" placeholder="••••••" /></div>
+      <button class="login-btn" id="loginBtn">Kirish</button>
+      <div class="login-err" id="loginErr"></div>
+      <div class="login-hint">Hisobingiz yo'qmi? Ro'yxatdan o'ting.</div>
+    </div>
+  </div>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-logo"><span style="font-size:26px">👤</span> <span id="sbName">Foydalanuvchi</span></div>
+      <nav class="sb-nav">
+        <a class="sb-link active" data-view="taomlar"><span class="ic">🍽️</span> Taomlar</a>
+        <a class="sb-link" data-view="profil"><span class="ic">🧾</span> Mening kabinetim</a>
+        <a class="sb-link" data-view="review"><span class="ic">⭐</span> Izoh qoldirish</a>
+        <a class="sb-link" data-view="help"><span class="ic">❓</span> Qanday buyurtma berish</a>
+      </nav>
+      <div class="sb-foot"><div>yetkaz.uz</div><button id="logoutBtn">← Chiqish</button></div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="menu-toggle" id="menuToggle">☰</button><h2 id="tbTitle">Mening kabinetim</h2>
+        </div>
+        <div class="tb-right"><button id="kabTopCart" style="background:#C8102E;color:#fff;border:none;border-radius:999px;padding:8px 15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px">🛒 Savat <span id="kabTopCartCount" style="background:#fff;color:#C8102E;border-radius:999px;min-width:19px;text-align:center;font-size:12px;padding:1px 5px;font-weight:800">0</span></button></div>
+      </div>
+      <div class="content">
+
+        <!-- TAOMLAR (index.html uslubida) -->
+        <section class="view show" id="view-taomlar">
+          <!-- Aksiya banner -->
+          <div id="kabPromoBand" class="kab-promo-band" style="display:none;cursor:pointer;margin-bottom:12px">
+            <div class="kab-promo-inner" id="kabPromoInner"></div>
+            <button class="kab-promo-close" id="kabPromoClose">✕</button>
+          </div>
+          <div class="kchips" id="kFilters"></div>
+          <div class="kgrid" id="kMenu"></div>
+          <div id="cartPanel" style="display:none"></div>
+        </section>
+
+        <!-- RESTORANLAR -->
+        <section class="view" id="view-rests">
+          <div class="krest-search" style="margin-bottom:12px">
+            <input id="kRestSearch" placeholder="🔍 Restoran qidirish..." class="krest-search-input" />
+          </div>
+          <div class="krest-grid" id="kRestGrid"></div>
+        </section>
+
+        <!-- PROFIL -->
+        <section class="view" id="view-profil">
+          <div class="stat-grid" id="statCards"></div>
+          <div class="panel">
+            <div class="panel-head"><h3>Buyurtmalar tarixi</h3></div>
+            <div class="panel-body" style="overflow-x:auto;padding:0">
+              <table class="tbl">
+                <thead><tr><th>Taom</th><th>Restoran</th><th>Sana</th><th>Summa</th><th>Yetkazildi</th><th>Holat</th></tr></thead>
+                <tbody id="orderTbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel"><div class="panel-head"><h3>Mening izohlarim</h3></div>
+            <div class="panel-body" id="myReviews"></div>
+          </div>
+        </section>
+
+        <!-- REVIEW -->
+        <section class="view" id="view-review">
+          <div class="panel">
+            <div class="panel-head"><h3>Izoh qoldirish</h3></div>
+            <div class="panel-body" style="max-width:620px">
+              <div class="set-field"><label>Buyurtma</label><select id="revOrder"></select></div>
+              <div class="set-field"><label>Bahoyingiz</label><div class="stars" id="revStars"></div></div>
+              <div class="set-field"><label>Izoh</label><textarea id="revText" rows="3" placeholder="Fikringizni yozing..."></textarea></div>
+              <div id="revReasonWrap" style="display:none">
+                <div class="set-field"><label>Past bahoga sabab</label>
+                  <select id="revReason">
+                    <option value="">— sababni tanlang —</option>
+                    <option value="late">Kechikdi</option>
+                    <option value="quality">Sifat yomon</option>
+                    <option value="wrong">Noto'g'ri taom keldi</option>
+                    <option value="other">Boshqa</option>
+                  </select>
+                </div>
+                <div class="set-field" id="revPhotoWrap" style="display:none">
+                  <label>Taom rasmi (AI tahlil qiladi)</label>
+                  <input type="file" id="revPhoto" accept="image/*" />
+                </div>
+              </div>
+              <button class="set-save" id="revSubmit">Izohni yuborish</button>
+              <div id="revResult" class="rev-result"></div>
+              <p style="color:var(--grey);font-size:13px;margin-top:14px">Eslatma: asossiz salbiy izohlar avtomatik tekshiriladi. "Kechikdi" shikoyati kuryer yetkazish vaqti bilan, "sifat yomon" esa AI rasm tahlili bilan solishtiriladi.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- HELP / ONBOARDING -->
+        <section class="view" id="view-help">
+          <div class="panel">
+            <div class="panel-head"><h3>Qanday buyurtma beraman? (4 qadam)</h3></div>
+            <div class="panel-body">
+              <div class="steps-u">
+                <div class="step-u"><div class="n">1</div><div><h4>Taom tanlang</h4><p>Restoran yoki taomni tanlab savatga qo'shing.</p></div></div>
+                <div class="step-u"><div class="n">2</div><div><h4>Ro'yxatdan o'ting</h4><p>Ism, telefon va manzilingizni kiriting.</p></div></div>
+                <div class="step-u"><div class="n">3</div><div><h4>Buyurtma bering</h4><p>To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).</p></div></div>
+                <div class="step-u"><div class="n">4</div><div><h4>Kuzating</h4><p>Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.</p></div></div>
+              </div>
+              <div class="video-ph"><div class="pl">▶️</div><p style="margin-top:8px">Video qo'llanma tez orada qo'shiladi</p></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Buyurtma oynasi (manzil + to'lov + kuzatuv) -->
+  <!-- SAVAT DRAWER -->
+  <div class="kab-cart-bd" id="kabCartBd"></div>
+  <div class="kab-cart-drawer" id="kabCartDrawer">
+    <div class="kab-dr-head">
+      <h3>🛒 Savatingiz</h3>
+      <button class="kab-dr-close" id="kabDrClose">✕</button>
+    </div>
+    <div class="kab-dr-body" id="kabCartBody"></div>
+    <div class="kab-dr-foot" id="kabCartFoot"></div>
+  </div>
+
+  <!-- PROMO MODAL -->
+  <div class="kpmod-backdrop" id="kpmodBackdrop"></div>
+  <div class="kpmod" id="kpmodModal">
+    <button class="kpmod-close" id="kpmodClose">✕</button>
+    <div id="kpmodContent"></div>
+  </div>
+
+  <div class="kmodal-backdrop" id="koBackdrop"></div>
+  <div class="kmodal" id="koModal">
+    <button class="kmodal-close" id="koClose">✕</button>
+    <div id="koContent"></div>
+  </div>
+
+  <div class="toast2" id="toast2"></div>
+
+  <!-- KABINET BOTTOM BAR -->
+  <nav class="kab-bar" id="kabBar">
+    <a href="index.html" class="kab-bar-logo" aria-label="Bosh sahifa">
+      <img src="assets/logo.png" alt="Yetkaz" />
+    </a>
+    <button class="kab-bar-item" id="kbbMenu">
+      <span class="kbb-icon" id="kbbMenuIcon">☰</span>
+      <span class="kbb-label">Menyu</span>
+    </button>
+    <button class="kab-bar-cart" id="kbbCart">
+      <span class="kbb-cart-icon">🛒</span>
+      <span class="kbb-cart-label">Savat</span>
+      <span class="kbb-cart-badge" id="kabCartBadge">0</span>
+      <span class="kbb-cart-pulse" id="kabCartPulse"></span>
+    </button>
+    <button class="kab-bar-item" id="kbbProfil">
+      <span class="kbb-icon">🧾</span>
+      <span class="kbb-label">Profil</span>
+    </button>
+    <button class="kab-bar-item" id="kbbExit">
+      <span class="kbb-icon">↩</span>
+      <span class="kbb-label">Chiqish</span>
+    </button>
+  </nav>
+
+  <!-- BURGER MENU SHEET -->
+  <div class="kab-nav-backdrop" id="kabNavBackdrop"></div>
+  <nav class="kab-nav-sheet" id="kabNavSheet">
+    <div class="kns-handle"></div>
+    <a class="kns-link" data-view="taomlar">🍽️ Taomlar</a>
+    <a class="kns-link" data-view="profil">🧾 Mening kabinetim</a>
+    <a class="kns-link" data-view="rests">🏪 Restoranlar</a>
+    <a class="kns-link" data-view="review">⭐ Izoh qoldirish</a>
+    <a class="kns-link" data-view="help">❓ Yordam</a>
+    <div class="kns-divider"></div>
+    <div class="kns-lang">
+      <span class="kns-lang-label">Til / Язык</span>
+      <div class="kns-lang-btns">
+        <button class="kns-lang-btn active" id="knsLatin">Lotin</button>
+        <button class="kns-lang-btn" id="knsCyrillic">Кирилл</button>
+      </div>
+    </div>
+  </nav>
+
+  <script src="assets/js/lottie.min.js"></script>
+  <script src="assets/js/courier-anim.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/kabinet.js"></script>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    /* ---- Desktop sidebar (≥901px) ---- */
+    var toggle  = document.getElementById('menuToggle');
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('sbOverlay');
+    function sdOpen(){ if(sidebar) sidebar.classList.add('open'); if(overlay) overlay.classList.add('open'); document.body.style.overflow='hidden'; if(toggle) toggle.textContent='✕'; }
+    function sdClose(){ if(sidebar) sidebar.classList.remove('open'); if(overlay) overlay.classList.remove('open'); document.body.style.overflow=''; if(toggle) toggle.textContent='☰'; }
+    toggle && toggle.addEventListener('click', function(){ sidebar && sidebar.classList.contains('open') ? sdClose() : sdOpen(); });
+    overlay && overlay.addEventListener('click', sdClose);
+    document.querySelectorAll('.sb-link').forEach(function(l){ l.addEventListener('click', function(){ if(window.innerWidth<=900) sdClose(); }); });
+    window.addEventListener('resize', function(){ if(window.innerWidth>900) sdClose(); });
+
+    /* ---- Bottom bar (mobil ≤768px) ---- */
+    var kbbMenu     = document.getElementById('kbbMenu');
+    var kbbMenuIcon = document.getElementById('kbbMenuIcon');
+    var kbbCart     = document.getElementById('kbbCart');
+    var kbbProfil   = document.getElementById('kbbProfil');
+    var kbbExit     = document.getElementById('kbbExit');
+    var navSheet    = document.getElementById('kabNavSheet');
+    var navBackdrop = document.getElementById('kabNavBackdrop');
+    var knsLatin    = document.getElementById('knsLatin');
+    var knsCyrillic = document.getElementById('knsCyrillic');
+
+    var navOpen = false;
+    function openNav(){
+      if(navSheet) navSheet.classList.add('open');
+      if(navBackdrop) navBackdrop.classList.add('open');
+      if(kbbMenuIcon) kbbMenuIcon.textContent = '✕';
+      document.body.style.overflow = 'hidden';
+      navOpen = true;
+    }
+    function closeNav(){
+      if(navSheet) navSheet.classList.remove('open');
+      if(navBackdrop) navBackdrop.classList.remove('open');
+      if(kbbMenuIcon) kbbMenuIcon.textContent = '☰';
+      document.body.style.overflow = '';
+      navOpen = false;
+    }
+
+    kbbMenu && kbbMenu.addEventListener('click', function(e){ e.stopPropagation(); navOpen ? closeNav() : openNav(); });
+    navBackdrop && navBackdrop.addEventListener('click', closeNav);
+
+    /* Nav sheet havolalar */
+    document.querySelectorAll('.kns-link').forEach(function(a){
+      a.addEventListener('click', function(){
+        var view = a.dataset.view;
+        closeNav();
+        var sbLink = document.querySelector('.sb-link[data-view="'+view+'"]');
+        if(sbLink) sbLink.click();
+      });
+    });
+
+    /* Savat — drawer ochadi */
+    kbbCart && kbbCart.addEventListener('click', function(){
+      closeNav();
+      /* window._kabOpenCart kabinet.js yuklanganidan keyin tayyor bo'ladi */
+      if(window._kabOpenCart) window._kabOpenCart();
+    });
+
+    /* Drawer yopish */
+    var kabDrClose = document.getElementById('kabDrClose');
+    var kabCartBd  = document.getElementById('kabCartBd');
+    kabDrClose && kabDrClose.addEventListener('click', function(){
+      if(window._kabCloseCart) window._kabCloseCart();
+    });
+    kabCartBd && kabCartBd.addEventListener('click', function(){
+      if(window._kabCloseCart) window._kabCloseCart();
+    });
+
+    /* Aksiya banner */
+    (function(){
+      var promos = [];
+      try{
+        /* Soxta namuna e'lonlar YO'Q — faqat haqiqiy restoranlar e'lonlari */
+        promos = JSON.parse(localStorage.getItem('yetkaz_announcements')||'[]');
+      }catch(e){}
+      var band = document.getElementById('kabPromoBand');
+      var inner = document.getElementById('kabPromoInner');
+      var closeBtn = document.getElementById('kabPromoClose');
+      if(!band || !promos.length) return;
+      band.style.display = 'flex';
+      var cur = 0;
+      function show(){
+        var p = promos[cur % promos.length];
+        if(inner) inner.innerHTML =
+          '<span class="kpb-tag">'+(p.tag||'AKSIYA')+'</span> '+
+          '<span class="kpb-rest">'+(p.emoji||'📢')+' '+p.rest+'</span> — '+
+          '<span class="kpb-text">'+p.text+'</span>';
+        cur++;
+      }
+      show();
+      setInterval(function(){ if(inner){inner.style.opacity='0'; setTimeout(function(){show();inner.style.opacity='1';},300);} },5000);
+      closeBtn && closeBtn.addEventListener('click',function(e){ e.stopPropagation(); band.style.display='none'; });
+    })();
+
+    /* Profil */
+    kbbProfil && kbbProfil.addEventListener('click', function(){
+      closeNav();
+      var sb = document.querySelector('.sb-link[data-view="profil"]');
+      if(sb) sb.click();
+    });
+
+    /* Chiqish */
+    kbbExit && kbbExit.addEventListener('click', function(){
+      var btn = document.getElementById('logoutBtn');
+      if(btn) btn.click();
+    });
+
+    /* Lang toggle */
+    var curLang = localStorage.getItem('yz_lang') || 'lat';
+    function applyLang(lang){
+      curLang = lang;
+      localStorage.setItem('yz_lang', lang);
+      if(knsLatin)    knsLatin.classList.toggle('active', lang==='lat');
+      if(knsCyrillic) knsCyrillic.classList.toggle('active', lang==='cyr');
+      /* i18n mavjud bo'lsa */
+      if(typeof I18N !== 'undefined'){
+        if(lang==='cyr') I18N.setLang && I18N.setLang('cyr');
+        else             I18N.setLang && I18N.setLang('lat');
+        I18N.apply && I18N.apply();
+      }
+    }
+    knsLatin    && knsLatin.addEventListener('click',    function(){ applyLang('lat'); });
+    knsCyrillic && knsCyrillic.addEventListener('click', function(){ applyLang('cyr'); });
+    applyLang(curLang);
+
+    /* Badge MutationObserver */
+    var cartPanel = document.getElementById('cartPanel');
+    if(cartPanel){
+      new MutationObserver(function(){
+        if(typeof syncKabBar === 'function') syncKabBar();
+      }).observe(cartPanel, {childList:true, subtree:true});
+    }
+
+    window.addEventListener('resize', function(){ if(window.innerWidth>768) closeNav(); });
+  });
+  </script>
+</body>
+</html>

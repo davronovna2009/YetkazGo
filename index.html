@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#C8102E" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+  <title>Yetkaz — Tez ovqat yetkazib berish</title>
+  <meta name="description" content="Yetkaz — yaqin atrofdagi restoran va kafelardan tez ovqat yetkazib berish xizmati." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/favicon-64.png" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+
+  <!-- STICKY TOP BAR: desktop da sticky -->
+  <div class="sticky-top-bar">
+  <!-- DESKTOP HEADER -->
+  <header class="site-header" id="header">
+    <div class="header-inner">
+      <a href="#top" class="logo" aria-label="Yetkaz.uz">
+        <img class="logo-img" src="assets/logo.png" alt="Yetkaz.uz logo" />
+        <span class="logo-text">Yetkaz</span>
+      </a>
+      <nav class="main-nav" id="mainNav">
+        <a href="#restaurants" data-i18n="nav_restaurants">Restoranlar</a>
+        <a href="#dishes" data-i18n="nav_dishes">Taomlar</a>
+        <a href="#reviews" data-i18n="nav_reviews">Izohlar</a>
+        <a href="#about" data-i18n="nav_about">Sayt haqida</a>
+      </nav>
+      <div class="header-actions">
+        <button class="lang-toggle" id="langToggle" title="Lotin / Kiril">
+          <span id="langLabel">Лат</span>
+        </button>
+        <button class="btn btn-outline" id="cartBtn">
+          <span data-i18n="cart">Savat</span>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+        <button class="btn btn-primary" id="loginBtn">Kirish</button>
+        <button class="nav-burger" id="navBurger" aria-label="Menyu" aria-expanded="false">☰</button>
+      </div>
+    </div>
+    <!-- Headerning to'lqinsimon (wavy) pastki chegarasi — qaymoqrang, sezilarli -->
+    <div class="header-wave" aria-hidden="true">
+      <svg viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,0 L1440,0 L1440,26 C1200,58 1040,10 720,30 C400,50 240,4 0,30 Z" fill="#FFF8F0"/>
+      </svg>
+    </div>
+  </header>
+  </div><!-- /sticky-top-bar -->
+
+  <!-- RESTAURANT VIEW -->
+  <section class="rview" id="restaurantView"></section>
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="hero-slides" id="heroSlides"></div>
+    <div class="hero-overlay"></div>
+    <div class="container hero-content">
+      <p class="hero-kicker" data-i18n="hero_kicker">Navoiy, Xatirchi bo'ylab yetkazib beramiz</p>
+      <h1 class="hero-title">
+        <span class="w3" data-i18n="hero_w3">Yetkaz</span>
+      </h1>
+      <p class="hero-sub" data-i18n="hero_sub">Yoqtirgan taomingizni tanlang — biz eshigingizgacha yetkazamiz.</p>
+      <div class="hero-cta">
+        <button class="btn btn-primary btn-lg" id="heroSearchBtn" data-i18n="order_start">Buyurtmani boshlash</button>
+        <span class="hero-free" id="heroFree" style="cursor:pointer" title="Batafsil">🛵 <span data-i18n="free_delivery">Tez yetkazib berish</span></span>
+      </div>
+      <div class="hero-dots" id="heroDots"></div>
+    </div>
+  </section>
+
+  <!-- REKLAMA BANNERI — hero'dan keyin (eski promo o'rnida), dinamik: renderAdPromo -->
+  <section class="section adpromo-section" id="adPromo" style="display:none"></section>
+
+  <!-- STATS -->
+  <section class="stats-band">
+    <div class="container stats">
+      <div class="stat"><b>9+</b><span data-i18n="stat_rest">Restoran</span></div>
+      <div class="stat"><b>20+</b><span data-i18n="stat_dish">Taom turi</span></div>
+      <div class="stat"><b>~15</b><span data-i18n="stat_eta">daqiqada yetkazish</span></div>
+      <div class="stat"><b>4.8★</b><span data-i18n="stat_rating">o'rtacha reyting</span></div>
+    </div>
+  </section>
+
+  <!-- DISHES -->
+  <section class="section" id="dishes">
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="dishes_title">Mashhur taomlar</h2>
+        <p data-i18n="dishes_sub">Eng ko'p buyurtma qilinadigan, ishtahani ochadigan taomlar</p>
+      </div>
+      <div class="dish-search" style="margin:0 auto 16px;max-width:540px">
+        <input id="dishSearch" type="search" data-i18n-ph="search_ph" placeholder="🔍 Taom yoki restoran qidiring..."
+          style="width:100%;padding:14px 18px;border:1.5px solid #eee;border-radius:14px;font-size:15px;font-family:inherit;outline:none;box-shadow:0 2px 10px rgba(0,0,0,.04)" />
+      </div>
+      <div class="chips" id="dishFilters"></div>
+      <div class="grid dishes-grid" id="dishesGrid"></div>
+    </div>
+  </section>
+
+  <!-- RESTAURANTS -->
+  <section class="section section-alt" id="restaurants">
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="rest_title">Eng yaqin restoran va kafelar</h2>
+        <p data-i18n="rest_sub">Sizga yaqin joylardan tez yetkazib berish</p>
+      </div>
+      <div class="grid rest-grid" id="restGrid"></div>
+    </div>
+  </section>
+
+  <!-- REVIEWS -->
+  <section class="section" id="reviews">
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="reviews_title">Mijozlar fikri</h2>
+        <p data-i18n="reviews_sub">Haqiqiy buyurtmalardan haqiqiy izohlar</p>
+      </div>
+      <div class="grid reviews-grid" id="reviewsGrid"></div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="section section-alt" id="about">
+    <div class="container">
+      <div class="section-head">
+        <h2 data-i18n="about_title">Yetkaz qanday ishlaydi?</h2>
+        <p data-i18n="about_sub">Atigi 4 qadam — va taom eshigingizda</p>
+      </div>
+      <div class="steps" id="stepsGrid">
+        <div class="step"><div class="step-num">1</div><h3 data-i18n="step1_t">Taom tanlang</h3><p data-i18n="step1_d">Restoran yoki taomni tanlab savatga qo'shing.</p></div>
+        <div class="step"><div class="step-num">2</div><h3 data-i18n="step2_t">Ro'yxatdan o'ting</h3><p data-i18n="step2_d">Ism, telefon va manzilingizni kiriting.</p></div>
+        <div class="step"><div class="step-num">3</div><h3 data-i18n="step3_t">Buyurtma bering</h3><p data-i18n="step3_d">To'lov usulini tanlang (min. 20 000 so'm).</p></div>
+        <div class="step"><div class="step-num">4</div><h3 data-i18n="step4_t">Kuzating</h3><p data-i18n="step4_d">Timer va status orqali buyurtmani kuzating.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <!-- Footerning to'lqinsimon (wavy) yuqori chegarasi -->
+    <div class="footer-wave" aria-hidden="true">
+      <svg viewBox="0 0 1440 44" preserveAspectRatio="none">
+        <path d="M0,0 L1440,0 L1440,22 C1080,50 720,-4 360,20 C230,28 110,26 0,18 Z" fill="#FBEFF0"/>
+      </svg>
+    </div>
+    <div class="container footer-grid">
+      <div class="footer-col">
+        <div class="logo logo-footer">
+          <img class="logo-img" src="assets/logo.png" alt="Yetkaz.uz logo" />
+          <span class="logo-text">Yetkaz</span>
+        </div>
+        <p data-i18n="footer_about">Navoiy, Xatirchi bo'ylab tez va ishonchli ovqat yetkazib berish xizmati.</p>
+        <p class="footer-owner" data-i18n="footer_team">yetkaz.uz jamoasi</p>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_partners">Hamkor restoranlar</h4>
+        <ul id="footerRests"></ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_join">Biz bilan ishlang</h4>
+        <ul>
+          <li><a href="kuryer.html" data-i18n="footer_courier">Kuryer bo'lib ishlash</a></li>
+          <li><a href="restoran.html" data-i18n="footer_addrest">Restoran qo'shish</a></li>
+          <li><a href="#" data-i18n="footer_terms">Foydalanish shartlari</a></li>
+          <li><a href="kabinet.html" data-i18n="footer_cabinet">Mening kabinetim</a></li>
+          <li><a href="admin.html" data-i18n="footer_admin">Admin panel</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4 data-i18n="footer_contact">Aloqa</h4>
+        <p>📞 +998 71 200 00 00</p>
+        <p>✉️ info@yetkaz.uz</p>
+        <div class="socials"><a href="#">Telegram</a><a href="#">Instagram</a></div>
+      </div>
+    </div>
+    <div class="footer-bottom container">© 2026 Yetkaz — <span data-i18n="footer_rights">Barcha huquqlar himoyalangan</span>.</div>
+  </footer>
+
+  <!-- CART DRAWER -->
+  <div class="drawer" id="cartDrawer" role="dialog" aria-label="Savat">
+    <div class="drawer-head">
+      <h3 data-i18n="cart_title">Savatingiz</h3>
+      <button class="drawer-close" id="cartClose" aria-label="Yopish">✕</button>
+    </div>
+    <div class="drawer-body" id="cartItems"></div>
+    <div class="drawer-foot">
+      <div class="cart-total"><span data-i18n="total">Jami</span>: <strong id="cartTotal">0</strong> <span data-i18n="sum">so'm</span></div>
+      <p class="cart-min" id="cartMinNote" data-i18n="min_note">Minimal buyurtma: 20 000 so'm</p>
+      <button class="btn btn-primary btn-block" id="checkoutBtn" data-i18n="checkout">Buyurtma berish</button>
+    </div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="modal" id="modal" role="dialog">
+    <button class="modal-close" id="modalClose" aria-label="Yopish">✕</button>
+    <div id="modalContent"></div>
+  </div>
+
+  <!-- ONBOARDING -->
+  <div class="onboard" id="onboard">
+    <div class="onboard-card">
+      <h3 data-i18n="onb_title">Xush kelibsiz! 👋</h3>
+      <p data-i18n="onb_text">Yetkaz'da birinchi marta? Buyurtma berish juda oson — taom tanlang, savatga qo'shing va manzilingizni kiriting. Boshlaymizmi?</p>
+      <div class="onboard-actions">
+        <button class="btn btn-outline" id="onbSkip" data-i18n="onb_skip">Keyinroq</button>
+        <button class="btn btn-primary" id="onbStart" data-i18n="onb_start">Ko'rsatmani ko'rish</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="to-top" id="toTop" aria-label="Yuqoriga">↑</button>
+  <div class="toast" id="toast" role="alert"></div>
+
+  <!-- MOBIL BOTTOM BAR: Logo | Kirish | [SAVAT] | Lang | Burger -->
+  <nav class="mobile-bottom-bar" id="mobileBottomBar">
+
+    <!-- Chap: Logo -->
+    <a href="#top" class="mbb-item mbb-logo" aria-label="Bosh sahifa">
+      <img src="assets/logo.png" alt="Yetkaz" class="mbb-logo-img" />
+    </a>
+
+    <!-- Kirish -->
+    <button class="mbb-item mbb-login" id="mbbLogin" aria-label="Kirish">
+      <span class="mbb-icon">👤</span>
+      <span class="mbb-label">Kirish</span>
+    </button>
+
+    <!-- Savat: MARKAZDA, KATTA va ko'zga tashlanadi -->
+    <button class="mbb-cart-btn" id="mbbCart" aria-label="Savat">
+      <span class="mbb-cart-icon">🛒</span>
+      <span class="mbb-cart-label">Savat</span>
+      <!-- Badge: soni -->
+      <span class="mbb-cart-badge" id="mbbCartCount">0</span>
+      <!-- Pulse animatsiya qo'shilganda chiqadi -->
+      <span class="mbb-cart-pulse" id="mbbCartPulse"></span>
+    </button>
+
+    <!-- Til -->
+    <button class="mbb-item mbb-lang-item" id="mbbLangItem" aria-label="Til">
+      <span class="mbb-lang-pill" id="mbbLangBtn"><span id="mbbLangLabel">Кир</span></span>
+      <span class="mbb-label">Til</span>
+    </button>
+
+    <!-- O'ng: Burger -->
+    <button class="mbb-item mbb-burger" id="mbbBurger" aria-label="Menyu">
+      <span class="mbb-icon" id="mbbBurgerIcon">☰</span>
+      <span class="mbb-label">Menyu</span>
+    </button>
+
+  </nav>
+
+  <!-- MOBIL NAV (burger bosganda) -->
+  <nav class="main-nav" id="mobileMainNav">
+    <a href="#restaurants" data-i18n="nav_restaurants">🏪 Restoranlar</a>
+    <a href="#dishes"      data-i18n="nav_dishes">🍽️ Taomlar</a>
+    <a href="#reviews"     data-i18n="nav_reviews">⭐ Izohlar</a>
+    <a href="#about"       data-i18n="nav_about">ℹ️ Sayt haqida</a>
+  </nav>
+
+  <script src="assets/js/lottie.min.js"></script>
+  <script src="assets/js/courier-anim.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+
+  <script>
+  /* ===== MOBIL BOTTOM BAR ===== */
+  document.addEventListener('DOMContentLoaded', function(){
+    var mobileNav  = document.getElementById('mobileMainNav');
+    var mbbBurger  = document.getElementById('mbbBurger');
+    var mbbBurgerIcon = document.getElementById('mbbBurgerIcon');
+    var mbbCart    = document.getElementById('mbbCart');
+    var mbbLogin   = document.getElementById('mbbLogin');
+    var mbbLangBtn = document.getElementById('mbbLangBtn');
+    var mbbLangLbl = document.getElementById('mbbLangLabel');
+    var mbbBadge   = document.getElementById('mbbCartCount');
+    var mbbPulse   = document.getElementById('mbbCartPulse');
+
+    /* ---- Nav ochish/yopish ---- */
+    var navOpen = false;
+    function openMobNav(){
+      if(mobileNav) mobileNav.classList.add('open');
+      if(mbbBurgerIcon) mbbBurgerIcon.textContent = '✕';
+      var lbl = mbbBurger && mbbBurger.querySelector('.mbb-label');
+      if(lbl) lbl.textContent = 'Yopish';
+      navOpen = true;
+    }
+    function closeMobNav(){
+      if(mobileNav) mobileNav.classList.remove('open');
+      if(mbbBurgerIcon) mbbBurgerIcon.textContent = '☰';
+      var lbl = mbbBurger && mbbBurger.querySelector('.mbb-label');
+      if(lbl) lbl.textContent = 'Menyu';
+      navOpen = false;
+    }
+
+    mbbBurger && mbbBurger.addEventListener('click', function(e){
+      e.stopPropagation();
+      navOpen ? closeMobNav() : openMobNav();
+    });
+
+    /* Nav havola bosilganda */
+    mobileNav && mobileNav.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', closeMobNav);
+    });
+
+    /* Tashqariga bosish */
+    document.addEventListener('click', function(e){
+      if(!navOpen) return;
+      var bar = document.getElementById('mobileBottomBar');
+      if(mobileNav && !mobileNav.contains(e.target) && bar && !bar.contains(e.target)){
+        closeMobNav();
+      }
+    });
+
+    /* ---- Savat ---- */
+    mbbCart && mbbCart.addEventListener('click', function(){
+      closeMobNav();
+      var btn = document.getElementById('cartBtn');
+      if(btn) btn.click();
+    });
+
+    /* ---- Kirish ---- */
+    mbbLogin && mbbLogin.addEventListener('click', function(){
+      closeMobNav();
+      var btn = document.getElementById('loginBtn');
+      if(btn) btn.click();
+    });
+
+    /* ---- Til ---- */
+    mbbLangBtn && mbbLangBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var btn = document.getElementById('langToggle');
+      if(btn) btn.click();
+      setTimeout(function(){
+        var lbl = document.getElementById('langLabel');
+        if(lbl && mbbLangLbl) mbbLangLbl.textContent = lbl.textContent;
+      }, 120);
+    });
+
+    /* ---- Savat badge + pulse animatsiya ---- */
+    var prevCount = 0;
+    function syncCartBadge(){
+      var countEl = document.getElementById('cartCount');
+      if(!countEl || !mbbBadge) return;
+      var n = parseInt(countEl.textContent) || 0;
+
+      /* Badge */
+      mbbBadge.textContent = n;
+      if(n > 0){
+        mbbBadge.classList.add('show');
+      } else {
+        mbbBadge.classList.remove('show');
+      }
+
+      /* Yangi narsa qo'shilganda pulse + cart tebranish */
+      if(n > prevCount && mbbPulse){
+        mbbPulse.classList.remove('ping');
+        void mbbPulse.offsetWidth; /* reflow */
+        mbbPulse.classList.add('ping');
+        /* Savat tugmasini chayqatish */
+        if(mbbCart){
+          mbbCart.style.transform = 'scale(1.18) translateY(-2px)';
+          setTimeout(function(){ mbbCart.style.transform = ''; }, 200);
+        }
+      }
+      prevCount = n;
+    }
+
+    syncCartBadge();
+
+    /* cartCount o'zgarishini kuzatish */
+    var cartCountEl = document.getElementById('cartCount');
+    if(cartCountEl){
+      new MutationObserver(syncCartBadge)
+        .observe(cartCountEl, {childList:true, characterData:true, subtree:true});
+    }
+
+    /* ---- Desktop burger ---- */
+    var desktopBurger = document.getElementById('navBurger');
+    var desktopNav    = document.getElementById('mainNav');
+    desktopBurger && desktopBurger.addEventListener('click', function(){
+      if(desktopNav){
+        var open = desktopNav.classList.toggle('open');
+        desktopBurger.textContent = open ? '✕' : '☰';
+      }
+    });
+    desktopNav && desktopNav.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', function(){
+        desktopNav.classList.remove('open');
+        if(desktopBurger) desktopBurger.textContent = '☰';
+      });
+    });
+
+    /* ---- Resize ---- */
+    window.addEventListener('resize', function(){
+      if(window.innerWidth > 768) closeMobNav();
+    });
+  });
+  </script>
+</body>
+</html>

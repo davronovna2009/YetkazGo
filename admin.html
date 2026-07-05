@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#C8102E" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+  <title>Yetkaz — Admin panel</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/admin.css" />
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <img src="assets/logo.png" alt="Yetkaz.uz" />
+    <h1>Admin panel</h1>
+    <p>Sayt egasi uchun boshqaruv tizimi</p>
+    <div class="field"><label>Login</label><input id="alUser" placeholder="admin" autocomplete="username" /></div>
+    <div class="field"><label>Parol</label><input id="alPass" type="password" placeholder="••••••" autocomplete="current-password" /></div>
+    <button class="login-btn" id="loginBtn">Kirish</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">Demo: <b>admin</b> / <b>admin123</b></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+  <!-- SIDEBAR -->
+  <div class="sb-overlay" id="sbOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <img src="assets/logo.png" alt="" />
+    </div>
+    <nav class="sb-nav">
+      <a class="sb-link active" data-view="dash"><span class="ic">📊</span><span class="ic-label">Dashboard</span></a>
+      <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
+      <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
+      <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
+      <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-foot-text">yetkaz.uz</div>
+      <button id="logoutBtn">↩ Chiqish</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h2 id="tbTitle">Dashboard</h2>
+      </div>
+      <div class="tb-right">
+        <span class="tb-badge">● Online</span>
+        <span class="tb-user">Admin</span>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ===== DASHBOARD ===== -->
+      <section class="view show" id="view-dash">
+
+        <!-- Stat cards: 2x2 mobil, 4x1 desktop -->
+        <div class="stat-grid" id="statCards"></div>
+
+        <!-- Chart + Top rests -->
+        <div class="dash-row">
+          <div class="panel flex-panel">
+            <div class="panel-head">
+              <h3>Daromad (mln so'm)</h3>
+              <span class="panel-badge">6 oy</span>
+            </div>
+            <div class="panel-body">
+              <div class="chart" id="revChart"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>TOP restoranlar</h3></div>
+            <div class="panel-body">
+              <div class="toplist" id="topRests"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GMV info -->
+        <div class="info-strip" id="gmvNote"></div>
+
+        <!-- Live orders: mobil karta / desktop jadval -->
+        <div class="panel">
+          <div class="panel-head">
+            <h3>So'nggi buyurtmalar</h3>
+            <span class="panel-badge">Jonli</span>
+          </div>
+          <!-- Mobil: karta -->
+          <div class="order-list-mobile" id="liveOrderCards"></div>
+          <!-- Desktop: jadval -->
+          <div class="tbl-wrap order-list-desktop">
+            <table class="tbl">
+              <thead><tr><th>Mijoz</th><th>Restoran</th><th>Taom</th><th>Summa</th><th>Kuryer</th><th>Holat</th></tr></thead>
+              <tbody id="liveOrders"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Reviews -->
+        <div class="panel">
+          <div class="panel-head"><h3>So'nggi izohlar</h3></div>
+          <div class="panel-body" id="adminReviews"></div>
+        </div>
+
+      </section>
+
+      <!-- ===== RESTORANLAR ===== -->
+      <section class="view" id="view-rest">
+        <button class="add-action-btn m-add" id="addRestBtnM" style="width:100%;margin-bottom:12px">+ Restoran qo'shish</button>
+        <!-- Mobile: cards -->
+        <div class="mobile-cards" id="restCards"></div>
+        <!-- Desktop: table -->
+        <div class="panel desktop-only">
+          <div class="panel-head">
+            <h3>Hamkor restoranlar</h3>
+            <button class="add-action-btn" id="addRestBtn">+ Restoran qo'shish</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Restoran</th><th>Reyting</th><th>Buyurtma</th><th>Aylanma</th><th>Komissiya</th><th>Login</th><th>Holat</th></tr></thead>
+              <tbody id="restTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== KURYERLAR ===== -->
+      <section class="view" id="view-courier">
+        <button class="add-action-btn m-add" id="addCourierBtnM" style="width:100%;margin-bottom:12px">+ Kuryer qo'shish</button>
+        <!-- Mobile: cards -->
+        <div class="mobile-cards" id="courCards"></div>
+        <!-- Desktop: table -->
+        <div class="panel desktop-only">
+          <div class="panel-head">
+            <h3>Kuryerlar</h3>
+            <button class="add-action-btn" id="addCourierBtn">+ Kuryer qo'shish</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Kuryer</th><th>Restoran</th><th>Yetkazgan</th><th>Daromad</th><th>Reyting</th><th>Login</th></tr></thead>
+              <tbody id="courTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== FOYDALANUVCHILAR ===== -->
+      <section class="view" id="view-user">
+        <!-- Mobile: cards -->
+        <div class="mobile-cards" id="userCards"></div>
+        <!-- Desktop -->
+        <div class="panel desktop-only">
+          <div class="panel-head"><h3>Foydalanuvchilar</h3></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Foydalanuvchi</th><th>Buyurtma</th><th>Sarflagan</th><th>Sevimli taom</th><th>Izohlar</th><th>Oxirgi</th></tr></thead>
+              <tbody id="userTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:12px">
+          <div class="panel-head"><h3>Talab tahlili</h3></div>
+          <div class="panel-body" id="demandList"></div>
+        </div>
+      </section>
+
+      <!-- ===== SOZLAMALAR ===== -->
+      <section class="view" id="view-settings">
+
+        <!-- Administrator profili -->
+        <div class="settings-group">
+          <div class="settings-group-title">👤 Administrator ma'lumotlari</div>
+          <div class="setting-item"><div class="setting-label"><span class="setting-name">Ism</span></div><div class="setting-control"><input id="setName" placeholder="Ism Familiya" /></div></div>
+          <div class="setting-item"><div class="setting-label"><span class="setting-name">Telefon</span></div><div class="setting-control"><input id="setPhone" placeholder="+998 90 000 00 00" /></div></div>
+          <div class="setting-item"><div class="setting-label"><span class="setting-name">Email</span></div><div class="setting-control"><input id="setEmail" type="email" placeholder="admin@example.com" /></div></div>
+          <div class="setting-item"><div class="setting-label"><span class="setting-name">Login</span></div><div class="setting-control"><input id="setLogin" placeholder="admin" /></div></div>
+          <div class="setting-item"><div class="setting-label"><span class="setting-name">Yangi parol</span><span class="setting-desc">Bo'sh = o'zgarmaydi</span></div><div class="setting-control"><input id="setPass" type="password" placeholder="••••••" autocomplete="new-password" /></div></div>
+          <div class="settings-footer"><button class="btn-save" id="setProfileSave">Profilni saqlash</button></div>
+        </div>
+
+        <!-- Asosiy sozlamalar -->
+        <div class="settings-group">
+          <div class="settings-group-title">💰 Moliyaviy sozlamalar</div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Restoran komissiyasi</span>
+              <span class="setting-desc">Har bir buyurtmadan olinadigan foiz</span>
+            </div>
+            <div class="setting-control">
+              <div class="input-suffix"><input id="setComm" type="number" value="18" min="0" max="50" /><span>%</span></div>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Yetkazish haqi</span>
+              <span class="setting-desc">Mijozdan olinadigan yetkazish narxi</span>
+            </div>
+            <div class="setting-control">
+              <div class="input-suffix"><input id="setDelivery" type="number" value="0" min="0" /><span>so'm</span></div>
+              <div class="setting-hint">0 = bepul yetkazish</div>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Minimal buyurtma</span>
+              <span class="setting-desc">Eng kam buyurtma summasi</span>
+            </div>
+            <div class="setting-control">
+              <div class="input-suffix"><input id="setMin" type="number" value="20000" min="0" /><span>so'm</span></div>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Kuryer haqi (1 yetkazish)</span>
+              <span class="setting-desc">Har bir yetkazish uchun kuryer oladi</span>
+            </div>
+            <div class="setting-control">
+              <div class="input-suffix"><input id="setCourier" type="number" value="10000" min="0" /><span>so'm</span></div>
+            </div>
+          </div>
+
+          <div class="settings-footer">
+            <button class="btn-save" id="setSave">Saqlash</button>
+          </div>
+        </div>
+
+        <!-- E'lon -->
+        <div class="settings-group">
+          <div class="settings-group-title">📢 Saytga e'lon</div>
+          <div class="setting-item column">
+            <div class="setting-label">
+              <span class="setting-name">E'lon matni</span>
+              <span class="setting-desc">Sayt yuqorisida chiqadi (promo banner)</span>
+            </div>
+            <textarea id="annText" rows="3" class="full-textarea" placeholder="Masalan: Bugun barcha buyurtmalarga bepul ichimlik!"></textarea>
+          </div>
+          <div class="settings-footer">
+            <button class="btn-save" id="annBtn">E'lonni joylash</button>
+          </div>
+        </div>
+
+        <!-- Ish vaqti -->
+        <div class="settings-group">
+          <div class="settings-group-title">🕐 Ish vaqti</div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Ish boshlanishi</span>
+              <span class="setting-desc">Buyurtma qabul qilish boshlanadi</span>
+            </div>
+            <div class="setting-control">
+              <input type="time" value="08:00" class="time-input" />
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Ish tugashi</span>
+              <span class="setting-desc">Buyurtma qabul qilish to'xtatiladi</span>
+            </div>
+            <div class="setting-control">
+              <input type="time" value="23:00" class="time-input" />
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Dam olish kunlari</span>
+              <span class="setting-desc">Buyurtma yopiq bo'lgan kunlar</span>
+            </div>
+            <div class="setting-control">
+              <select class="select-input">
+                <option>Yo'q (har kuni ishlaydi)</option>
+                <option>Yakshanba</option>
+                <option>Shanba–Yakshanba</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bildirishnoma -->
+        <div class="settings-group">
+          <div class="settings-group-title">🔔 Bildirishnomalar</div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Yangi buyurtma</span>
+              <span class="setting-desc">Yangi buyurtma kelganda ovoz</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Salbiy izoh</span>
+              <span class="setting-desc">3 yulduz va pastda xabar berish</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Kunlik hisobot</span>
+              <span class="setting-desc">Har kuni kechqurun statistika</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- RESTORAN QO'SHISH MODALI -->
+<div class="add-modal-backdrop" id="addRestBackdrop"></div>
+<div class="add-modal" id="addRestModal">
+  <div class="add-modal-head">
+    <h3>🏪 Yangi restoran qo'shish</h3>
+    <button class="add-modal-close" id="arClose">✕</button>
+  </div>
+  <div class="add-modal-body">
+    <div class="add-section-title">Asosiy ma'lumotlar</div>
+    <div class="add-row">
+      <div class="add-field"><label>Restoran nomi *</label><input id="arName" placeholder="Masalan: Osh Palace" /></div>
+      <div class="add-field add-field-sm"><label>Emoji</label><input id="arEmoji" value="🏪" style="font-size:22px;text-align:center" /></div>
+    </div>
+    <div class="add-field"><label>Telefon raqami *</label><input id="arPhone" placeholder="+998 90 000 00 00" type="tel" /></div>
+    <div class="add-field"><label>Manzil *</label><input id="arAddr" placeholder="Toshkent, tuman, ko'cha" /></div>
+    <div class="add-row">
+      <div class="add-field"><label>Egasi (F.I.Sh.)</label><input id="arOwner" placeholder="Ism Familiya" /></div>
+      <div class="add-field"><label>Email</label><input id="arEmail" type="email" placeholder="rest@example.com" /></div>
+    </div>
+    <div class="add-field"><label>Ish vaqti</label><input id="arHours" placeholder="08:00 - 23:00" /></div>
+    <div class="add-field"><label>Yetkazish hududi</label><input id="arArea" placeholder="Masalan: Chilonzor, Yunusobod" /></div>
+    <div class="add-field"><label>Tavsif</label><input id="arDescr" placeholder="Restoran haqida qisqacha" /></div>
+
+    <div class="add-section-title" style="margin-top:16px">Shartnoma shartlari</div>
+    <div class="add-row">
+      <div class="add-field"><label>Komissiya (%)</label><input id="arComm" type="number" value="18" min="1" max="50" /></div>
+      <div class="add-field"><label>Shartnoma sanasi</label><input id="arDate" type="date" /></div>
+    </div>
+
+    <div class="add-section-title" style="margin-top:16px">Kirish ma'lumotlari</div>
+    <div class="add-row">
+      <div class="add-field"><label>Login *</label><input id="arLogin" placeholder="restoran_login" /></div>
+      <div class="add-field"><label>Parol *</label><input id="arPass" placeholder="parol123" /></div>
+    </div>
+
+    <div class="add-contract-box">
+      <div class="add-contract-title">📋 Shartnoma shartlari</div>
+      <ul class="add-contract-list">
+        <li>Restoran kunlik soat 08:00–23:00 gacha ochiq bo'lishi shart</li>
+        <li>Buyurtma 25 daqiqa ichida tayyorlanishi kerak</li>
+        <li>Yetkaz platforma komissiyasi har oyda hisoblanadi</li>
+        <li>Sifat nazoratiga rioya qilish majburiy</li>
+        <li>Shartnomani bekor qilish 6 soat oldin xabar berib amalga oshiriladi</li>
+      </ul>
+      <label class="add-agree"><input type="checkbox" id="arAgree" /> <span>Shartnoma shartlarini o'qidim va qabul qilaman</span></label>
+    </div>
+
+    <div class="add-err" id="arErr"></div>
+    <button class="add-submit-btn" id="arSubmit">📋 Shartnoma tuzish va qo'shish</button>
+  </div>
+</div>
+
+<!-- KURYER QO'SHISH MODALI -->
+<div class="add-modal-backdrop" id="addCourierBackdrop"></div>
+<div class="add-modal" id="addCourierModal">
+  <div class="add-modal-head">
+    <h3>🛵 Yangi kuryer qo'shish</h3>
+    <button class="add-modal-close" id="acClose">✕</button>
+  </div>
+  <div class="add-modal-body">
+    <div class="add-section-title">Shaxsiy ma'lumotlar</div>
+    <div class="add-field"><label>To'liq ism *</label><input id="acName" placeholder="Ism Familiya" /></div>
+    <div class="add-field"><label>Telefon *</label><input id="acPhone" placeholder="+998 91 000 00 00" type="tel" /></div>
+    <div class="add-row">
+      <div class="add-field"><label>Transport turi</label><input id="acTransport" placeholder="Mototsikl / Velosiped / Avto" /></div>
+      <div class="add-field"><label>Davlat raqami</label><input id="acPlate" placeholder="01 A 123 BC" /></div>
+    </div>
+    <div class="add-row">
+      <div class="add-field"><label>Tug'ilgan sana</label><input id="acBirth" type="date" /></div>
+      <div class="add-field"><label>Email</label><input id="acEmail" type="email" placeholder="kuryer@example.com" /></div>
+    </div>
+    <div class="add-field"><label>Manzil</label><input id="acAddress" placeholder="Yashash manzili" /></div>
+    <div class="add-field"><label>Pasport ma'lumotlari</label><input id="acPassport" placeholder="AA1234567" /></div>
+    <div class="add-field"><label>Restoran *</label><select id="acRest"></select></div>
+
+    <div class="add-section-title" style="margin-top:16px">Shartnoma shartlari</div>
+    <div class="add-row">
+      <div class="add-field"><label>Bir yetkazish haqi (so'm) *</label><input id="acFee" placeholder="masalan: 12000" type="number" inputmode="numeric" /></div>
+      <div class="add-field"><label>Ish boshlash sanasi</label><input id="acDate" type="date" /></div>
+    </div>
+
+    <div class="add-contract-box">
+      <div class="add-contract-title">📋 Kuryer shartnomasi</div>
+      <ul class="add-contract-list">
+        <li>Har bir yetkazish uchun shartnomada belgilangan haq to'lanadi</li>
+        <li>Buyurtma 30 daqiqa ichida yetkazilishi shart</li>
+        <li>Hafta kunlari soat 08:00–22:00 ishlash majburiy</li>
+        <li>Mijoz reytingi 4.0 dan past bo'lsa ogohlantiriladi</li>
+        <li>Ishdan bo'shatish 3 soat oldin xabar beriladi</li>
+      </ul>
+      <label class="add-agree"><input type="checkbox" id="acAgree" /> <span>Shartnoma shartlarini o'qidim va qabul qilaman</span></label>
+    </div>
+
+    <div class="add-section-title" style="margin-top:16px">Kirish ma'lumotlari</div>
+    <div class="add-row">
+      <div class="add-field"><label>Login *</label><input id="acLogin" placeholder="kuryer_login" /></div>
+      <div class="add-field"><label>Parol *</label><input id="acPass" placeholder="parol123" /></div>
+    </div>
+
+    <div class="add-err" id="acErr"></div>
+    <button class="add-submit-btn" id="acSubmit">📋 Shartnoma tuzish va qo'shish</button>
+  </div>
+</div>
+
+<!-- DETAIL DRAWER -->
+<div class="dbackdrop" id="dbackdrop"></div>
+<div class="ddrawer" id="ddrawer">
+  <div class="dd-head">
+    <div class="dav" id="ddAv">🏪</div>
+    <div class="dd-head-info"><h3 id="ddTitle"></h3><div class="sub" id="ddSub"></div></div>
+    <button class="dd-close" id="ddClose">✕</button>
+  </div>
+  <div class="dd-body" id="ddBody"></div>
+</div>
+
+<div class="toast2" id="toast2"></div>
+
+<script>
+/* ===== Live orders: jadval render bo'lgandan keyin mobile kartalar ===== */
+(function(){
+  var SM = {
+    'new':      { label: 'Yangi',      cls: 'warn' },
+    'ontheway': { label: "Yo'lda",    cls: 'blue' },
+    'done':     { label: 'Yetkazildi', cls: 'ok'   }
+  };
+
+  function money(n){ return Math.round(n).toLocaleString('ru-RU'); }
+
+  function syncCards(){
+    var tbody = document.getElementById('liveOrders');
+    var cards = document.getElementById('liveOrderCards');
+    if(!tbody || !cards) return;
+
+    /* STORE dan to'g'ridan o'qiymiz */
+    var orders = (typeof STORE !== 'undefined') ? STORE.orders() : [];
+    if(!orders.length){
+      cards.innerHTML = '<div class="lo-empty">Hozircha buyurtma yo\'q</div>';
+      return;
+    }
+
+    cards.innerHTML = orders.slice(0,8).map(function(o){
+      var s = SM[o.status] || { label: '?', cls: 'warn' };
+      return [
+        '<div class="lo-card">',
+          '<div class="lo-top">',
+            '<div class="lo-left">',
+              '<div class="lo-emoji">'+o.emoji+'</div>',
+              '<div>',
+                '<div class="lo-item">'+o.item+'</div>',
+                '<div class="lo-rest">'+o.rest+'</div>',
+              '</div>',
+            '</div>',
+            '<span class="pill '+s.cls+'">'+s.label+'</span>',
+          '</div>',
+          '<div class="lo-row">',
+            '<span class="lo-key">Mijoz</span><span class="lo-val">'+o.user+'</span>',
+          '</div>',
+          '<div class="lo-row">',
+            '<span class="lo-key">Kuryer</span><span class="lo-val">'+o.courier+'</span>',
+          '</div>',
+          '<div class="lo-row lo-price">',
+            '<span class="lo-key">Summa</span><span class="lo-val money">'+money(o.amount)+' so\'m</span>',
+          '</div>',
+        '</div>'
+      ].join('');
+    }).join('');
+  }
+
+  /* renderAll chaqirilgandan keyin ishlaydi */
+  document.addEventListener('DOMContentLoaded', function(){
+    var tries = 0;
+    var iv = setInterval(function(){
+      tries++;
+      if(typeof STORE !== 'undefined'){
+        clearInterval(iv);
+        syncCards();
+        /* 3 soniyada bir yangilanadi */
+        setInterval(syncCards, 3000);
+      }
+      if(tries > 40) clearInterval(iv);
+    }, 150);
+  });
+})();
+</script>
+<script src="assets/js/lottie.min.js"></script>
+  <script src="assets/js/courier-anim.js"></script>
+  <script src="assets/js/store.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+/* ===== Live orders mobile cards ===== */
+(function(){
+  // admin.js renderAll ni override qilib mobile cards qo'shamiz
+  var _origRenderAll;
+  document.addEventListener('DOMContentLoaded', function(){
+    // Mobile card renderers
+    function moneyFmt(n){ return Math.round(n).toLocaleString('ru-RU'); }
+    function mlnFmt(n){ return (n/1e6).toFixed(1)+' mln'; }
+
+    function renderRestCards(){
+      var el = document.getElementById('restCards'); if(!el) return;
+      // admin.js RESTS — global scope orqali
+      if(typeof window._adminRests === 'undefined') return;
+      el.innerHTML = window._adminRests.map(function(r){
+        return '<div class="mcard" data-id="'+r.id+'">'
+          +'<div class="mcard-top">'
+            +'<span class="mcard-icon">'+r.emoji+'</span>'
+            +'<div class="mcard-info">'
+              +'<div class="mcard-name">'+r.name+'</div>'
+              +'<div class="mcard-sub">'+r.addr+'</div>'
+            +'</div>'
+            +'<span class="pill '+(r.status==='ok'?'ok':'warn')+'">'+(r.status==='ok'?'Faol':'Nazorat')+'</span>'
+          +'</div>'
+          +'<div class="mcard-stats">'
+            +'<div class="mcard-stat"><span>Reyting</span><b class="star">★ '+r.rating+'</b></div>'
+            +'<div class="mcard-stat"><span>Buyurtma</span><b>'+moneyFmt(r.orders)+'</b></div>'
+            +'<div class="mcard-stat"><span>Aylanma</span><b class="money">'+mlnFmt(r.rev)+'</b></div>'
+            +'<div class="mcard-stat"><span>Komissiya</span><b style="color:var(--green)">'+mlnFmt(r.siteCut)+'</b></div>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+      el.querySelectorAll('.mcard').forEach(function(c){
+        c.addEventListener('click', function(){
+          if(window._adminOpenRest) window._adminOpenRest(+c.dataset.id);
+        });
+      });
+    }
+
+    function renderCourCards(){
+      var el = document.getElementById('courCards'); if(!el) return;
+      if(typeof window._adminCouriers === 'undefined') return;
+      el.innerHTML = window._adminCouriers.map(function(c){
+        return '<div class="mcard" data-id="'+c.id+'">'
+          +'<div class="mcard-top">'
+            +'<span class="mcard-icon">'+c.emoji+'</span>'
+            +'<div class="mcard-info">'
+              +'<div class="mcard-name">'+c.name+'</div>'
+              +'<div class="mcard-sub">'+c.rest+'</div>'
+            +'</div>'
+            +'<span class="star">★ '+c.rating+'</span>'
+          +'</div>'
+          +'<div class="mcard-stats">'
+            +'<div class="mcard-stat"><span>Yetkazgan</span><b>'+moneyFmt(c.deliveries)+'</b></div>'
+            +'<div class="mcard-stat"><span>Daromad</span><b class="money">'+moneyFmt(c.earn)+'</b></div>'
+            +'<div class="mcard-stat"><span>Login</span><b class="mono">'+c.login+'</b></div>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+      el.querySelectorAll('.mcard').forEach(function(c){
+        c.addEventListener('click', function(){
+          if(window._adminOpenCourier) window._adminOpenCourier(+c.dataset.id);
+        });
+      });
+    }
+
+    function renderUserCards(){
+      var el = document.getElementById('userCards'); if(!el) return;
+      if(typeof window._adminUsers === 'undefined') return;
+      el.innerHTML = window._adminUsers.map(function(u){
+        return '<div class="mcard" data-id="'+u.id+'">'
+          +'<div class="mcard-top">'
+            +'<span class="mcard-icon">'+u.emoji+'</span>'
+            +'<div class="mcard-info">'
+              +'<div class="mcard-name">'+u.name+'</div>'
+              +'<div class="mcard-sub">'+u.phone+'</div>'
+            +'</div>'
+            +'<span class="pill ok">'+u.orders+' buyurtma</span>'
+          +'</div>'
+          +'<div class="mcard-stats">'
+            +'<div class="mcard-stat"><span>Sarflagan</span><b class="money">'+moneyFmt(u.spent)+'</b></div>'
+            +'<div class="mcard-stat"><span>Sevimli</span><b>'+u.fav+'</b></div>'
+            +'<div class="mcard-stat"><span>Oxirgi</span><b>'+u.last+'</b></div>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+      el.querySelectorAll('.mcard').forEach(function(c){
+        c.addEventListener('click', function(){
+          if(window._adminOpenUser) window._adminOpenUser(+c.dataset.id);
+        });
+      });
+    }
+
+    // admin.js renderAll chaqirilgandan keyin mobile cards ham render
+    var origRenderAll = window.renderAll;
+    // Polling: admin.js yuklangach
+    var tries = 0;
+    var poll = setInterval(function(){
+      tries++;
+      if(window._adminRests){
+        clearInterval(poll);
+        renderRestCards();
+        renderCourCards();
+        renderUserCards();
+      }
+      if(tries > 30) clearInterval(poll);
+    }, 100);
+
+    // sb-link bosilganda mobile cards render
+    document.querySelectorAll('.sb-link').forEach(function(link){
+      link.addEventListener('click', function(){
+        setTimeout(function(){
+          renderRestCards();
+          renderCourCards();
+          renderUserCards();
+        }, 50);
+      });
+    });
+  });
+})();
+</script>
+<script>
+/* ===== Sidebar toggle ===== */
+document.addEventListener('DOMContentLoaded', function(){
+  var toggle  = document.getElementById('menuToggle');
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sbOverlay');
+
+  function open(){
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow='hidden';
+    toggle.textContent='✕';
+  }
+  function close(){
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow='';
+    toggle.textContent='☰';
+  }
+  toggle  && toggle.addEventListener('click',  function(){ sidebar.classList.contains('open')?close():open(); });
+  overlay && overlay.addEventListener('click', close);
+  document.querySelectorAll('.sb-link').forEach(function(l){
+    l.addEventListener('click', function(){ if(window.innerWidth<=900) close(); });
+  });
+  window.addEventListener('resize', function(){ if(window.innerWidth>900) close(); });
+});
+</script>
+</body>
+</html>

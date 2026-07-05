@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1c1416" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
+  <title>Yetkaz — Kuryer paneli</title>
+  <link rel="icon" type="image/png" href="assets/favicon-64.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/admin.css" />
+</head>
+<body>
+  <div class="sb-overlay" id="sbOverlay"></div>
+
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <img src="assets/logo.png" alt="Yetkaz.uz" />
+      <h1>Kuryer paneli</h1>
+      <p>Kuryerlar uchun ish kabineti</p>
+      <div class="field"><label>Login</label><input id="klUser" placeholder="kuryer logini" autocomplete="username" /></div>
+      <div class="field"><label>Parol</label><input id="klPass" type="password" placeholder="••••••" autocomplete="current-password" /></div>
+      <button class="login-btn" id="loginBtn">Kirish</button>
+      <div class="login-err" id="loginErr"></div>
+      <div class="login-hint">Login va parolni administrator beradi.</div>
+    </div>
+  </div>
+
+  <div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-logo"><span style="font-size:22px;flex-shrink:0">🛵</span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Kuryer</span></div>
+      <nav class="sb-nav">
+        <a class="sb-link active" data-view="dash"><span class="ic">📊</span> Mening panelim</a>
+        <a class="sb-link" data-view="orders"><span class="ic">📦</span> Faol buyurtmalar</a>
+        <a class="sb-link" data-view="income"><span class="ic">💵</span> Daromad</a>
+        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
+      </nav>
+      <div class="sb-foot"><div>yetkaz.uz jamoasi</div><button id="logoutBtn">← Chiqish</button></div>
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+          <h2 id="tbTitle">Mening panelim</h2>
+        </div>
+        <div class="tb-right"><span class="tb-badge">● Online</span></div>
+      </div>
+      <div class="content">
+        <section class="view show" id="view-dash">
+          <div class="stat-grid" id="statCards"></div>
+          <div class="panel">
+            <div class="panel-head"><h3>Oylik daromad (mln so'm)</h3><span style="color:var(--grey);font-size:12px">So'nggi 6 oy</span></div>
+            <div class="panel-body"><div class="chart" id="revChart"></div></div>
+          </div>
+          <div class="panel"><div class="panel-body" id="restNote" style="font-size:13px;color:var(--grey)"></div></div>
+        </section>
+
+        <section class="view" id="view-orders">
+          <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Buyurtma holatini yangilab boring: <b>Yo'lga chiqdim → Yetkazdim</b></p>
+          <div id="ordersBody"></div>
+        </section>
+
+        <section class="view" id="view-income">
+          <div id="incomeBody"></div>
+        </section>
+
+        <!-- SOZLAMALAR -->
+        <section class="view" id="view-settings">
+          <!-- Holat banneri (ishда / ishdan javobda) -->
+          <div class="panel" id="kurStatusPanel" style="margin-bottom:16px"></div>
+
+          <!-- Ish vaqti -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>🕒 Ish vaqti</h3></div>
+            <div class="panel-body">
+              <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Qaysi soatlarda ishlashingiz. Bu admin panelида ham ko'rinadi.</p>
+              <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+                <div class="field" style="margin:0"><label>Ochilish (soat)</label><input id="kSetOpenH" type="number" min="0" max="23" placeholder="8" style="width:90px;text-align:center"></div>
+                <div class="field" style="margin:0"><label>Yopilish (soat)</label><input id="kSetCloseH" type="number" min="1" max="24" placeholder="22" style="width:90px;text-align:center"></div>
+                <button class="set-save" id="kSaveHours">Saqlash</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ishdan javob / qaytish -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>🚪 Ishdan javob olish</h3></div>
+            <div class="panel-body">
+              <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Ishdan javob olsangiz: yangi buyurtmalar avtomatik <b>boshqa kuryerга</b> yo'naltiriladi, holatingiz <b>admin</b> va <b>restoranга</b> "javobда" ko'rinadi. Istagan payt qaytishingiz mumkin.</p>
+              <div id="kLeaveArea"></div>
+            </div>
+          </div>
+
+          <!-- Login -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>👤 Login</h3></div>
+            <div class="panel-body">
+              <div class="field"><label>Login</label><input id="kSetLogin" placeholder="login" autocomplete="username"></div>
+              <button class="set-save" id="kSaveLogin">Loginni saqlash</button>
+            </div>
+          </div>
+
+          <!-- Parol -->
+          <div class="panel">
+            <div class="panel-head"><h3>🔒 Parolni o'zgartirish</h3></div>
+            <div class="panel-body">
+              <div class="field"><label>Yangi parol</label><input id="kSetPass" type="password" placeholder="••••••" autocomplete="new-password"></div>
+              <div class="field"><label>Takror parol</label><input id="kSetPass2" type="password" placeholder="••••••" autocomplete="new-password"></div>
+              <button class="set-save" id="kSavePass">Parolni yangilash</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast2" id="toast2"></div>
+  <script src="assets/js/lottie.min.js"></script>
+  <script src="assets/js/courier-anim.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/kuryer.js"></script>
+
+
+  <script>
+  /* ===== Sidebar responsive toggle (barcha panellar uchun) ===== */
+  document.addEventListener("DOMContentLoaded", function(){
+    var menuToggle = document.getElementById("menuToggle");
+    var sidebar    = document.getElementById("sidebar");
+    var overlay    = document.getElementById("sbOverlay");
+
+    function isMobile(){ return window.innerWidth <= 900; }
+
+    function openSidebar(){
+      sidebar.classList.add("open");
+      if(overlay){ overlay.classList.add("open"); }
+      document.body.style.overflow = "hidden";
+      if(menuToggle) menuToggle.textContent = "\u2715";
+    }
+    function closeSidebar(){
+      sidebar.classList.remove("open");
+      if(overlay){ overlay.classList.remove("open"); }
+      document.body.style.overflow = "";
+      if(menuToggle) menuToggle.textContent = "\u2630";
+    }
+    function toggleSidebar(){
+      sidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+    }
+
+    if(menuToggle) menuToggle.addEventListener("click", toggleSidebar);
+    if(overlay)    overlay.addEventListener("click",    closeSidebar);
+
+    document.querySelectorAll(".sb-link").forEach(function(link){
+      link.addEventListener("click", function(){
+        if(isMobile()) closeSidebar();
+      });
+    });
+
+    window.addEventListener("resize", function(){
+      if(!isMobile()){ closeSidebar(); }
+    });
+  });
+  </script>
+</body>
+</html>

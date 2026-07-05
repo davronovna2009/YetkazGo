@@ -1,0 +1,21 @@
+# Bog'liqliklar
+node_modules/
+server/node_modules/
+
+# Ma'lumotlar bazasi (SQLite)
+server/data/
+
+# Yuklangan rasmlar
+server/uploads/
+
+# Loglar
+*.log
+npm-debug.log*
+
+# Muhit
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yetkaz — Hero preview</title>
+<style>
+:root{
+  --red:#C8102E; --red-dark:#8C0A1F; --red-soft:#E23B52;
+  --gold:#E8A33D; --gold-soft:#F6C66B;
+  --ink:#1A1A1A; --grey:#6B6B6B; --line:#ECE0E2;
+  --bg:#FFFBF7; --bg-soft:#FBEFF0; --white:#fff;
+  --radius:16px; --shadow:0 8px 30px rgba(140,10,31,.10); --maxw:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Manrope','Segoe UI',system-ui,sans-serif}
+body{background:var(--bg);color:var(--ink);padding:24px}
+.lbl{font-size:12px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.5px;margin:20px 8px 10px}
+.frame{max-width:430px;border:1px solid #eee;border-radius:18px;padding:10px;background:#fff}
+
+/* ===== hero (styles.css dan aynan) ===== */
+.promo-hero{position:relative;max-width:var(--maxw);margin:16px auto 4px;padding:0 16px}
+.ph-card{position:relative;display:flex;align-items:center;gap:22px;background:linear-gradient(135deg,var(--bg-soft) 0%,#FFF1E6 100%);border:1px solid #F3D9C4;border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 26px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}
+.ph-card:hover{transform:translateY(-3px);box-shadow:0 14px 40px rgba(140,10,31,.16)}
+.ph-left{flex:1;min-width:0}
+.ph-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.4px;color:var(--red-dark);background:var(--white);border:1px solid var(--gold-soft);padding:4px 11px;border-radius:999px;margin-bottom:10px}
+.ph-title{font-size:23px;font-weight:800;line-height:1.15;color:var(--ink);margin-bottom:6px}
+.ph-desc{font-size:14px;color:var(--grey);line-height:1.45;margin-bottom:16px;max-width:48ch}
+.ph-actions{display:flex;align-items:center;gap:10px}
+.ph-cta{border:none;cursor:pointer;font-size:14px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--red),var(--gold));padding:12px 22px;border-radius:999px;box-shadow:0 6px 18px rgba(200,16,46,.28);transition:transform .15s ease,box-shadow .15s ease}
+.ph-cta:hover{transform:translateY(-1px);box-shadow:0 9px 24px rgba(200,16,46,.36)}
+.ph-icon{width:44px;height:44px;flex-shrink:0;border:none;cursor:pointer;border-radius:50%;background:var(--white);color:var(--red);font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(140,10,31,.14)}
+.ph-icon:hover{background:var(--red);color:#fff}
+.ph-right{position:relative;flex-shrink:0}
+.ph-photo{position:relative;overflow:hidden;width:118px;height:118px;border-radius:24px;background:linear-gradient(135deg,var(--white),var(--bg-soft));display:flex;align-items:center;justify-content:center;font-size:54px;line-height:1;box-shadow:0 8px 24px rgba(140,10,31,.14)}
+.ph-emoji{position:relative;z-index:1}
+.ph-img{position:absolute;inset:0;z-index:2;width:100%;height:100%;object-fit:cover}
+.ph-badge{position:absolute;top:-10px;left:-14px;background:linear-gradient(135deg,var(--red),var(--red-soft));color:#fff;font-size:13px;font-weight:800;padding:6px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 16px rgba(200,16,46,.40);animation:ph-float 3s ease-in-out infinite}
+@keyframes ph-float{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-6px) rotate(-5deg)}}
+/* mobil */
+.frame .ph-card{flex-direction:column;align-items:stretch;gap:16px;padding:20px}
+.frame .ph-right{order:-1;align-self:center}
+.frame .ph-photo{width:96px;height:96px;font-size:44px;border-radius:20px}
+.frame .ph-badge{top:-8px;left:auto;right:-8px}
+.frame .ph-title{font-size:20px}
+</style></head>
+<body>
+  <div class="lbl">🖥️ Desktop — haqiqiy taom rasmi bilan</div>
+  <div class="promo-hero">
+    <div class="ph-card">
+      <div class="ph-left">
+        <span class="ph-tag">🍢 AKSIYA</span>
+        <h3 class="ph-title">Shashlik Plus</h3>
+        <p class="ph-desc">Bugun barcha shashlik va lavashlarga 15% chegirma — faqat bugun!</p>
+        <div class="ph-actions">
+          <button class="ph-cta" type="button">Buyurtma berish</button>
+          <button class="ph-icon" type="button" aria-label="Batafsil">→</button>
+        </div>
+      </div>
+      <div class="ph-right">
+        <div class="ph-photo">
+          <span class="ph-emoji">🍢</span>
+          <img class="ph-img" src="/uploads/dish_1783142260583_701446.jpg" alt="Shashlik" onerror="this.remove()">
+        </div>
+        <span class="ph-badge">15% OFF</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="lbl">📱 Mobil — vertikal, rasm tepada</div>
+  <div class="frame">
+    <div class="promo-hero" style="padding:0">
+      <div class="ph-card">
+        <div class="ph-left">
+          <span class="ph-tag">🍰 AKSIYA</span>
+          <h3 class="ph-title">Shashlik Plus</h3>
+          <p class="ph-desc">Cheesecake buyurtmasiga maxsus taklif!</p>
+          <div class="ph-actions">
+            <button class="ph-cta" type="button">Buyurtma berish</button>
+            <button class="ph-icon" type="button" aria-label="Batafsil">→</button>
+          </div>
+        </div>
+        <div class="ph-right">
+          <div class="ph-photo">
+            <span class="ph-emoji">🍰</span>
+            <img class="ph-img" src="/uploads/dish_1783145209693_365145.jpg" alt="Cheesecake" onerror="this.remove()">
+          </div>
+          <span class="ph-badge">AKSIYA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body></html>

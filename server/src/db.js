@@ -1,0 +1,178 @@
+/* ===== Yetkaz.uz backend — ma'lumotlar bazasi (node:sqlite) ===== */
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { DB_PATH } from './config.js';
+
+mkdirSync(dirname(DB_PATH), { recursive: true });
+
+export const db = new DatabaseSync(DB_PATH);
+db.exec('PRAGMA journal_mode = WAL;');
+db.exec('PRAGMA foreign_keys = ON;');
+
+export function initSchema() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      login      TEXT NOT NULL UNIQUE,
+      pass_hash  TEXT NOT NULL,
+      role       TEXT NOT NULL,              -- admin | restoran | kuryer | user
+      name       TEXT NOT NULL,
+      phone      TEXT DEFAULT '',
+      target     TEXT NOT NULL,              -- qaysi panelga yo'naltirish
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS restaurants (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL UNIQUE,
+      name_cyr   TEXT DEFAULT '',
+      emoji      TEXT DEFAULT '',
+      kw         TEXT DEFAULT '',
+      rating     REAL DEFAULT 4.5,
+      eta        INTEGER DEFAULT 20,
+      dist       TEXT DEFAULT '',
+      photo      TEXT DEFAULT '',
+      login      TEXT DEFAULT '',
+      commission INTEGER DEFAULT 18,
+      open_h     INTEGER DEFAULT 9,
+      close_h    INTEGER DEFAULT 23,
+      active     INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS couriers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      emoji      TEXT DEFAULT '🛵',
+      rest       TEXT DEFAULT '',
+      login      TEXT DEFAULT '',
+      phone      TEXT DEFAULT '',
+      deliveries INTEGER DEFAULT 0,
+      rating     REAL DEFAULT 4.8,
+      fee        INTEGER DEFAULT 0,
+      active     INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user       TEXT DEFAULT '',
+      phone      TEXT DEFAULT '',
+      rest       TEXT DEFAULT '',
+      item       TEXT DEFAULT '',
+      emoji      TEXT DEFAULT '',
+      amount     INTEGER DEFAULT 0,
+      addr       TEXT DEFAULT '',
+      pay        TEXT DEFAULT 'card',
+      courier    TEXT DEFAULT '',
+      status     TEXT DEFAULT 'new',         -- new | ontheway | done
+      eta        INTEGER DEFAULT 15,
+      time       TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS reviews (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT DEFAULT '',
+      ava        TEXT DEFAULT '👤',
+      rating     INTEGER DEFAULT 5,
+      dish       TEXT DEFAULT '',
+      text       TEXT DEFAULT '',
+      text_cyr   TEXT DEFAULT '',
+      flagged    INTEGER DEFAULT 0,
+      date       TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Restoran qo'shgan yangi taomlar (base katalog data.js da qoladi)
+    CREATE TABLE IF NOT EXISTS added_dishes (
+      id         INTEGER PRIMARY KEY,        -- frontend bergan id (Date.now())
+      name       TEXT NOT NULL,
+      name_cyr   TEXT DEFAULT '',
+      emoji      TEXT DEFAULT '🍽️',
+      price      INTEGER DEFAULT 0,
+      rest       TEXT NOT NULL,
+      cat        TEXT DEFAULT 'Fastfood',
+      kw         TEXT DEFAULT '',
+      photo      TEXT DEFAULT '',
+      rating     REAL DEFAULT 4.5,
+      sold       INTEGER DEFAULT 0,
+      badge      TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- O'chirilgan taomlar (rest|name kaliti)
+    CREATE TABLE IF NOT EXISTS removed_dishes (
+      rest TEXT NOT NULL,
+      name TEXT NOT NULL,
+      PRIMARY KEY (rest, name)
+    );
+
+    -- Chegirmalar (rest|name -> foiz)
+    CREATE TABLE IF NOT EXISTS discounts (
+      rest TEXT NOT NULL,
+      name TEXT NOT NULL,
+      pct  INTEGER NOT NULL,
+      PRIMARY KEY (rest, name)
+    );
+
+    -- Sotuvda yo'q taomlar (stock tugagan)
+    CREATE TABLE IF NOT EXISTS soldout_dishes (
+      rest TEXT NOT NULL,
+      name TEXT NOT NULL,
+      PRIMARY KEY (rest, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS announcements (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      rest       TEXT DEFAULT '',
+      text       TEXT NOT NULL,
+      emoji      TEXT DEFAULT '📢',
+      tag        TEXT DEFAULT '',
+      dish       TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
+    CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
+    CREATE INDEX IF NOT EXISTS idx_orders_user    ON orders(user);
+  `);
+
+  /* Migratsiyalar: eski bazalarda yangi ustunlar bo'lmasligi mumkin.
+     MUHIM: barcha ustun migratsiyalari SHU YERDA (initSchema ichida) bo'lishi kerak —
+     bu jadvallar CREATE QILINGANDAN keyin ishga tushadi. Route fayllarida (import
+     paytida) ALTER TABLE yozilsa, yangi bazada jadval hali yo'q bo'lib, jim yiqiladi
+     va ustun umuman qo'shilmaydi (masalan orders.token → buyurtma 500 beradi). */
+  try { db.exec('ALTER TABLE restaurants ADD COLUMN commission INTEGER DEFAULT 18'); } catch (e) { /* bor */ }
+  try { db.exec("ALTER TABLE orders ADD COLUMN phone TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  try { db.exec("ALTER TABLE orders ADD COLUMN token TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  try { db.exec("ALTER TABLE orders ADD COLUMN reason TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  try { db.exec('ALTER TABLE orders ADD COLUMN delivery INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
+  try { db.exec("ALTER TABLE accounts ADD COLUMN email TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  try { db.exec('ALTER TABLE couriers ADD COLUMN fee INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
+  try { db.exec('ALTER TABLE restaurants ADD COLUMN open_h INTEGER DEFAULT 9'); } catch (e) { /* bor */ }
+  try { db.exec('ALTER TABLE restaurants ADD COLUMN close_h INTEGER DEFAULT 23'); } catch (e) { /* bor */ }
+  // ===== Qo'shimcha ma'lumot ustunlari (restoran/kuryer profili) =====
+  for (const col of [
+    "ALTER TABLE restaurants ADD COLUMN addr TEXT DEFAULT ''",
+    "ALTER TABLE restaurants ADD COLUMN owner TEXT DEFAULT ''",
+    "ALTER TABLE restaurants ADD COLUMN email TEXT DEFAULT ''",
+    "ALTER TABLE restaurants ADD COLUMN descr TEXT DEFAULT ''",
+    "ALTER TABLE restaurants ADD COLUMN hours TEXT DEFAULT ''",
+    "ALTER TABLE restaurants ADD COLUMN area TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN transport TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN plate TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN address TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN email TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN birthdate TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN passport TEXT DEFAULT ''",
+    // Kuryer ish vaqti (o'zi boshqaradi) + ishdan javob (leave) holati
+    "ALTER TABLE couriers ADD COLUMN open_h INTEGER DEFAULT 8",
+    "ALTER TABLE couriers ADD COLUMN close_h INTEGER DEFAULT 22",
+    "ALTER TABLE couriers ADD COLUMN on_leave INTEGER DEFAULT 0",
+    "ALTER TABLE couriers ADD COLUMN leave_reason TEXT DEFAULT ''",
+    // Reklama/e'longa biriktirilgan rasm (restoran o'zi yuklaydi)
+    "ALTER TABLE announcements ADD COLUMN img TEXT DEFAULT ''",
+  ]) { try { db.exec(col); } catch (e) { /* bor */ } }
+}

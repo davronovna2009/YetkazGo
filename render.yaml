@@ -1,0 +1,21 @@
+# Render.com uchun blueprint — Yetkaz.uz (Node + Express + SQLite)
+# Render hisobingizда: New + → Blueprint → shu repozitoriyni tanlang.
+services:
+  - type: web
+    name: yetkaz
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true   # Render avtomatik xavfsiz kalit yaratadi
+      - key: NODE_VERSION
+        value: "22"
+    # SQLite fayli saqlanib qolishi uchun doimiy disk (ixtiyoriy, lekin tavsiya):
+    disk:
+      name: yetkaz-data
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1
