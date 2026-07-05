@@ -178,6 +178,29 @@
       showTopDishModal(d, findRestDish(nm));
     }); });
     renderRestPhotoCard();
+    renderTopCustomers();
+  }
+  /* Bir xillik: telefon (yoki ism+manzil) bo'yicha guruhlab, eng ko'p buyurtma bergan mijoz */
+  function topCustomers(orders, n){
+    var map={};
+    (orders||[]).forEach(function(o){
+      var phone=String(o.phone||"").replace(/\D/g,"");
+      var key=phone || (String(o.user||"").toLowerCase().trim()+"|"+String(o.addr||"").toLowerCase().trim());
+      if(!key || key==="|") return;
+      if(!map[key]) map[key]={name:o.user||"—", phone:o.phone||"—", addr:o.addr||"", count:0};
+      map[key].count++;
+    });
+    return Object.values(map).sort(function(a,b){return b.count-a.count;}).slice(0, n||5);
+  }
+  function renderTopCustomers(){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var orders=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(CUR.name):[];
+    var list=topCustomers(orders.filter(function(o){return o.status!=="cancelled";}),5);
+    var box=document.getElementById("topCustPanel");
+    if(!box){ box=document.createElement("div"); box.id="topCustPanel"; box.className="panel"; box.style.marginTop="16px"; host.appendChild(box); }
+    box.innerHTML='<div class="panel-head"><h3>👑 Doimiy mijozlar (eng ko\'p buyurtma bergan)</h3></div><div class="panel-body">'+
+      (list.length?list.map(function(c,i){ return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join(""):'<p style="color:var(--grey)">Hozircha doimiy mijoz yo\'q.</p>')+
+      '</div>';
   }
   /* Buyurtma nomi (masalan "Shashlik +2 ta") bo'yicha restoran taomini topish */
   function findRestDish(nm){

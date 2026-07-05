@@ -276,6 +276,29 @@
     const note=$("#gmvNote");
     if(note){ const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0); const totalSite=done.reduce((s,o)=>s+commOf(o),0);
       note.innerHTML=`Jami aylanma (tasdiqlangan): <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`; }
+    renderAdminTopCustomers(live);
+  }
+  /* Bir xillik: telefon (yoki ism+manzil) bo'yicha eng ko'p buyurtma bergan mijozlar */
+  function adminTopCustomers(orders, n){
+    var map={};
+    (orders||[]).forEach(function(o){
+      if(o.status==="cancelled") return;
+      var phone=String(o.phone||"").replace(/\D/g,"");
+      var key=phone || (String(o.user||"").toLowerCase().trim()+"|"+String(o.addr||"").toLowerCase().trim());
+      if(!key || key==="|") return;
+      if(!map[key]) map[key]={name:o.user||"—", phone:o.phone||"—", addr:o.addr||"", rests:{}, count:0};
+      map[key].count++; if(o.rest) map[key].rests[o.rest]=1;
+    });
+    return Object.values(map).sort(function(a,b){return b.count-a.count;}).slice(0, n||6);
+  }
+  function renderAdminTopCustomers(live){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var list=adminTopCustomers(live,6);
+    var box=document.getElementById("adminTopCust");
+    if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminTopCust"; box.style.marginTop="16px"; host.appendChild(box); }
+    box.innerHTML='<div class="panel-head"><h3>👑 Eng ko\'p buyurtma bergan mijozlar</h3></div><div class="panel-body">'+
+      (list.length?list.map(function(c,i){ var rc=Object.keys(c.rests).length; return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+(rc?' · '+rc+' restoran':'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join(""):'<p style="color:var(--grey)">Hozircha buyurtma yo\'q.</p>')+
+      '</div>';
   }
 
   /* =========================================================
