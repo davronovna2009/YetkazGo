@@ -13,6 +13,7 @@ const STORE = (function () {
     rests: "yz_restaurants",
     sess: "yz_session",
     token: "yz_token",
+    otok: "yz_order_tokens",   // buyurtma "track token"lari (id -> token), mehmon tasdig'i uchun
   };
 
   /* ---- API manzili: backend bilan bir xil origin bo'lsa nisbiy '/api' ---- */
@@ -21,6 +22,11 @@ const STORE = (function () {
 
   function lsRead(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
   function lsWrite(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  /* Buyurtma "track token"lari — polling keshni almashtirsa ham yo'qolmaydi.
+     Mehmon (tokensiz) mijoz shu token bilan buyurtmasini tasdiqlaydi/bekor qiladi. */
+  function saveOrderToken(id, tok) { if (!id || !tok) return; try { const m = lsRead("yz_order_tokens", {}) || {}; m[String(id)] = tok; lsWrite("yz_order_tokens", m); } catch (e) {} }
+  function readOrderToken(id) { try { const m = lsRead("yz_order_tokens", {}) || {}; return m[String(id)] || ""; } catch (e) { return ""; } }
 
   /* ---- Xotira keshi (sinxron o'qish shu yerdan) ---- */
   const cache = {
@@ -150,7 +156,11 @@ const STORE = (function () {
       const order = Object.assign({}, o, { id: tempId, status: o.status || "new" });
       cache.orders.unshift(order); lsWrite(K.orders, cache.orders); fire();
       send("/orders", { method: "POST", body: o }).then(saved => {
-        if (saved && saved.id) { Object.assign(order, saved); lsWrite(K.orders, cache.orders); fire(); }
+        if (saved && saved.id) {
+          Object.assign(order, saved); lsWrite(K.orders, cache.orders);
+          saveOrderToken(saved.id, saved.token);   // token'ni alohida saqlaymiz (polling keshni almashtiradi)
+          fire();
+        }
       });
       return order;
     },
@@ -225,17 +235,19 @@ const STORE = (function () {
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
 
-    /* Mijoz "qabul qildim" — arrived -> done (ochiq) */
+    /* Mijoz "qabul qildim" — arrived -> done (ochiq). Token keshda bo'lmasa saqlanganidan olamiz. */
     confirmReceived(id) {
       const o = cache.orders.find(x => String(x.id) === String(id));
       if (o) { o.status = "done"; lsWrite(K.orders, cache.orders); fire(); }
-      return api("/orders/" + id + "/received", { method: "POST", body: { token: (o && o.token) || "" } }).catch(() => null);
+      const tok = (o && o.token) || readOrderToken(id);
+      return api("/orders/" + id + "/received", { method: "POST", body: { token: tok } }).catch(() => null);
     },
     /* Mijoz buyurtmani bekor qiladi — new/ontheway -> cancelled (ochiq) */
     cancelOrder(id) {
       const o = cache.orders.find(x => String(x.id) === String(id));
       if (o) { o.status = "cancelled"; lsWrite(K.orders, cache.orders); fire(); }
-      return api("/orders/" + id + "/cancel", { method: "POST", body: { token: (o && o.token) || "" } }).catch(() => null);
+      const tok = (o && o.token) || readOrderToken(id);
+      return api("/orders/" + id + "/cancel", { method: "POST", body: { token: tok } }).catch(() => null);
     },
 
     /* ---- RASM YUKLASH (base64 -> server, qisqa URL qaytaradi) ---- */
