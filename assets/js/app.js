@@ -356,23 +356,40 @@
       <div class="rinfo-grid">${rows.join("")}</div>
     </div>`;
   }
-  /* Restoranning O'Z e'lonlari — faqat shu restoran sahifasida ko'rinadi */
+  /* Restoranning O'Z aksiyalari + CHEGIRMALI taomlari — faqat shu restoran sahifasida.
+     To'lqinli olovrang banner; chegirmали taom bosilса — modal, «+» savatga qo'shadi. */
   function restPromoBlock(r){
-    let mine=[];
-    try{ mine=getAllPromos().filter(p=>p && p.rest===r.name); }catch(e){}
-    if(!mine.length) return "";
-    return `<div class="rinfo-card rpromo-card">
-      <div class="rinfo-title">📢 ${esc(nm(r))} aksiyalari</div>
-      <div class="rpromo-list">
-        ${mine.map(p=>`
-          <div class="rpromo-item">
-            <span class="rpromo-emoji">${p.emoji||"📢"}</span>
-            <div class="rpromo-body">
-              <div class="rpromo-text">${esc(p.text)}</div>
-              ${p.tag?`<span class="rpromo-tag">${esc(p.tag)}</span>`:""}
-            </div>
-          </div>`).join("")}
-      </div>
+    const menu=catalog().filter(d=>d.rest===r.name);
+    const disc=menu.filter(d=>d.discount>0);
+    let anns=[]; try{ anns=getAllPromos().filter(p=>p && p.rest===r.name); }catch(e){}
+    if(!disc.length && !anns.length) return "";
+    const realImg=s=>/^\/uploads\/|^data:|^https?:/.test(String(s||""));
+    const annHtml=anns.map(p=>{
+      const photo=p.img||promoPhoto(p);
+      return `<div class="rpromo-item">
+        <div class="rpromo-ph">${photo?`<img src="${photo}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${p.emoji||"📢"}'}))">`:`<span>${p.emoji||"📢"}</span>`}</div>
+        <div class="rpromo-body">
+          <div class="rpromo-text">${esc(p.text)}</div>
+          <div class="rpromo-meta">${p.tag?`<span class="rpromo-tag">${esc(p.tag)}</span>`:""}${p.dish?`<span class="rpromo-why">🍽️ ${esc(p.dish)}</span>`:""}</div>
+        </div>
+      </div>`;
+    }).join("");
+    const discHtml=disc.map(d=>{
+      const photo=realImg(d.photo)?d.photo:"";
+      return `<div class="rpromo-item rpromo-dish" data-dish-id="${d.id}" style="cursor:pointer">
+        <div class="rpromo-ph">${photo?`<img src="${photo}" alt="" onerror="this.remove()">`:`<span>${d.emoji}</span>`}</div>
+        <div class="rpromo-body">
+          <div class="rpromo-text">${esc(nm(d))}</div>
+          <div class="rpromo-meta"><span class="rpromo-old">${fmt(d.price)}</span> <b class="rpromo-new">${fmt(d.eff)} so'm</b> <span class="rpromo-tag">−${d.discount}%</span></div>
+          <div class="rpromo-why">🔥 ${d.discount}% chegirma — hoziroq oling!</div>
+        </div>
+        <button class="rpromo-add" data-add="${d.id}" aria-label="Savatga qo'shish">+</button>
+      </div>`;
+    }).join("");
+    return `<div class="rinfo-card rpromo-banner">
+      <div class="rpromo-head">🔥 ${esc(nm(r))} — aksiya va chegirmalar</div>
+      <div class="rpromo-list">${annHtml}${discHtml}</div>
+      <svg class="rpromo-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,14 C240,42 480,2 720,18 C960,34 1200,44 1440,20 L1440,40 L0,40 Z" fill="rgba(255,255,255,.28)"/></svg>
     </div>`;
   }
 
@@ -404,6 +421,16 @@
       </div>`;
     const grid=view.querySelector("#rMenuGrid");
     (menu.length?menu:DISHES.slice(0,8)).forEach(d=>grid.appendChild(makeDishCard(d)));
+    /* Reklama banneri ishlaydi: chegirmali taomga bosilsa modal, «+» savatga qo'shadi */
+    view.querySelectorAll(".rpromo-dish").forEach(it=>it.addEventListener("click",(e)=>{
+      if(e.target.classList.contains("rpromo-add")) return;
+      const d=catalog().find(x=>x.id===+it.dataset.dishId); if(d) openDishModal(d);
+    }));
+    view.querySelectorAll(".rpromo-add").forEach(b=>b.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      const d=catalog().find(x=>x.id===+b.dataset.add); if(!d) return;
+      flyToCart(d,e.currentTarget); addToCart(d); updateAllCards();
+    }));
     $("#rBack").addEventListener("click",()=>{ location.hash=""; });
     document.body.classList.add("ropen");
     window.scrollTo({top:0});
@@ -1531,10 +1558,12 @@
      (yoritilgan element) + tooltip karta ("bu yerni bosing"). O'zbek tilida.
      ============================================================ */
   const TOUR_STEPS = [
-    { sel:()=>"#dishSearch",  title:"🔍 Qidiruv",         text:"Bu yerga taom yoki restoran nomini yozib tez toping." },
-    { sel:()=>"#dishFilters", title:"🍽️ Kategoriyalar",   text:"Milliy, Fastfood, Shirinlik, Ichimlik — kerakli turni shu yerdan tanlang." },
-    { sel:()=>"#dishesGrid",  title:"➕ Savatga qo'shish", text:"Yoqqan taomdagi qizil «+» tugmasini bosing — taom savatga uchib boradi." },
-    { sel:()=> (window.innerWidth<=768 ? "#mbbCart" : "#cartBtn"), title:"🛒 Savat", text:"Savatni shu yerdan oching, so'ng «Buyurtma berish»ni bosib rasmiylashtiring." },
+    { sel:()=>"#dishSearch",  title:"🔍 1. Qidiruv",       text:"Bu yerga taom yoki restoran nomini yozib tez toping.", before:()=>{ try{ closeCart(); }catch(e){} } },
+    { sel:()=>"#dishFilters", title:"🍽️ 2. Kategoriyalar", text:"Milliy, Fastfood, Shirinlik, Ichimlik — kerakli turni shu yerdan tanlang." },
+    { sel:()=>"#dishesGrid",  title:"➕ 3. Savatga qo'shish", text:"Yoqqan taomdagi qizil «+» tugmasini bosing — taom savatga qo'shiladi va savat ikonkasiga uchib boradi. Bir nechta taom qo'shsangiz bo'ladi." },
+    { sel:()=> (window.innerWidth<=768 ? "#mbbCart" : "#cartBtn"), title:"🛒 4. Savatni ochish", text:"Qo'shgan taomlaringizni ko'rish uchun shu savat tugmasini bosing.", before:()=>{ try{ closeCart(); }catch(e){} } },
+    { sel:()=>"#cartItems",    title:"🧺 5. Savat ichi",    text:"Bu yerda taomlar ro'yxati. «−» va «+» bilan sonini o'zgartirasiz, jami summa pastda ko'rinadi.", before:()=>{ try{ openCart(); }catch(e){} } },
+    { sel:()=>"#checkoutBtn",  title:"✅ 6. Buyurtma berish", text:"«Buyurtma berish» tugmasini bosing → ism, telefon va manzilni kiriting → to'lovni tanlab tasdiqlang. Buyurtma darhol restoranga yuboriladi!", before:()=>{ try{ openCart(); }catch(e){} } },
   ];
   function startTour(){
     if(document.getElementById("yzTour")) return;
@@ -1543,10 +1572,11 @@
     ov.innerHTML='<div class="yz-tour-hole"></div><div class="yz-tour-tip"></div>';
     document.body.appendChild(ov);
     const hole=ov.querySelector(".yz-tour-hole"), tip=ov.querySelector(".yz-tour-tip");
-    function end(){ try{ ov.remove(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin 🎉","success"); }
+    function end(){ try{ ov.remove(); }catch(e){} try{ closeCart(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin 🎉","success"); }
     function next(){ i++; if(i>=TOUR_STEPS.length){ end(); return; } show(); }
     function show(){
       const step=TOUR_STEPS[i];
+      if(step.before){ try{ step.before(); }catch(e){} }
       const sel=typeof step.sel==="function"?step.sel():step.sel;
       const el=document.querySelector(sel);
       if(!el){ next(); return; }
