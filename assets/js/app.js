@@ -437,7 +437,9 @@
   function renderReviews(){
     const g=$("#reviewsGrid"); if(!g) return; g.innerHTML="";
     const live=(typeof STORE!=="undefined")?STORE.reviews():[];
-    [...live, ...REVIEWS].slice(0,9).forEach(r=>{
+    /* Kuryer reytinglari (dish "🛵 Kuryer: ...") saytda ko'rsatilmaydi — faqat kuryer/admin panelida */
+    const isCourierReview = r => /^🛵\s*Kuryer:/.test(String(r&&r.dish||""));
+    [...live, ...REVIEWS].filter(r=>!isCourierReview(r)).slice(0,9).forEach(r=>{
       const stars="★".repeat(r.rating)+"☆".repeat(5-r.rating);
       const txt = (I18N.current()==="cyr" && r.textCyr) ? r.textCyr : r.text;
       const el=document.createElement("div"); el.className="review-card";
@@ -899,6 +901,7 @@
         order.step = 4;
         order.done = true;
         order.backendId = be ? be.id : null;   // mijoz tasdig'i uchun
+        if(be && be.courier) order.courier = be.courier;   // reyting uchun kuryer nomi
         saveOrders(orders);
         showArrivedOverlay(order);
         clearInterval(orderTimers[orderId]);
@@ -1118,6 +1121,9 @@
     const confirmAndClose = ()=>{
       if(order.backendId && typeof STORE!=="undefined" && STORE.confirmReceived){ STORE.confirmReceived(order.backendId); }
       close();
+      /* Qabul qilingach — taom va kuryerни baholashni so'raymiz */
+      queueRating(order);
+      setTimeout(()=>askRating(), 400);
     };
 
     document.getElementById("arrivedClose").addEventListener("click", close);
@@ -1140,6 +1146,65 @@
         o.start(t+at); o.stop(t+at+0.65); };
       ding(1046.5,0,0.38); ding(1568,0,0.16); ding(1046.5,0.26,0.34); ding(1568,0.26,0.14);
     }catch(e){}
+  }
+
+  /* ============================================================
+     REYTING — mijoz TAOM va KURYERni baholaydi (bitta modal, ikki qism).
+     Taom bahosi -> restoran/dish (restoran+admin ko'radi); kuryer bahosi ->
+     kuryer (kuryer panel+admin ko'radi). Qabul qilingach so'raladi; "keyinroq"
+     bosilsa keyingi kirishda yana so'raladi. */
+  const RATE_KEY = "yz_pending_ratings";
+  function loadPendingRatings(){ try{ return JSON.parse(localStorage.getItem(RATE_KEY)||"[]"); }catch(e){ return []; } }
+  function savePendingRatings(a){ try{ localStorage.setItem(RATE_KEY, JSON.stringify(a)); }catch(e){} }
+  function orderTokenFor(id){ try{ const m=JSON.parse(localStorage.getItem("yz_order_tokens")||"{}"); return m[String(id)]||""; }catch(e){ return ""; } }
+  function queueRating(order){
+    const dish = (order.items && order.items[0] && order.items[0].name) || order.label || "";
+    const id = order.backendId || order.id;
+    const entry = { id:id, token: orderTokenFor(order.backendId), dish:dish, courier: order.courier||"", user: user.name||"Mijoz", at: Date.now() };
+    const list = loadPendingRatings().filter(x=>String(x.id)!==String(id));
+    list.push(entry); savePendingRatings(list);
+  }
+  function removePendingRating(id){ savePendingRatings(loadPendingRatings().filter(x=>String(x.id)!==String(id))); }
+  function askRating(){
+    if($("#modal").classList.contains("open")) return;   // boshqa modal ochiq bo'lsa keyinroq
+    const list = loadPendingRatings(); if(!list.length) return;
+    const e = list[0];
+    const stars = ()=> [1,2,3,4,5].map(n=>`<span class="rate-star" data-n="${n}">☆</span>`).join("");
+    openModal(`
+      <div style="text-align:center">
+        <div style="font-size:40px">⭐</div>
+        <h2 style="margin:6px 0 2px">Baholang</h2>
+        <p class="modal-sub" style="margin-bottom:14px">Buyurtmangiz uchun rahmat! Fikringiz muhim.</p>
+        <div class="rate-block">
+          <div class="rate-label">🍽️ ${esc(e.dish||"Taom")}</div>
+          <div class="rate-stars" id="rateDish">${stars()}</div>
+        </div>
+        ${e.courier?`
+        <div class="rate-block">
+          <div class="rate-label">🛵 Kuryer: ${esc(e.courier)}</div>
+          <div class="rate-stars" id="rateCour">${stars()}</div>
+        </div>`:""}
+        <textarea id="rateText" rows="2" placeholder="Izoh (ixtiyoriy)" style="width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:11px;padding:10px;font-family:inherit;font-size:14px;margin:10px 0;resize:vertical"></textarea>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-outline btn-block" id="rateSkip">Keyinroq</button>
+          <button class="btn btn-primary btn-block" id="rateSend">Yuborish</button>
+        </div>
+      </div>`);
+    let dishR=0, courR=0;
+    const wire=(boxId, set)=>{ const box=document.getElementById(boxId); if(!box) return;
+      box.querySelectorAll(".rate-star").forEach(st=>st.addEventListener("click",()=>{ const n=+st.dataset.n; set(n);
+        box.querySelectorAll(".rate-star").forEach((s,i)=> s.textContent=(i<n?"★":"☆")); })); };
+    wire("rateDish", n=>dishR=n);
+    if(e.courier) wire("rateCour", n=>courR=n);
+    const skip=document.getElementById("rateSkip"); if(skip) skip.addEventListener("click", closeModal);  // pending qoladi
+    const send=document.getElementById("rateSend"); if(send) send.addEventListener("click",()=>{
+      const text=(document.getElementById("rateText")||{}).value||"";
+      if(!dishR && !courR){ toast("Kamida bitta baho bering","error"); return; }
+      if(dishR>0 && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:dishR, dish:e.dish, text:text}, e.token);
+      if(courR>0 && e.courier && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:courR, dish:"🛵 Kuryer: "+e.courier, text:text}, e.token);
+      removePendingRating(e.id); closeModal(); toast("Rahmat! Bahoyingiz yuborildi ✓","success");
+      try{ renderReviews(); }catch(_){}
+    });
   }
 
   function checkout(){
@@ -1450,6 +1515,7 @@
     loadPromos();
     buildHero(); buildFilters(); renderDishes(); renderAdPromo(); renderRests(); renderReviews(); updateCart();
     resumeOrders(); // Sahifa yangilanganda faol buyurtmalarni tiklash
+    setTimeout(askRating, 1800); // keyingi kirishda baholanmagan buyurtma bo'lsa so'raymiz
 
     $("#langToggle").addEventListener("click",()=>{ I18N.toggle(); I18N.apply(); reRender(); });
     $("#cartBtn").addEventListener("click",openCart);

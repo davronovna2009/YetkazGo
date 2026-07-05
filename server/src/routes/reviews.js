@@ -17,9 +17,17 @@ router.get('/', (_req, res) => {
   res.json(db.prepare('SELECT * FROM reviews ORDER BY id DESC').all().map(rowToReview));
 });
 
-/* POST /api/reviews — kirgan foydalanuvchi izoh qoldiradi */
-router.post('/', authRequired, (req, res) => {
+/* POST /api/reviews — izoh/reyting qoldirish.
+   Ruxsat: yo tizimga kirgan foydalanuvchi, yo HAQIQIY buyurtma token'i
+   (mehmon mijoz o'z buyurtmasi uchun taom/kuryer reytingi beradi). */
+router.post('/', (req, res) => {
   const b = req.body || {};
+  const authed = !!req.user;   // attachUser (global) sarlavhadan aniqlaydi
+  let okToken = false;
+  if (!authed && b.orderToken) {
+    okToken = !!db.prepare('SELECT 1 FROM orders WHERE token = ?').get(String(b.orderToken));
+  }
+  if (!authed && !okToken) return res.status(401).json({ error: 'Ruxsat yo`q' });
   const rating = Math.max(1, Math.min(5, Number(b.rating) || 5));
   const date = String(b.date || new Date().toLocaleDateString('ru-RU'));
   const info = db.prepare(

@@ -1589,3 +1589,10 @@ body{ animation:siteHues 45s ease-in-out infinite; }
   body{ animation:none !important; }
   .apb-photo{ animation:none !important; }
 }
+
+/* ===== REYTING modali (taom + kuryer baholash) ===== */
+.rate-block{margin:14px 0;text-align:center}
+.rate-label{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--ink)}
+.rate-stars{font-size:34px;letter-spacing:8px;color:var(--gold);user-select:none;line-height:1}
+.rate-star{cursor:pointer;transition:transform .1s ease}
+.rate-star:hover{transform:scale(1.18)}

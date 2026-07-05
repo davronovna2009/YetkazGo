@@ -174,10 +174,12 @@ const STORE = (function () {
 
     /* ---- REVIEWS ---- */
     reviews: () => cache.reviews,
-    addReview(r) {
+    addReview(r, orderToken) {
       const rev = Object.assign({ ava: "👤", flagged: false }, r, { date: r.date || new Date().toLocaleDateString("ru-RU") });
       cache.reviews.unshift(rev); lsWrite(K.reviews, cache.reviews); fire();
-      send("/reviews", { method: "POST", body: rev });
+      /* Mehmon (tokensiz) mijoz uchun — order token bilan yuboriladi (kesh toza qoladi) */
+      const body = orderToken ? Object.assign({}, rev, { orderToken }) : rev;
+      send("/reviews", { method: "POST", body });
     },
 
     /* ---- DISH OVERRIDES ---- */

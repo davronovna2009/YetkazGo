@@ -56,7 +56,9 @@
     const doneCount=ORDERS.filter(o=>o.status==="done").length;
     const active=ORDERS.filter(o=>o.status!=="done"&&o.status!=="cancelled").length;
     const earn=doneCount*PER;
-    const rating=(c.rating||0);
+    /* Real reyting — mijozlar bergan kuryer baholari o'rtachasi */
+    var _rv=(typeof STORE!=="undefined"?STORE.reviews():[]).filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
+    const rating=_rv.length?(_rv.reduce(function(s,r){return s+(r.rating||0);},0)/_rv.length).toFixed(1):(c.rating||0);
     $("#statCards").innerHTML=`
       <div class="scard c1"><div class="si">💵</div><b>${money(earn)}</b><span>Daromad (so'm)</span></div>
       <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan</span></div>
@@ -69,9 +71,12 @@
     if(host && host.parentNode){
       var revBox=document.getElementById("kurReviews");
       if(!revBox){ revBox=document.createElement("div"); revBox.id="kurReviews"; revBox.className="panel"; revBox.style.marginTop="16px"; host.parentNode.appendChild(revBox); }
-      var rv=(typeof STORE!=="undefined"?STORE.reviews():[]);
-      revBox.innerHTML='<div class="panel-head"><h3>⭐ Mijoz izohlari</h3></div><div class="panel-body">'+
-        (rv.length?rv.slice(0,20).map(function(r){ var rr=Math.max(0,Math.min(5,r.rating|0)); return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+(r.ava||"👤")+' '+esc(r.name)+' → '+esc(r.dish)+'</b><span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span></div><div style="font-size:14px;margin-top:4px">'+esc(r.text)+'</div></div>'; }).join(""):'<p style="color:var(--grey)">Hali izoh yo\'q.</p>')+
+      var all=(typeof STORE!=="undefined"?STORE.reviews():[]);
+      /* Faqat SHU kuryerga berilgan reytinglar (dish = "🛵 Kuryer: <ism>") */
+      var mine=all.filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
+      var avg=mine.length?(mine.reduce(function(s,r){return s+(r.rating||0);},0)/mine.length):0;
+      revBox.innerHTML='<div class="panel-head"><h3>⭐ Mening reytingim</h3>'+(mine.length?'<span style="color:var(--grey);font-size:13px">O\'rtacha <b>'+avg.toFixed(1)+'</b> · '+mine.length+' baho</span>':'')+'</div><div class="panel-body">'+
+        (mine.length?mine.slice(0,20).map(function(r){ var rr=Math.max(0,Math.min(5,r.rating|0)); return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+(r.ava||"👤")+' '+esc(r.name)+'</b><span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span></div>'+(r.text?'<div style="font-size:14px;margin-top:4px">'+esc(r.text)+'</div>':'')+'</div>'; }).join(""):'<p style="color:var(--grey)">Sizga hali reyting berilmagan. Tez va xushmuomala yetkazsangiz — mijozlar baholaydi!</p>')+
         '</div>';
     }
   }
