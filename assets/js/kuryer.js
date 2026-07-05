@@ -328,7 +328,11 @@
       if(!cc){ cc={ id:Date.now(), name:ses.name||ses.login, login:ses.login, emoji:"🛵", rest:"", deliveries:0, rating:0, fee:(ses.fee||0), phone:ses.phone||"" }; }
       cc.fee=(ses.fee!=null?ses.fee:(cc.fee||0));
       enter(cc);
-    } else { try{ location.replace("index.html"); }catch(e){} }
+    } else {
+      /* Sessiya yo'q — saytga sakramasdan panelning O'Z login ekranini ko'rsatamiz
+         (app sifatida ochilganda to'g'ridan-to'g'ri login/parol so'raydi) */
+      $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    }
     $("#loginBtn").addEventListener("click",login);
     $("#klPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
     $$(".sb-link").forEach(l=>l.addEventListener("click",()=>nav(l.dataset.view)));

@@ -1070,7 +1070,7 @@
     // Session
     const ses=(typeof STORE!=="undefined")?STORE.session():null;
     if(ses&&ses.role==="admin"){ $("#loginWrap").style.display="none"; $("#app").classList.add("show"); renderAll(); }
-    else { try{ location.replace("index.html"); }catch(e){} }
+    else { /* Sessiya yo'q — panelning O'Z login ekrani (app to'g'ridan-to'g'ri login/parol so'raydi) */ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
 
     // Mobil header: admin / online — modallar + avtomatik holat
     const badgeEl=document.querySelector(".tb-badge");

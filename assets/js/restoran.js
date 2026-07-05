@@ -665,7 +665,11 @@
       var rr=RESTS.find(x=>x.login===ses.login);
       if(!rr){ try{ if(STORE.ready) await STORE.ready(); }catch(e){} rr=buildBackendRest(ses); }
       enter(rr);
-    } else { try{ location.replace("index.html"); }catch(e){} }
+    } else {
+      /* Sessiya yo'q — saytga sakramasdan panelning O'Z login ekranini ko'rsatamiz
+         (app sifatida ochilganda to'g'ridan-to'g'ri login/parol so'raydi) */
+      $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    }
     $("#loginBtn").addEventListener("click",login);
     $("#rlPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
     $$(".sb-link").forEach(l=>l.addEventListener("click",()=>nav(l.dataset.view)));

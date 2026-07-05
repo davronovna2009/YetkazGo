@@ -808,7 +808,7 @@
   document.addEventListener("DOMContentLoaded",()=>{
     var ses=(typeof STORE!=="undefined")?STORE.session():null;
     if(ses && ses.role==="user"){ enterUser({login:ses.login,name:ses.name,phone:ses.phone}); }
-    else { try{ location.replace("index.html"); }catch(e){} }
+    else { /* Sessiya yo'q — kabinetning O'Z login ekrani (app to'g'ridan-to'g'ri login/parol so'raydi) */ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
     $("#loginBtn").addEventListener("click",login);
     $("#ulPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
     $$(".sb-link").forEach(l=>l.addEventListener("click",()=>nav(l.dataset.view)));
