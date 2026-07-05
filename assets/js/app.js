@@ -1526,6 +1526,46 @@
     if(grid) cards.forEach((d,i)=>{ const card = makeDishCard(d); card.classList.add("apd-"+(i%3)); grid.appendChild(card); });
   }
 
+  /* ============================================================
+     YO'L KO'RSATKICH (guided tour) — CapCut uslubida: qorong'i fon + spotlight
+     (yoritilgan element) + tooltip karta ("bu yerni bosing"). O'zbek tilida.
+     ============================================================ */
+  const TOUR_STEPS = [
+    { sel:()=>"#dishSearch",  title:"🔍 Qidiruv",         text:"Bu yerga taom yoki restoran nomini yozib tez toping." },
+    { sel:()=>"#dishFilters", title:"🍽️ Kategoriyalar",   text:"Milliy, Fastfood, Shirinlik, Ichimlik — kerakli turni shu yerdan tanlang." },
+    { sel:()=>"#dishesGrid",  title:"➕ Savatga qo'shish", text:"Yoqqan taomdagi qizil «+» tugmasini bosing — taom savatga uchib boradi." },
+    { sel:()=> (window.innerWidth<=768 ? "#mbbCart" : "#cartBtn"), title:"🛒 Savat", text:"Savatni shu yerdan oching, so'ng «Buyurtma berish»ni bosib rasmiylashtiring." },
+  ];
+  function startTour(){
+    if(document.getElementById("yzTour")) return;
+    let i=0;
+    const ov=document.createElement("div"); ov.id="yzTour";
+    ov.innerHTML='<div class="yz-tour-hole"></div><div class="yz-tour-tip"></div>';
+    document.body.appendChild(ov);
+    const hole=ov.querySelector(".yz-tour-hole"), tip=ov.querySelector(".yz-tour-tip");
+    function end(){ try{ ov.remove(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin 🎉","success"); }
+    function next(){ i++; if(i>=TOUR_STEPS.length){ end(); return; } show(); }
+    function show(){
+      const step=TOUR_STEPS[i];
+      const sel=typeof step.sel==="function"?step.sel():step.sel;
+      const el=document.querySelector(sel);
+      if(!el){ next(); return; }
+      el.scrollIntoView({behavior:"smooth", block:"center"});
+      setTimeout(()=>{
+        const r=el.getBoundingClientRect();
+        hole.style.cssText="position:fixed;left:"+(r.left-8)+"px;top:"+(r.top-8)+"px;width:"+(r.width+16)+"px;height:"+(r.height+16)+"px;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.62);border:2px solid #fff;transition:.28s ease;z-index:100000;pointer-events:none";
+        const below = (r.bottom+170) < window.innerHeight;
+        tip.innerHTML='<div class="yz-tour-card"><h4>'+step.title+'</h4><p>'+step.text+'</p>'+
+          '<div class="yz-tour-actions"><span class="yz-tour-count">'+(i+1)+' / '+TOUR_STEPS.length+'</span>'+
+          '<span><button class="yz-tour-skip">Yopish</button><button class="yz-tour-next">'+(i<TOUR_STEPS.length-1?"Keyingi →":"Tugatish ✓")+'</button></span></div></div>';
+        tip.style.cssText="position:fixed;z-index:100001;left:50%;transform:translateX(-50%);width:min(360px,92vw);"+(below?("top:"+(r.bottom+14)+"px"):("bottom:"+(window.innerHeight-r.top+14)+"px"));
+        tip.querySelector(".yz-tour-next").addEventListener("click",next);
+        tip.querySelector(".yz-tour-skip").addEventListener("click",end);
+      },380);
+    }
+    show();
+  }
+
   /* ---------- INIT ---------- */
   function init(){
     I18N.apply(); updateLangLabel();
@@ -1572,7 +1612,7 @@
     const onb=$("#onboard"); setTimeout(()=>onb.classList.add("show"),1200);
     $("#onbSkip").addEventListener("click",()=>onb.classList.remove("show"));
     $("#onbStart").addEventListener("click",()=>{ onb.classList.remove("show");
-      document.getElementById("dishes").scrollIntoView({behavior:"smooth"}); toast(I18N.t("step1_d"),"success"); });
+      document.getElementById("dishes").scrollIntoView({behavior:"smooth"}); setTimeout(startTour, 700); });
 
     // 4-qadam: animatsiya va skroll
     setupReveal();

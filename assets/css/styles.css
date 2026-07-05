@@ -1635,3 +1635,33 @@ body{ animation:siteHues 45s ease-in-out infinite; }
 /* ===== Restoran hero rasmi — xira fon + to'liq rasm (yaxshi joylashadi) ===== */
 .rhero-photo-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:blur(22px) brightness(.72) saturate(1.1);transform:scale(1.15)}
 .rhero .rhero-photo{object-fit:contain !important;z-index:0}
+
+/* ===== Xush kelibsiz (onboarding) — to'lqinli gradient tepa ===== */
+.onboard-card{position:relative;overflow:hidden;padding-top:62px}
+.onboard-card::before{content:"";position:absolute;top:0;left:0;right:0;height:66px;
+  background:linear-gradient(135deg,var(--red),var(--red-soft) 55%,var(--gold));
+  border-radius:0 0 50% 50% / 0 0 30px 30px}
+.onboard-card h3{margin-top:2px}
+
+/* ===== "Qanday ishlaydi" qadamlar — to'lqinli + o'tkir ranglar ===== */
+.steps .step{position:relative;overflow:hidden;border-radius:20px;padding-top:38px;border:none;
+  background:linear-gradient(160deg,#FFF1E4,#FFDFC9)}
+.steps .step:nth-child(2){background:linear-gradient(160deg,#E7F7EE,#CDEEDB)}
+.steps .step:nth-child(3){background:linear-gradient(160deg,#E7F0FB,#CFE2F9)}
+.steps .step:nth-child(4){background:linear-gradient(160deg,#FBE6F0,#F4CFE1)}
+.steps .step::before{content:"";position:absolute;top:0;left:0;right:0;height:30px;
+  background:linear-gradient(135deg,var(--red),var(--gold));
+  border-radius:0 0 50% 50% / 0 0 22px 22px}
+.steps .step:hover{transform:translateY(-6px);box-shadow:0 16px 38px rgba(140,10,31,.16)}
+.step-num{position:relative;z-index:1;box-shadow:0 6px 16px rgba(200,16,46,.35)}
+
+/* ===== Yo'l ko'rsatkich (guided tour) — CapCut uslub ===== */
+.yz-tour-card{background:#fff;border-radius:18px;padding:18px 18px 14px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:tourPop .3s ease}
+@keyframes tourPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.yz-tour-card h4{font-size:17px;font-weight:800;margin-bottom:6px;color:var(--ink)}
+.yz-tour-card p{font-size:14px;color:#555;line-height:1.5;margin-bottom:14px}
+.yz-tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.yz-tour-count{font-size:12px;color:var(--grey);font-weight:700}
+.yz-tour-actions button{border:none;border-radius:10px;padding:9px 14px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px}
+.yz-tour-skip{background:#f1eef0;color:#666}
+.yz-tour-next{background:linear-gradient(135deg,var(--red),var(--gold));color:#fff}
