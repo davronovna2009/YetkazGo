@@ -1449,3 +1449,62 @@ body.ropen .hero,body.ropen .stats-band,body.ropen #dishes,body.ropen #adPromo,b
 .rpromo-text{font-size:14px;font-weight:600;color:var(--ink)}
 .rpromo-tag{display:inline-block;margin-top:4px;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
 @media(max-width:640px){ .rinfo-grid{grid-template-columns:1fr} }
+
+/* ===================================================
+   DIZAYN v3 — to'lqinli login, rasm o'z shaklida, rang-barang kartalar
+   =================================================== */
+
+/* ---- 1) To'lqinli (wavy) KIRISH/RO'YXAT modali ---- */
+.auth-head{
+  position:relative;
+  margin:-26px -26px 0;                 /* modal padding'ini bekor qilib to'liq eniga */
+  padding:26px 24px 40px;
+  background:linear-gradient(135deg,var(--red) 0%,var(--red-soft) 45%,var(--gold) 120%);
+  color:#fff;text-align:center;
+  border-radius:18px 18px 0 0;
+  overflow:hidden;
+}
+.auth-head .auth-emoji{
+  font-size:40px;line-height:1;
+  filter:drop-shadow(0 4px 10px rgba(0,0,0,.25));
+  animation:authPop .5s cubic-bezier(.34,1.56,.64,1);
+}
+.auth-head h2{color:#fff;font-size:22px;font-weight:800;margin:8px 0 2px}
+.auth-head p{color:rgba(255,255,255,.92);font-size:13.5px;font-weight:500;margin:0}
+.auth-wave{position:absolute;left:0;right:0;bottom:-1px;width:100%;height:34px;display:block}
+.auth-body{padding-top:20px}
+@keyframes authPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@media(max-width:480px){ .auth-head{margin:-26px -20px 0} }
+
+/* ---- 2) Taom rasmi O'Z SHAKLIDA (kesilmasin, katta bo'lib ketmasin) ---- */
+/* cover -> contain: butun rasm proporsiyasi bilan ko'rinadi, bo'sh joy toza fon */
+.card-img{background:linear-gradient(135deg,#FDF3E7,#FBE9EC)}
+.card-photo{object-fit:contain !important;padding:6px}
+.card:hover .card-photo{transform:scale(1.04)}   /* zoom yumshoqroq */
+/* Emoji faqat rasm bo'lmaganда ko'rinsin — rasm ustidan qoplaydi (allaqachon z-index 2) */
+
+/* ---- 3) RANG-BARANG kartalar — sekin rang almashadi ---- */
+/* Karta TANASI (matn fonи) yumshoq pastel ranglar bo'ylab silliq aylanadi.
+   Turli kartalar turli fazада — bir vaqtда rang-barang ko'rinadi. */
+@keyframes cardHues{
+  0%,100%{ background:#FFF2E8 }   /* shaftoli */
+  20%    { background:#EAF7EF }   /* yalpiz */
+  40%    { background:#E9F1FB }   /* osmon */
+  60%    { background:#FBEAF3 }   /* pushti */
+  80%    { background:#FDF6E3 }   /* qaymoq-sariq */
+}
+.dishes-grid:not(.adpromo-grid) .card-body{
+  animation:cardHues 16s ease-in-out infinite;
+}
+/* Fazani siljitib "rang-barang" qilamiz */
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+2) .card-body{ animation-delay:-3.2s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+3) .card-body{ animation-delay:-6.4s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+4) .card-body{ animation-delay:-9.6s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+5) .card-body{ animation-delay:-12.8s }
+/* Pod'ning botiq yoyi ham tana rangiga qo'shilib jimirlashi uchun engil */
+.dishes-grid:not(.adpromo-grid) .card{ transition:box-shadow .22s ease, transform .22s ease }
+
+@media(prefers-reduced-motion:reduce){
+  .dishes-grid .card-body{animation:none !important}
+  .auth-head .auth-emoji{animation:none !important}
+}

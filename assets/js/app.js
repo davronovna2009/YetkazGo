@@ -598,13 +598,19 @@
   /* ---- UMUMIY KIRISH (login/ro'yxatdan o'tish) ---- */
   function openLogin(){
     openModal(`
-      <h2>Kirish</h2>
-      <p class="modal-sub">Panelingizga kiring</p>
+      <div class="auth-head">
+        <div class="auth-emoji">🔐</div>
+        <h2>Kirish</h2>
+        <p>Panelingizga xush kelibsiz</p>
+        <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
+      </div>
+      <div class="auth-body">
       <div class="field"><label>Login</label><input id="lg-login" placeholder="login"></div>
       <div class="field"><label>Parol</label><input id="lg-pass" type="password" placeholder="••••••"></div>
       <div id="lg-err" style="color:var(--red);font-size:13px;min-height:18px;font-weight:600;margin-bottom:6px"></div>
       <button class="btn btn-primary btn-block" id="lg-btn">Kirish</button>
-      <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz yo'qmi? <a id="lg-reg" style="color:var(--red);font-weight:700;cursor:pointer">Ro'yxatdan o'tish</a></p>`);
+      <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz yo'qmi? <a id="lg-reg" style="color:var(--red);font-weight:700;cursor:pointer">Ro'yxatdan o'tish</a></p>
+      </div>`);
     $("#lg-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
     $("#lg-btn").addEventListener("click",doLogin);
     $("#lg-reg").addEventListener("click",openRegister);
@@ -622,15 +628,21 @@
   }
   function openRegister(){
     openModal(`
-      <h2>Ro'yxatdan o'tish</h2>
-      <p class="modal-sub">Yangi foydalanuvchi akkaunti</p>
+      <div class="auth-head">
+        <div class="auth-emoji">🎉</div>
+        <h2>Ro'yxatdan o'tish</h2>
+        <p>Yangi foydalanuvchi akkaunti</p>
+        <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
+      </div>
+      <div class="auth-body">
       <div class="field"><label>Ism</label><input id="rg-name" placeholder="Ismingiz"></div>
       <div class="field"><label>Telefon</label><input id="rg-phone" placeholder="+998 90 123 45 67"></div>
       <div class="field"><label>Login</label><input id="rg-login" placeholder="login tanlang"></div>
       <div class="field"><label>Parol</label><input id="rg-pass" type="password" placeholder="••••••"></div>
       <div id="rg-err" style="color:var(--red);font-size:13px;min-height:18px;font-weight:600;margin-bottom:6px"></div>
       <button class="btn btn-primary btn-block" id="rg-btn">Ro'yxatdan o'tish</button>
-      <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz bormi? <a id="rg-back" style="color:var(--red);font-weight:700;cursor:pointer">Kirish</a></p>`);
+      <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz bormi? <a id="rg-back" style="color:var(--red);font-weight:700;cursor:pointer">Kirish</a></p>
+      </div>`);
     $("#rg-btn").addEventListener("click",doRegister);
     $("#rg-back").addEventListener("click",openLogin);
     if(window.YZ_PHONE) YZ_PHONE.attach($("#rg-phone"));
