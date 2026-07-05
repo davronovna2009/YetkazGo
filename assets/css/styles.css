@@ -1603,3 +1603,6 @@ body{ animation:siteHues 45s ease-in-out infinite; }
 .rest-photo{object-fit:contain !important;z-index:2;padding:4px}
 .rest-card:hover .rest-photo{transform:scale(1.04)}
 .rest-card:hover .rest-photo-bg{transform:scale(1.24)}
+
+/* ===== Reklama↔taom: taom kartasida "aksiya" belgisi (reklamага bog'langan) ===== */
+.card-promo{position:absolute;bottom:8px;left:8px;z-index:4;background:linear-gradient(135deg,#FF5E1A,#FF8A3D);color:#fff;font-size:10px;font-weight:800;letter-spacing:.3px;padding:3px 9px;border-radius:999px;box-shadow:0 3px 10px rgba(255,94,26,.45)}

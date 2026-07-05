@@ -221,17 +221,31 @@
     }
   }
 
+  /* Reklama (announcement) shu taomга tegishlimi — nomi yoki rasmi bir xil bo'lsa.
+     Shunda taom kartasida ham "aksiya" ko'rinadi (chegirma↔taom bog'lanishi). */
+  function dishAdMatch(d){
+    try{
+      const promos = getAllPromos();
+      return promos.find(p=> p && (
+        (p.rest===d.rest && p.dish && p.dish===d.name) ||
+        (p.img && d.photo && p.img===d.photo)
+      )) || null;
+    }catch(e){ return null; }
+  }
   function makeDishCard(d){
     const c=document.createElement("div");
     c.className="card";
     c.dataset.dishId = d.id;
     if(d.discount>0) c.dataset.discounted = "true";
+    const ad = dishAdMatch(d);
+    const promoBadge = ad ? `<span class="card-promo">🔥 ${esc(ad.tag||"AKSIYA")}</span>` : "";
     c.innerHTML = `
         <div class="card-img tone-${d.kw}" style="cursor:pointer">
           <span class="food-emoji">${d.emoji}</span>
           ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:""}
           <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" onerror="this.remove()">
           ${d.badge?`<span class="card-badge">${d.badge}</span>`:""}
+          ${promoBadge}
         </div>
         <div class="card-body">
           <h3 style="cursor:pointer">${esc(nm(d))}</h3>
