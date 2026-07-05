@@ -562,6 +562,11 @@
           <div class="add-field"><label>Ochilish (soat)</label><input id="edrOpen" type="number" min="0" max="23" value="${openH}"></div>
           <div class="add-field"><label>Yopilish (soat)</label><input id="edrClose" type="number" min="1" max="24" value="${closeH}"></div>
         </div>
+        <div class="add-field"><label>Egasi (F.I.Sh)</label><input id="edrOwner" value="${esc((beR&&beR.owner)||'')}"></div>
+        <div class="add-field"><label>Email</label><input id="edrEmail" value="${esc((beR&&beR.email)||'')}" placeholder="email@example.com"></div>
+        <div class="add-field"><label>Manzil</label><input id="edrAddr" value="${esc((beR&&beR.addr)||r.addr||'')}"></div>
+        <div class="add-field"><label>Yetkazish hududi</label><input id="edrArea" value="${esc((beR&&beR.area)||'')}"></div>
+        <div class="add-field"><label>Tavsif</label><input id="edrDescr" value="${esc((beR&&beR.descr)||'')}"></div>
         <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="edrPass" placeholder="••••••" autocomplete="new-password"></div>
         <button class="dd-action-btn" id="edrSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>
@@ -598,15 +603,17 @@
       const ch=Math.max(1,Math.min(24,parseInt($("#edrClose").value,10)||23));
       const pass=($("#edrPass").value||"").trim();
       const oldName=r.name;
-      r.name=name; r.phone=phone; r.commission=comm;
+      const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+      r.name=name; r.phone=phone; r.commission=comm; r.addr=val("edrAddr")||r.addr;
       recompute(); save(SK.rests,RESTS);
       if(typeof STORE!=="undefined" && STORE.editRestaurant){
-        const body={login:r.login,name:name,phone:phone,commission:comm,openH:oh,closeH:ch};
+        const body={login:r.login,name:name,phone:phone,commission:comm,openH:oh,closeH:ch,
+          owner:val("edrOwner"), email:val("edrEmail"), addr:val("edrAddr"), area:val("edrArea"), descr:val("edrDescr")};
         if(pass) body.pass=pass;
         STORE.editRestaurant(body);
       }
       closeDrawer(); renderAll();
-      toast(`✅ ${name} ma'lumotlari yangilandi${pass?" (parol o'zgartirildi)":""}`);
+      toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
       if(name!==oldName) COURIERS.forEach(c=>{ if(c.rest===oldName) c.rest=name; });
     });
   }
@@ -730,6 +737,12 @@
         <div class="add-field"><label>Telefon</label><input id="edcPhone" value="${c.phone||''}"></div>
         <div class="add-field"><label>Restoranlar (vergul bilan ajrating)</label><input id="edcRest" value="${esc(c.rest)||''}" placeholder="Restoran nomi"></div>
         <div class="add-field"><label>Bir yetkazish haqi (so'm)</label><input id="edcFee" type="number" value="${c.fee||0}"></div>
+        <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
+        <div class="add-field"><label>Davlat raqami</label><input id="edcPlate" value="${esc((beC&&beC.plate)||'')}" placeholder="01A123BC"></div>
+        <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
+        <div class="add-field"><label>Email</label><input id="edcEmail" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
+        <div class="add-field"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
+        <div class="add-field"><label>Pasport / ID</label><input id="edcPassport" value="${esc((beC&&beC.passport)||'')}" placeholder="AB1234567 yoki 14 xonali PINFL"></div>
         <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="edcPass" placeholder="••••••" autocomplete="new-password"></div>
         <button class="dd-action-btn" id="edcSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>
@@ -759,15 +772,20 @@
       const rest=($("#edcRest").value||"").trim();
       const fee=Math.max(0,parseInt(($("#edcFee").value||"").replace(/\D/g,""),10)||0);
       const pass=($("#edcPass").value||"").trim();
+      const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+      const passport=val("edcPassport");
+      if(passport && !vPassport(passport)){ toast("Pasport/ID noto'g'ri — AB1234567 yoki 14 xonali PINFL"); return; }
       c.name=name; c.phone=phone; c.rest=rest; c.fee=fee;
       recompute(); save(SK.couriers,COURIERS);
       if(typeof STORE!=="undefined" && STORE.editCourier){
-        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee};
+        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,
+          transport:val("edcTransport"), plate:val("edcPlate"), address:val("edcAddress"),
+          email:val("edcEmail"), birthdate:val("edcBirth"), passport:passport.toUpperCase()};
         if(pass) body.pass=pass;
         STORE.editCourier(body);
       }
       closeDrawer(); renderAll();
-      toast(`✅ ${name} ma'lumotlari yangilandi${pass?" (parol o'zgartirildi)":""}`);
+      toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
     });
   }
 

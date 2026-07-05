@@ -176,6 +176,10 @@ router.patch('/restaurants', requireRole('admin'), (req, res) => {
   if (commission != null) db.prepare('UPDATE restaurants SET commission = ? WHERE login = ?').run(commission, login);
   if (b.openH != null) db.prepare('UPDATE restaurants SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
   if (b.closeH != null) db.prepare('UPDATE restaurants SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
+  /* Chala qolgan ma'lumotlarni ham to'ldirish/tahrirlash (admin) */
+  for (const col of ['owner', 'email', 'addr', 'area', 'descr', 'hours']) {
+    if (b[col] != null) db.prepare(`UPDATE restaurants SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 500), login);
+  }
   if (b.pass) db.prepare("UPDATE accounts SET pass_hash = ? WHERE login = ? AND role = 'restoran'").run(hashPassword(String(b.pass)), login);
 
   res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login)));
@@ -201,6 +205,10 @@ router.patch('/couriers', requireRole('admin'), (req, res) => {
   }
   if (b.rest != null) db.prepare('UPDATE couriers SET rest = ? WHERE login = ?').run(String(b.rest), login);
   if (b.fee != null) db.prepare('UPDATE couriers SET fee = ? WHERE login = ?').run(Math.max(0, Number(b.fee) || 0), login);
+  /* Chala qolgan profil maydonlarini ham to'ldirish/tahrirlash (admin) */
+  for (const col of ['transport', 'plate', 'address', 'email', 'birthdate', 'passport', 'emoji']) {
+    if (b[col] != null) db.prepare(`UPDATE couriers SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 120), login);
+  }
   if (b.pass) db.prepare("UPDATE accounts SET pass_hash = ? WHERE login = ? AND role = 'kuryer'").run(hashPassword(String(b.pass)), login);
 
   res.json(courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)));
@@ -217,7 +225,18 @@ router.patch('/couriers/me', requireRole('kuryer'), (req, res) => {
   if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
   if (b.openH  != null) db.prepare('UPDATE couriers SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
   if (b.closeH != null) db.prepare('UPDATE couriers SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
+  /* Kuryer o'z profil ma'lumotlarini ham to'ldiradi/tahrirlaydi (pasport — admin ixtiyorida) */
+  for (const col of ['transport', 'plate', 'address', 'email', 'birthdate']) {
+    if (b[col] != null) db.prepare(`UPDATE couriers SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 120), login);
+  }
   res.json(courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)));
+});
+
+/* GET /api/couriers/me — kuryer O'Z to'liq ma'lumotini oladi (profilni to'ldirish uchun) */
+router.get('/couriers/me', requireRole('kuryer'), (req, res) => {
+  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(req.user.login);
+  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
+  res.json(courRow(c));
 });
 
 /* POST /api/couriers/leave — kuryer ishdan javob oladi.

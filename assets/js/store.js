@@ -231,6 +231,7 @@ const STORE = (function () {
     editCourier(data) { return send("/couriers", { method: "PATCH", body: data }); },
     /* ---- KURYER O'ZI: ish vaqti, ishdan javob (leave), ishga qaytish ---- */
     updateCourierInfo(data) { return api("/couriers/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    fetchCourierMe() { return api("/couriers/me", { auth: true }).catch(() => null); },
     courierLeave(reason) { return api("/couriers/leave", { method: "POST", body: { reason }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     courierReturn() { return api("/couriers/return", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */

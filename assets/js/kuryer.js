@@ -209,6 +209,21 @@
     if(oh) oh.value=kState.openH; if(ch) ch.value=kState.closeH;
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
     renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
+    /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
+    try{
+      var me=(typeof STORE!=="undefined"&&STORE.fetchCourierMe)? await STORE.fetchCourierMe():null;
+      if(me){ var set=function(id,v){ var el=$(id); if(el && !el.value) el.value=v||""; };
+        set("#kProfTransport",me.transport); set("#kProfPlate",me.plate); set("#kProfAddress",me.address);
+        set("#kProfEmail",me.email); set("#kProfBirth",me.birthdate); }
+    }catch(e){}
+  }
+  async function saveCourierProfile(){
+    var v=function(id){ var el=$(id); return el?el.value.trim():""; };
+    var em=v("#kProfEmail"); if(em && window.YZ_EMAIL && !YZ_EMAIL.valid(em)){ toast("Email noto'g'ri formatда"); return; }
+    var data={ transport:v("#kProfTransport"), plate:v("#kProfPlate"), address:v("#kProfAddress"), email:em, birthdate:v("#kProfBirth") };
+    var r=(typeof STORE!=="undefined"&&STORE.updateCourierInfo)? await STORE.updateCourierInfo(data):null;
+    if(r && !r.error) toast("Profil tahrirlandi — adminда ham ko'rinadi ✓");
+    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
 
   function renderStatusPanel(){
@@ -320,6 +335,7 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#klPass").value=""; CUR=null; try{location.href="index.html";}catch(e){} });
     /* Sozlamalar tugmalari */
     var sh=$("#kSaveHours"); if(sh) sh.addEventListener("click",saveHours);
+    var spr=$("#kSaveProfile"); if(spr) spr.addEventListener("click",saveCourierProfile);
     var sl=$("#kSaveLogin"); if(sl) sl.addEventListener("click",saveCourierLogin);
     var sp=$("#kSavePass"); if(sp) sp.addEventListener("click",saveCourierPass);
     // menuToggle — HTML dagi script boshqaradi (ikki listener bo'lmasin)
