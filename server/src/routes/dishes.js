@@ -12,6 +12,7 @@ function addedRow(r) {
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr || '', emoji: r.emoji, price: r.price,
     rest: r.rest, cat: r.cat, kw: r.kw, photo: r.photo, rating: r.rating, sold: r.sold, badge: r.badge,
+    weight: r.weight || '', ingredients: r.ingredients || '', descr: r.descr || '',
   };
 }
 
@@ -33,13 +34,14 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   const b = req.body || {};
   const id = Number(b.id) || Date.now();
   db.prepare(
-    `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+    `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     id, String(b.name || ''), String(b.nameCyr || ''), String(b.emoji || '🍽️'),
     Number(b.price) || 0, String(b.rest || ''), String(b.cat || 'Fastfood'),
     String(b.kw || ''), String(b.photo || ''), Number(b.rating) || 4.5,
-    Number(b.sold) || 0, String(b.badge || '')
+    Number(b.sold) || 0, String(b.badge || ''),
+    String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300)
   );
   res.status(201).json(addedRow(db.prepare('SELECT * FROM added_dishes WHERE id = ?').get(id)));
 });

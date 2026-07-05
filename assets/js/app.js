@@ -168,7 +168,10 @@
           <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)">⭐ <b style="color:var(--ink)">${d.rating}</b></span>
             <span style="font-size:13px;color:var(--grey)">🛒 ${d.sold}+ buyurtma</span>
+            ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(d.weight)}</span>`:""}
           </div>
+          ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(d.descr)}</p>`:""}
+          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 Tarkibi:</b> ${esc(d.ingredients)}</div>`:""}
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:18px">
             ${oldPrice}
             <span style="font-size:22px;font-weight:800;color:var(--red)">${price}</span>

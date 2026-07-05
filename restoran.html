@@ -101,8 +101,11 @@
             <div class="panel-body">
               <div class="set-grid set-grid-dishes">
                 <div class="set-field"><label>Taom nomi</label><input id="ndName" placeholder="Masalan: Tovuqli burger" /></div>
-                <div class="set-field"><label>Narx (so'm)</label><input id="ndPrice" placeholder="30000" /></div>
+                <div class="set-field"><label>Narx (so'm)</label><input id="ndPrice" inputmode="numeric" placeholder="30000" /></div>
                 <div class="set-field"><label>Belgi</label><input id="ndEmoji" value="🍽️" /></div>
+                <div class="set-field"><label>Vazni / miqdori</label><input id="ndWeight" placeholder="Masalan: 500 g yoki 3 dona" /></div>
+                <div class="set-field"><label>Tarkibi (ichidagi mahsulotlar)</label><input id="ndIngredients" placeholder="Masalan: go'sht, piyoz, ziravorlar" /></div>
+                <div class="set-field"><label>Tavsif / ta'mi (ixtiyoriy)</label><input id="ndDescr" placeholder="Masalan: achchiq, mazali, yangi tayyorlangan" /></div>
                 <div class="set-field"><label>Rasm (ixtiyoriy)</label>
                   <label class="file-drop"><span class="file-drop-ico">📷</span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden onchange="var t=document.getElementById('ndPhotoTxt');if(t)t.textContent=this.files&&this.files[0]?this.files[0].name:'Rasm tanlash yoki suratga olish';"></label>
                 </div>

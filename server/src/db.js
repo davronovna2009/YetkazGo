@@ -174,5 +174,9 @@ export function initSchema() {
     "ALTER TABLE couriers ADD COLUMN leave_reason TEXT DEFAULT ''",
     // Reklama/e'longa biriktirilgan rasm (restoran o'zi yuklaydi)
     "ALTER TABLE announcements ADD COLUMN img TEXT DEFAULT ''",
+    // Taom qo'shimcha ma'lumotlari (restoran kiritadi, saytda ko'rinadi)
+    "ALTER TABLE added_dishes ADD COLUMN weight TEXT DEFAULT ''",        // vazn/miqdor (masalan "500 g" / "3 dona")
+    "ALTER TABLE added_dishes ADD COLUMN ingredients TEXT DEFAULT ''",   // tarkibi (ichidagi mahsulotlar)
+    "ALTER TABLE added_dishes ADD COLUMN descr TEXT DEFAULT ''",         // tavsif / ta'mi
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

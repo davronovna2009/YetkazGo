@@ -255,6 +255,9 @@
 
   async function addDish(){
     const name=$("#ndName").value.trim(), price=parseInt(($("#ndPrice").value||"").replace(/\D/g,""),10), emoji=($("#ndEmoji").value.trim()||"🍽️");
+    const weight=(($("#ndWeight")||{}).value||"").trim();
+    const ingredients=(($("#ndIngredients")||{}).value||"").trim();
+    const descr=(($("#ndDescr")||{}).value||"").trim();
     if(name.length<2){ toast("Taom nomini kiriting"); return; }
     if(!price || price<1000){ toast("To'g'ri narx kiriting"); return; }
     const fileInput=$("#ndPhoto");
@@ -267,9 +270,11 @@
         else photo=dataUrl;
       }
     }
-    try{ if(typeof STORE!=="undefined") STORE.addDish({id:Date.now(),name:name,emoji:emoji,price:price,rest:CUR.name,cat:"Fastfood",kw:"",photo:photo,sold:0}); }catch(e){}
+    try{ if(typeof STORE!=="undefined") STORE.addDish({id:Date.now(),name:name,emoji:emoji,price:price,rest:CUR.name,cat:"Fastfood",kw:"",photo:photo,sold:0,weight:weight,ingredients:ingredients,descr:descr}); }catch(e){}
     loadDishes(); renderAll();
-    $("#ndName").value=""; $("#ndPrice").value=""; $("#ndEmoji").value="🍽️"; if(fileInput) fileInput.value="";
+    $("#ndName").value=""; $("#ndPrice").value=""; $("#ndEmoji").value="🍽️";
+    ["#ndWeight","#ndIngredients","#ndDescr"].forEach(function(s){ var el=$(s); if(el) el.value=""; });
+    if(fileInput) fileInput.value="";
     toast(photo?"Taom rasm bilan qo'shildi ✓":"Taom qo'shildi ✓");
   }
   function removeDish(i){
