@@ -15,7 +15,4 @@ services:
       - key: NODE_VERSION
         value: "22"
     # SQLite fayli saqlanib qolishi uchun doimiy disk (ixtiyoriy, lekin tavsiya):
-    disk:
-      name: yetkaz-data
-      mountPath: /opt/render/project/src/server/data
-      sizeGB: 1
+ 
