@@ -98,9 +98,10 @@
         if(vr) vr.classList.add("show");
       }
     }
-    const t={taomlar:"Taomlar",profil:"Mening kabinetim",rests:"Restoranlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish"};
+    const t={taomlar:"Taomlar",profil:"Mening kabinetim",rests:"Restoranlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish",settings:"Sozlamalar"};
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
     if(view==="review") renderReviewForm();
+    if(view==="settings") renderSettings();
     if(view==="rests")  renderKabRests();
     if(view==="taomlar"){ if(activeRest){ filterByRest(activeRest); } else { renderFilters(); renderMenu(); } }
   }
@@ -134,6 +135,17 @@
     });
   }
 
+  function renderSettings(){
+    var ses=(typeof STORE!=="undefined")?STORE.session():null;
+    var set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v||""; };
+    set("stName", USER.name||(ses&&ses.name));
+    set("stPhone", USER.phone||(ses&&ses.phone));
+    set("stEmail", (ses&&ses.email)||"");
+    set("stLogin", USER.login||(ses&&ses.login));
+    try{ set("stAddr", localStorage.getItem("yz_user_addr")||""); }catch(e){}
+    var snd=document.getElementById("stSound");
+    try{ if(snd) snd.checked = localStorage.getItem("yz_sound")!=="0"; }catch(e){}
+  }
   function renderProfil(){
     const spent=USER.orders.reduce((s,o)=>s+o.amount,0);
     $("#statCards").innerHTML=`
@@ -803,6 +815,39 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#ulPass").value=""; try{location.href="index.html";}catch(e){} });
     // menuToggle — HTML script boshqaradi
     $("#revSubmit").addEventListener("click",submitReview);
+    /* ===== Sozlamalar ===== */
+    (function(){
+      var v=function(id){ var el=document.getElementById(id); return el?el.value.trim():""; };
+      var sp=document.getElementById("stSaveProfile");
+      if(sp) sp.addEventListener("click", async function(){
+        var msg=document.getElementById("stMsg");
+        var name=v("stName"), phone=v("stPhone"), email=v("stEmail"), addr=v("stAddr");
+        if(name.length<2){ if(msg){msg.style.color="#C8102E";msg.textContent="Ismni to'g'ri kiriting";} return; }
+        if(email && window.YZ_EMAIL && !YZ_EMAIL.valid(email)){ if(msg){msg.style.color="#C8102E";msg.textContent="Email noto'g'ri formatda";} return; }
+        try{ localStorage.setItem("yz_user_addr", addr); }catch(e){}
+        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({name:name,phone:phone,email:email}) : {error:"Serverga ulanmadi"};
+        if(r && !r.error){ USER.name=name; USER.phone=phone; var sn=document.getElementById("sbName"); if(sn) sn.textContent=name;
+          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Profil saqlandi ✓","success"); }
+        else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
+      });
+      var sl=document.getElementById("stSaveLogin");
+      if(sl) sl.addEventListener("click", async function(){
+        var msg=document.getElementById("stMsg2");
+        var login=v("stLogin"), pass=v("stPass"); var body={};
+        if(login && login.length<3){ if(msg){msg.style.color="#C8102E";msg.textContent="Login kamida 3 belgi";} return; }
+        if(login) body.login=login; if(pass){ if(pass.length<4){ if(msg){msg.style.color="#C8102E";msg.textContent="Parol kamida 4 belgi";} return; } body.pass=pass; }
+        if(!Object.keys(body).length){ if(msg){msg.style.color="#777";msg.textContent="O'zgarish yo'q";} return; }
+        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile(body) : {error:"Serverga ulanmadi"};
+        if(r && !r.error){ if(login) USER.login=login; var p=document.getElementById("stPass"); if(p) p.value="";
+          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Login/parol saqlandi ✓","success"); }
+        else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
+      });
+      var stL=document.getElementById("stLatin"), stC=document.getElementById("stCyr");
+      if(stL) stL.addEventListener("click",function(){ var b=document.getElementById("knsLatin"); if(b) b.click(); toast("Til: Lotin","success"); });
+      if(stC) stC.addEventListener("click",function(){ var b=document.getElementById("knsCyrillic"); if(b) b.click(); toast("Til: Кирилл","success"); });
+      var snd=document.getElementById("stSound");
+      if(snd) snd.addEventListener("change",function(){ try{ localStorage.setItem("yz_sound", snd.checked?"1":"0"); }catch(e){} toast(snd.checked?"Ovoz yoqildi":"Ovoz o'chirildi","success"); });
+    })();
     const kc=$("#koClose"), kb=$("#koBackdrop");
     if(kc) kc.addEventListener("click",closeCheckout);
     if(kb) kb.addEventListener("click",closeCheckout);

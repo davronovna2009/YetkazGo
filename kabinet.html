@@ -37,6 +37,7 @@
         <a class="sb-link" data-view="profil"><span class="ic">🧾</span> Mening kabinetim</a>
         <a class="sb-link" data-view="review"><span class="ic">⭐</span> Izoh qoldirish</a>
         <a class="sb-link" data-view="help"><span class="ic">❓</span> Qanday buyurtma berish</a>
+        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
       </nav>
       <div class="sb-foot"><div>yetkaz.uz</div><button id="logoutBtn">← Chiqish</button></div>
     </aside>
@@ -133,6 +134,47 @@
           </div>
         </section>
 
+        <!-- SOZLAMALAR -->
+        <section class="view" id="view-settings">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>👤 Profil ma'lumotlari</h3></div>
+            <div class="panel-body" style="max-width:560px">
+              <div class="set-field"><label>Ism</label><input id="stName" placeholder="Ism familiya" /></div>
+              <div class="set-field"><label>Telefon</label><input id="stPhone" placeholder="+998 XX XXX XX XX" /></div>
+              <div class="set-field"><label>Email (ixtiyoriy)</label><input id="stEmail" type="email" placeholder="email@example.com" /></div>
+              <div class="set-field"><label>Standart yetkazish manzili</label><input id="stAddr" placeholder="Buyurtma berishda avtomatik to'ladi" /></div>
+              <button class="set-save" id="stSaveProfile">💾 Saqlash</button>
+              <div id="stMsg" style="margin-top:10px;font-size:13px"></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>🔒 Login va parol</h3></div>
+            <div class="panel-body" style="max-width:560px">
+              <div class="set-field"><label>Login</label><input id="stLogin" placeholder="Login" /></div>
+              <div class="set-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="stPass" type="password" placeholder="••••••" autocomplete="new-password" /></div>
+              <button class="set-save" id="stSaveLogin">💾 Saqlash</button>
+              <div id="stMsg2" style="margin-top:10px;font-size:13px"></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>🌐 Til</h3></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:8px">
+                <button id="stLatin" class="set-save" style="flex:0 0 auto;background:#f1eef0;color:#555">Lotin</button>
+                <button id="stCyr" class="set-save" style="flex:0 0 auto;background:#f1eef0;color:#555">Кирилл</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>🔔 Bildirishnomalar</h3></div>
+            <div class="panel-body">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
+                <input type="checkbox" id="stSound" style="width:18px;height:18px" /> Buyurtma holati o'zgarsa ovozli bildirishnoma
+              </label>
+            </div>
+          </div>
+        </section>
+
       </div>
     </div>
   </div>
@@ -198,6 +240,7 @@
     <a class="kns-link" data-view="rests">🏪 Restoranlar</a>
     <a class="kns-link" data-view="review">⭐ Izoh qoldirish</a>
     <a class="kns-link" data-view="help">❓ Yordam</a>
+    <a class="kns-link" data-view="settings">⚙️ Sozlamalar</a>
     <div class="kns-divider"></div>
     <div class="kns-lang">
       <span class="kns-lang-label">Til / Язык</span>
