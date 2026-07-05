@@ -16,6 +16,7 @@ import dishesRoutes from './routes/dishes.js';
 import announcementsRoutes from './routes/announcements.js';
 import miscRoutes from './routes/misc.js';
 import uploadRoutes from './routes/upload.js';
+import resetRoutes from './routes/reset.js';
 
 /* Birinchi ishga tushganda bazani seed qilamiz */
 seed();
@@ -75,6 +76,7 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api', dishesRoutes);   // /api/overrides, /api/dishes, /api/discounts
 app.use('/api', miscRoutes);     // /api/bootstrap, /api/restaurants, /api/couriers
+app.use('/api', resetRoutes);    // /api/admin/reset — saytni tozalash rejasi
 
 /* Noma'lum API yo'li */
 app.use('/api', (_req, res) => res.status(404).json({ error: 'API yo`li topilmadi' }));
