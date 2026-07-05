@@ -960,8 +960,8 @@
   function isWorkTime(){ const h=new Date().getHours(); return h>=WORK_START && h<WORK_END; }
   function updateOnlineStatus(){
     const badge=document.querySelector(".tb-badge"); if(!badge) return;
-    if(isWorkTime()){ badge.textContent="● Online"; badge.style.color="#16a34a"; }
-    else { badge.textContent="● Offline"; badge.style.color="#9ca3af"; }
+    if(isWorkTime()){ badge.textContent="🟢 Online"; badge.style.background="#16a34a"; badge.style.color="#fff"; }
+    else { badge.textContent="🔴 Offline"; badge.style.background="#9ca3af"; badge.style.color="#fff"; }
   }
   function infoModal(title, html){
     let el=document.getElementById("infoModal"); if(el) el.remove();

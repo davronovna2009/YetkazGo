@@ -396,10 +396,17 @@
     const pct=restPct(r), keep=100-pct;
     /* REAL: pul faqat mijoz tasdiqlagan (done) buyurtmalardan yoziladi */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
-    const gross=live.filter(o=>o.status==="done").reduce((s,o)=>s+(o.amount||0),0);
+    const doneOrders=live.filter(o=>o.status==="done");
+    const gross=doneOrders.reduce((s,o)=>s+(o.amount||0),0);
     const commission=Math.round(gross*pct/100);
     const net=gross-commission;
     const weekly=Math.round(net/4.3);
+    /* Har bir taom bo'yicha REAL: buyurtma nomi (item) taom nomiga mos kelsa hisoblanadi */
+    const dishStats=function(dish){
+      var m=doneOrders.filter(function(o){ return o.item && (o.item===dish.name || o.item.indexOf(dish.name)===0); });
+      var g=m.reduce(function(s,o){return s+(o.amount||0);},0);
+      return { sold:m.length, net:Math.round(g*keep/100) };
+    };
     $("#incomeBody").innerHTML=`
       <div class="row2">
         <div class="panel"><div class="panel-head"><h3>Moliya xulosasi (oy)</h3></div><div class="panel-body">
@@ -418,9 +425,9 @@
       <div class="panel"><div class="panel-head"><h3>Har bir taomdan daromad (oy)</h3></div>
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>1 donadan sizga (${keep}%)</th><th>Sotildi</th><th>Jami sof</th></tr></thead>
-          <tbody>${r.dishes.map(d=>`<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${d.name}</div></td>
+          <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${d.name}</div></td>
             <td>${money(d.price)}</td><td style="color:var(--green);font-weight:700">${money(d.eff*keep/100)}</td>
-            <td>${money(d.sold)}</td><td class="money">${money(d.net)}</td></tr>`).join("")}</tbody></table>
+            <td>${money(st.sold)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
         </div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: kuryerlar va sayt ichki hisob-kitoblari sizga ko'rinmaydi. Faqat taomingizdan keladigan, shartnoma asosidagi sof daromad ko'rsatiladi.</p>`;
   }
@@ -671,7 +678,7 @@
   /* ===== Online holati: tepadagi "● Online" bosilsa modal chiqadi ===== */
   var WORK_START=8, WORK_END=22;
   function yzIsWork(){ var h=new Date().getHours(); return h>=WORK_START && h<WORK_END; }
-  function yzUpdateOnline(){ var b=document.querySelector(".tb-badge"); if(!b) return; if(yzIsWork()){ b.textContent="● Online"; b.style.color="#16a34a"; } else { b.textContent="● Offline"; b.style.color="#9ca3af"; } }
+  function yzUpdateOnline(){ var b=document.querySelector(".tb-badge"); if(!b) return; if(yzIsWork()){ b.textContent="🟢 Online"; b.style.background="#16a34a"; b.style.color="#fff"; } else { b.textContent="🔴 Offline"; b.style.background="#9ca3af"; b.style.color="#fff"; } }
   function yzOnlineModal(){
     var work=yzIsWork(), pad=function(n){return String(n).padStart(2,"0");};
     var el=document.getElementById("yzOnlineModal"); if(el) el.remove();

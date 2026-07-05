@@ -382,7 +382,7 @@
     const view=$("#restaurantView");
     view.innerHTML=`
       <div class="rhero tone-${r.kw}">
-        ${(function(){const p=restPhoto(r.name);return p?`<img class="rhero-photo" src="${p}" alt="${esc(nm(r))}" onerror="this.remove()">`:"";})()}
+        ${(function(){const p=restPhoto(r.name);return p?`<img class="rhero-photo-bg" src="${p}" alt="" aria-hidden="true" onerror="this.remove()"><img class="rhero-photo" src="${p}" alt="${esc(nm(r))}" onerror="this.remove()">`:"";})()}
         <div class="rhero-overlay"></div>
         <div class="container rhero-inner">
           <button class="rback" id="rBack">← ${I18N.t("back")}</button>

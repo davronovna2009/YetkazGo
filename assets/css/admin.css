@@ -74,7 +74,7 @@ a{color:inherit;text-decoration:none}
 .topbar-left{display:flex;align-items:center;gap:10px;min-width:0}
 .topbar h2{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.tb-badge{background:var(--green);color:#fff;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
+.tb-badge{background:var(--green);color:#fff;border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:800;letter-spacing:.3px;white-space:nowrap;cursor:pointer}
 .tb-user{font-size:13px;color:var(--grey);font-weight:600}
 .menu-toggle{display:none;background:none;border:none;font-size:20px;color:var(--red);width:36px;height:36px;border-radius:8px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;touch-action:manipulation}
 

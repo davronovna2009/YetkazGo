@@ -1606,3 +1606,32 @@ body{ animation:siteHues 45s ease-in-out infinite; }
 
 /* ===== Reklama↔taom: taom kartasida "aksiya" belgisi (reklamага bog'langan) ===== */
 .card-promo{position:absolute;bottom:8px;left:8px;z-index:4;background:linear-gradient(135deg,#FF5E1A,#FF8A3D);color:#fff;font-size:10px;font-weight:800;letter-spacing:.3px;padding:3px 9px;border-radius:999px;box-shadow:0 3px 10px rgba(255,94,26,.45)}
+
+/* ===================================================
+   DIZAYN v5 — kartalar CHIZIQSIZ (uzluksiz rang) + o'tkirroq ranglar
+   =================================================== */
+@keyframes cardHuesV5{
+  0%,100%{ background:#FFE7D0 }   /* shaftoli (o'tkirroq) */
+  25%    { background:#DBF3E2 }   /* yalpiz */
+  50%    { background:#DCE9FB }   /* osmon */
+  75%    { background:#FBDDEC }   /* pushti */
+}
+/* Butun karta bitta rang bo'ylab silliq aylanadi — tana va pod bir xil, chiziq yo'q */
+.dishes-grid:not(.adpromo-grid) .card{ background:#FFE7D0; animation:cardHuesV5 16s ease-in-out infinite }
+.dishes-grid:not(.adpromo-grid) .card-body{ animation:none !important; background:transparent !important }
+/* Pod kartaning rangini davom ettiradi (rang bilan ajratmaydi); yoy faqat yumshoq soya */
+.card-pod{ background:transparent !important }
+.card-pod::before{ background:transparent !important; box-shadow:0 -7px 12px -7px rgba(140,10,31,.14) }
+.card-pod .card-weight{ background:rgba(255,255,255,.5) }
+/* Chegirmali karta — rang + porlash birga ishlaydi */
+.dishes-grid:not(.adpromo-grid) .card[data-discounted="true"]{ animation:cardHuesV5 16s ease-in-out infinite, discountGlow 2.5s ease-in-out infinite }
+/* Faza siljishi — bir vaqtda rang-barang */
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+2){ animation-delay:-3.2s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+3){ animation-delay:-6.4s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+4){ animation-delay:-9.6s }
+.dishes-grid:not(.adpromo-grid) .card:nth-child(5n+5){ animation-delay:-12.8s }
+@media(prefers-reduced-motion:reduce){ .dishes-grid .card{ animation:none !important } }
+
+/* ===== Restoran hero rasmi — xira fon + to'liq rasm (yaxshi joylashadi) ===== */
+.rhero-photo-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;filter:blur(22px) brightness(.72) saturate(1.1);transform:scale(1.15)}
+.rhero .rhero-photo{object-fit:contain !important;z-index:0}

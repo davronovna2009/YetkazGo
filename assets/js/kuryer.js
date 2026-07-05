@@ -188,9 +188,9 @@
   function courierWorkingNow(){ const h=new Date().getHours(); const o=kState.openH!=null?kState.openH:8, c=kState.closeH!=null?kState.closeH:22; return h>=o && h<c; }
   function updateStatusBadge(){
     const b=document.querySelector(".tb-badge"); if(!b) return;
-    if(kState.onLeave){ b.textContent="● Ishdan javobda"; b.style.color="#d97706"; return; }
-    if(!courierWorkingNow()){ b.textContent="● Ishda emassiz"; b.style.color="#9ca3af"; return; }
-    b.textContent="● Online"; b.style.color="#16a34a";
+    if(kState.onLeave){ b.textContent="🚪 Ishdan javobda"; b.style.background="#d97706"; b.style.color="#fff"; return; }
+    if(!courierWorkingNow()){ b.textContent="🔴 Ishda emassiz"; b.style.background="#9ca3af"; b.style.color="#fff"; return; }
+    b.textContent="🟢 Online"; b.style.background="#16a34a"; b.style.color="#fff";
   }
 
   async function fillCourierSettings(){
