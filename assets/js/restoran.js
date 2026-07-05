@@ -110,22 +110,40 @@
     var inp=document.getElementById("restPhotoInput");
     if(inp) inp.addEventListener("change",function(e){ if(e.target.files&&e.target.files[0]) uploadRestPhoto(e.target.files[0]); });
   }
+  /* Sof daromad davri: 'kunlik' | 'haftalik' | 'oylik' (restoran o'zi almashtiradi) */
+  let incomePeriod="oylik";
+  function orderTimeMs(o){
+    var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
+    return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)) : 0;
+  }
+  function inIncomePeriod(o, period){
+    var t=orderTimeMs(o); if(!t) return period==="oylik";  // sanasi yo'q bo'lsa oylikka kirsin
+    var days=(Date.now()-t)/86400000;
+    if(period==="kunlik") return days<1;
+    if(period==="haftalik") return days<7;
+    return days<31;  // oylik
+  }
   function renderDash(){
     const r=CUR;
     /* REAL hisob-kitob: pul FAQAT mijoz tasdiqlagan (done) buyurtmalardan yoziladi.
-       Bekor qilinganlar daromadga kirmaydi. */
+       Bekor qilinganlar daromadga kirmaydi. Davr (kunlik/haftalik/oylik) tanlanadi. */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
     const paid=live.filter(o=>o.status==="done");            // mijoz qabul qilgan = to'lov yozilgan
     const pct=restPct(r);
-    const liveGross=paid.reduce((s,o)=>s+(o.amount||0),0);
-    const net=Math.round(liveGross*(100-pct)/100);
+    const periodPaid=paid.filter(o=>inIncomePeriod(o, incomePeriod));
+    const periodNet=Math.round(periodPaid.reduce((s,o)=>s+(o.amount||0),0)*(100-pct)/100);
     const orders=live.filter(o=>o.status!=="cancelled").length;
-    const avg=paid.length?Math.round(liveGross/paid.length):0;
+    const allGross=paid.reduce((s,o)=>s+(o.amount||0),0);
+    const avg=paid.length?Math.round(allGross/paid.length):0;
+    const pLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik"}[incomePeriod];
+    const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><b>${mln(net)}</b><span>Sof daromad (komissiyadan keyin)</span></div>
+      <div class="scard c1"><div class="si">💰</div><b>${mln(periodNet)}</b><span>Sof daromad (${pLabel}, komissiyadan keyin)</span>
+        <div style="margin-top:8px">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}</div></div>
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
       <div class="scard c3"><div class="si">🧮</div><b>${money(avg)}</b><span>O'rtacha chek (so'm)</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
+    $$("#statCards .inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; renderDash(); }); });
     /* REAL oylik daromad — buyurtmalarni created_at oyiga guruhlab (so'nggi 6 oy) */
     const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
     const now=new Date();
@@ -153,20 +171,33 @@
     $("#demandList").innerHTML=top.length?top.map(d=>`
       <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${d.emoji} ${esc(d.name)}</b><span>${money(d.sold)} marta</span></div>
       <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(d.sold/maxd*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Talab ma\'lumoti buyurtmalar bilan to\'ladi</p>';
-    /* Eng ko'p sotilgan taom ustiga bosilganda — to'liq ma'lumot */
+    /* Eng ko'p sotilgan taom ustiga bosilganda — to'liq ma'lumot (asl rasm bilan) */
     $$("#topDishes .topitem").forEach(function(it){ it.addEventListener("click",function(){
       const nm=it.dataset.topname; const d=agg[nm]; if(!d) return;
-      const dish=(CUR.dishes||[]).find(x=>x.name===nm)||{};
-      showTopDishModal(d, dish);
+      showTopDishModal(d, findRestDish(nm));
     }); });
     renderRestPhotoCard();
+  }
+  /* Buyurtma nomi (masalan "Shashlik +2 ta") bo'yicha restoran taomini topish */
+  function findRestDish(nm){
+    var list=CUR.dishes||[];
+    return list.find(function(x){return x.name===nm;})
+      || list.find(function(x){return x.name&&nm&&nm.indexOf(x.name)===0;})
+      || list.find(function(x){return x.name&&nm&&nm.toLowerCase().indexOf(x.name.toLowerCase())>=0;})
+      || {};
   }
   /* Eng ko'p sotilgan taom modali */
   function showTopDishModal(d, dish){
     var el=document.getElementById("topDishModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="topDishModal";
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
-    var img=(dish&&dish.photo)?('<img src="'+dish.photo+'" style="width:100%;height:170px;object-fit:cover;border-radius:14px;margin-bottom:12px" alt="">'):('<div style="font-size:60px;text-align:center;margin-bottom:8px">'+(d.emoji||"🍽️")+'</div>');
+    var hasImg=dish&&dish.photo&&/^\/uploads\/|^data:|^https?:/.test(String(dish.photo));
+    var img=hasImg
+      ? '<div style="position:relative;height:190px;border-radius:14px;overflow:hidden;margin-bottom:12px;background:#f3eef0">'+
+          '<img src="'+dish.photo+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(16px) brightness(.85);transform:scale(1.2)">'+
+          '<img src="'+dish.photo+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">'+
+        '</div>'
+      : '<div style="font-size:60px;text-align:center;margin-bottom:8px">'+(d.emoji||"🍽️")+'</div>';
     var row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">'+
       '<button id="tdmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
