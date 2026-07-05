@@ -112,14 +112,15 @@
   }
   function renderDash(){
     const r=CUR;
-    /* Real buyurtmalar (backend) demo ko'rsatkichlarga qo'shiladi */
+    /* REAL hisob-kitob: pul FAQAT mijoz tasdiqlagan (done) buyurtmalardan yoziladi.
+       Bekor qilinganlar daromadga kirmaydi. */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
-    const liveGross=live.reduce((s,o)=>s+(o.amount||0),0);
+    const paid=live.filter(o=>o.status==="done");            // mijoz qabul qilgan = to'lov yozilgan
     const pct=restPct(r);
-    const liveNet=Math.round(liveGross*(100-pct)/100);
-    const orders=r.orders+live.length;
-    const net=r.net+liveNet;
-    const avg=Math.round((r.gross+liveGross)/(orders||1));
+    const liveGross=paid.reduce((s,o)=>s+(o.amount||0),0);
+    const net=Math.round(liveGross*(100-pct)/100);
+    const orders=live.filter(o=>o.status!=="cancelled").length;
+    const avg=paid.length?Math.round(liveGross/paid.length):0;
     $("#statCards").innerHTML=`
       <div class="scard c1"><div class="si">💰</div><b>${mln(net)}</b><span>Sof daromad (komissiyadan keyin)</span></div>
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
@@ -130,7 +131,7 @@
     const now=new Date();
     const slots=[];
     for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],sum:0}); }
-    (live||[]).forEach(function(o){
+    paid.forEach(function(o){
       const raw=String(o.created_at||""); const mm=raw.match(/^(\d{4})-(\d{2})/);
       const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth();
       const oNet=Math.round((o.amount||0)*(100-pct)/100);
@@ -357,10 +358,9 @@
   function renderIncome(){
     const r=CUR;
     const pct=restPct(r), keep=100-pct;
-    /* Demo + real (backend) buyurtmalar birga */
+    /* REAL: pul faqat mijoz tasdiqlagan (done) buyurtmalardan yoziladi */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
-    const liveGross=live.reduce((s,o)=>s+(o.amount||0),0);
-    const gross=r.gross+liveGross;
+    const gross=live.filter(o=>o.status==="done").reduce((s,o)=>s+(o.amount||0),0);
     const commission=Math.round(gross*pct/100);
     const net=gross-commission;
     const weekly=Math.round(net/4.3);
@@ -391,9 +391,9 @@
 
   const RSM={new:["Avtomatik kuryerga yo'naltirilgan","blue"],accepted:["Kuryerga yo'naltirilgan","blue"],ready:["Kuryer kutilmoqda","blue"],ontheway:["Yo'lda","red"],arrived:["Yetkazildi (tasdiq kutilmoqda)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
 
-  /* Buyurtma restoran tasdig'isiz to'g'ridan-to'g'ri kuryerga boradi.
-     Restoran uni faqat 5 daqiqa ichida rad eta oladi. */
-  const REJECT_WINDOW_MS=5*60*1000;
+  /* Buyurtma restoran tasdig'isiz to'g'ridan-to'g'ri kuryerga boradi (birdan ko'rinadi).
+     Restoran uni faqat 3 daqiqa ichida rad eta oladi. */
+  const REJECT_WINDOW_MS=3*60*1000;
   function orderAgeMs(x){
     try{ var raw=(x&&x.created_at)||""; if(!raw) return 0;
       var m=String(raw).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
@@ -410,7 +410,7 @@
   }
   function rActions(x){
     var b=function(act,label,bg){ return "<button class=\"r-act\" data-act=\""+act+"\" data-id=\""+x.id+"\" style=\"border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;margin:2px;background:"+bg+";color:#fff\">"+label+"</button>"; };
-    /* Faqat rad etish — va faqat 5 daqiqalik oyna ichida */
+    /* Faqat rad etish — va faqat 3 daqiqalik oyna ichida */
     if(canReject(x)) return "<span style=\"color:var(--grey);font-size:12px;margin-right:6px\">Rad etishga: "+rejectLeftText(x)+"</span>"+b("cancelled","✕ Rad etish","#C8102E");
     return "";
   }
@@ -483,7 +483,7 @@
         omr("Kuryer",esc(o.courier)||"-")+omr("Sana / vaqt",fmtDateTime(o))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div>"+
-      (canReject(o)?"<div style=\"display:flex;align-items:center;gap:8px;margin-top:16px\">"+rActions(o)+"</div><p style=\"color:var(--grey);font-size:12px;margin-top:8px\">Buyurtma avtomatik kuryerga yo'naltirildi. 5 daqiqa ichida rad etishingiz mumkin.</p>":"")+
+      (canReject(o)?"<div style=\"display:flex;align-items:center;gap:8px;margin-top:16px\">"+rActions(o)+"</div><p style=\"color:var(--grey);font-size:12px;margin-top:8px\">Buyurtma avtomatik kuryerga yo'naltirildi. 3 daqiqa ichida rad etishingiz mumkin.</p>":"")+
       "</div>";
     document.body.appendChild(el);
     try{ history.pushState({ordModal:1}, ""); }catch(e){}

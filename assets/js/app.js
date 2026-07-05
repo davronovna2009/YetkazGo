@@ -1123,8 +1123,23 @@
     document.getElementById("arrivedClose").addEventListener("click", close);
     document.getElementById("arrivedOk").addEventListener("click", confirmAndClose);
 
-    // Haptic feedback (mobil uchun)
+    // Haptic feedback (mobil uchun) + qo'ng'iroqcha ovozi
     try{ navigator.vibrate && navigator.vibrate([200,100,200]); }catch(e){}
+    arriveBell();
+  }
+  /* Yetib kelganda qo'ng'iroqcha (restoran peshtaxtasidagidek ding-ding) */
+  function arriveBell(){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      const ctx = arriveBell._c || (arriveBell._c = new AC());
+      if(ctx.state==="suspended") ctx.resume();
+      const t = ctx.currentTime;
+      const ding = (f,at,v)=>{ const o=ctx.createOscillator(),g=ctx.createGain(); o.type="sine"; o.frequency.value=f;
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.0001,t+at); g.gain.exponentialRampToValueAtTime(v,t+at+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+at+0.6);
+        o.start(t+at); o.stop(t+at+0.65); };
+      ding(1046.5,0,0.38); ding(1568,0,0.16); ding(1046.5,0.26,0.34); ding(1568,0.26,0.14);
+    }catch(e){}
   }
 
   function checkout(){
