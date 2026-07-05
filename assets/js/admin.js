@@ -4,6 +4,12 @@
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   const mln=n=>(n/1e6).toFixed(1).replace(".",",")+` mln`;
   const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* ---- Kirish tekshiruvlari — soxta/chala ma'lumotni rad etadi ---- */
+  const vName=s=>{ s=String(s||"").trim(); return s.length>=2 && /[A-Za-zА-Яа-яЎўҚқҒғҲҳ]/.test(s); };
+  const vLogin=s=>/^[A-Za-z0-9_]{3,}$/.test(String(s||"").trim());
+  const vPass=s=>String(s||"").length>=4;
+  /* Pasport/ID: AB1234567 (2 harf + 7 raqam) yoki 14 xonali PINFL */
+  const vPassport=s=>{ s=String(s||"").trim().toUpperCase(); return /^[A-Z]{2}\d{7}$/.test(s) || /^\d{14}$/.test(s); };
   const COMMISSION=0.18; // kuryer haqi har kuryer uchun alohida (c.fee) — admin belgilaydi
   const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
   const GMV=[310,345,360,330,380,408];
@@ -615,12 +621,12 @@
     const name=f("arName"), emoji=f("arEmoji")||"🏪", phone=f("arPhone"), addr=f("arAddr");
     const login=f("arLogin"), pass=f("arPass"), commission=parseFloat(f("arComm"))||18;
 
-    if(!name){ arErr("Restoran nomini kiriting"); return; }
+    if(!vName(name)){ arErr("Restoran nomini to'g'ri kiriting (kamida 2 harf, raqam emas)"); return; }
     if(!(window.YZ_PHONE && YZ_PHONE.valid(phone))){ arErr("Telefon raqamini to'g'ri kiriting: +998 XX XXX XX XX"); return; }
     var arEmailV=f("arEmail"); if(arEmailV && window.YZ_EMAIL && !YZ_EMAIL.valid(arEmailV)){ arErr("Email noto'g'ri formatda"); return; }
-    if(!addr){  arErr("Manzilni kiriting"); return; }
-    if(!login){ arErr("Login kiriting"); return; }
-    if(!pass){  arErr("Parol kiriting"); return; }
+    if(!addr || addr.length<3){  arErr("Manzilni to'liq kiriting"); return; }
+    if(!vLogin(login)){ arErr("Login kamida 3 belgi — faqat harf, raqam yoki _"); return; }
+    if(!vPass(pass)){  arErr("Parol kamida 4 belgi bo'lsin"); return; }
     var arAgree=document.getElementById("arAgree");
     if(arAgree && !arAgree.checked){ arErr("Shartnoma shartlarini o'qib, roziligingizni belgilang"); return; }
     if(RESTS.find(r=>r.login===login)){ arErr("Bu login allaqachon band!"); return; }
@@ -786,12 +792,13 @@
     const name=f("acName"), phone=f("acPhone"), rest=f("acRest"), login=f("acLogin"), pass=f("acPass");
     const fee=parseInt((f("acFee")||"").replace(/\D/g,""),10)||0;
 
-    if(!name){  acErr("Ism kiriting"); return; }
+    if(!vName(name)){  acErr("Ismni to'g'ri kiriting (kamida 2 harf, raqam emas)"); return; }
     if(!(window.YZ_PHONE && YZ_PHONE.valid(phone))){ acErr("Telefon raqamini to'g'ri kiriting: +998 XX XXX XX XX"); return; }
     var acEmailV=f("acEmail"); if(acEmailV && window.YZ_EMAIL && !YZ_EMAIL.valid(acEmailV)){ acErr("Email noto'g'ri formatda"); return; }
+    var acPP=f("acPassport"); if(acPP && !vPassport(acPP)){ acErr("Pasport/ID raqami noto'g'ri — masalan AB1234567 yoki 14 xonali PINFL"); return; }
     if(!fee){   acErr("Bir yetkazish haqini kiriting"); return; }
-    if(!login){ acErr("Login kiriting"); return; }
-    if(!pass){  acErr("Parol kiriting"); return; }
+    if(!vLogin(login)){ acErr("Login kamida 3 belgi — faqat harf, raqam yoki _"); return; }
+    if(!vPass(pass)){  acErr("Parol kamida 4 belgi bo'lsin"); return; }
     var acAgree=document.getElementById("acAgree");
     if(acAgree && !acAgree.checked){ acErr("Shartnoma shartlarini o'qib, roziligingizni belgilang"); return; }
     if(COURIERS.find(c=>c.login===login)){ acErr("Bu login band!"); return; }
@@ -806,7 +813,7 @@
     recompute();
     save(SK.couriers, COURIERS);
     /* Backendga: kuryer akkaunti + yozuvi (login + fee uchun) */
-    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), plate:f("acPlate"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail"), passport:f("acPassport")}); }
+    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), plate:f("acPlate"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail"), passport:acPP.toUpperCase()}); }
     closeAddCourier();
     renderAll();
     toast(`✅ ${name} kuryerlar ro'yxatiga qo'shildi!`);
