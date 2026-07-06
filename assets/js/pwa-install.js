@@ -1,14 +1,16 @@
-/* ===== Yetkaz — panelni ILOVA sifatida o'rnatish taklifi (PWA) =====
-   Restoran / kuryer / admin paneliga kirgach (login qilingach), "ilovani
-   o'rnatasizmi?" deb chiroyli taklif chiqadi. O'rnatilsa — panel alohida ilova
-   bo'lib, to'g'ridan-to'g'ri ochiladi (login oynasisiz, chunki sessiya saqlanadi).
-   Bir marta so'raydi: "keyinroq" bosilsa 7 kun, o'rnatilsa umuman qayta so'ramaydi.
-   Paneldan chiqilса (logout) sayt ochiladi — foydalanuvchi bemalol saytdan foydalanadi. */
+/* ===== Yetkaz — panelni ILOVA sifatida o'rnatish (PWA) =====
+   Har bir panelда (admin / restoran / kuryer / kabinet):
+     1) Tepа o'ng burchakда DOIMIY "📲 App qilish" tugmasi — istagan vaqtда bosib
+        ilovani o'rnatish mumkin (o'rnatilmaган va standalone bo'lmasa har doim turadi).
+     2) Login'дан keyin bir martalik chiroyli taklif banneri (nudge).
+   O'rnatilса — panel alohida ilova bo'lib, login oynasisiz ochiladi (sessiya saqlanadi).
+   iOS/deferred bo'lmasa — qo'lда o'rnatish yo'riqnomasi ko'rsatiladi. */
 (function () {
   var PANELS = {
     "restoran.html": { key: "restoran", label: "Restoran", emoji: "🏪" },
     "kuryer.html":   { key: "kuryer",   label: "Kuryer",   emoji: "🛵" },
     "admin.html":    { key: "admin",    label: "Admin",    emoji: "🛡️" },
+    "kabinet.html":  { key: "kabinet",  label: "Kabinet",  emoji: "👤" },
   };
   var path = (location.pathname.split("/").pop() || "").toLowerCase();
   var panel = PANELS[path];
@@ -16,12 +18,14 @@
 
   var LS = "yz_pwa_" + panel.key;
   var deferred = null;
-  var shown = false;
+  var shown = false;         // banner ko'rsatildimi
+  var bannerTried = false;   // login'дан keyingi bir martalik banner urinib ko'rilдими
   var iOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
 
   function isStandalone() {
     return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   }
+  function installed() { try { return localStorage.getItem(LS) === "installed"; } catch (e) { return false; } }
   function suppressed() {
     try {
       var v = localStorage.getItem(LS);
@@ -34,20 +38,22 @@
   function setLS(v) { try { localStorage.setItem(LS, v); } catch (e) {} }
   function loggedIn() { var a = document.getElementById("app"); return !!(a && a.classList.contains("show")); }
 
-  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; maybeShow(); });
-  window.addEventListener("appinstalled", function () { setLS("installed"); hide(); });
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; ensureTopBtn(); maybeShow(); });
+  window.addEventListener("appinstalled", function () { setLS("installed"); hide(); removeTopBtn(); });
 
-  function maybeShow() {
-    if (shown || isStandalone() || suppressed() || !loggedIn()) return;
-    if (!deferred && !iOS) return; // o'rnatib bo'lmasa (va iOS emas) — jim turadi
-    shown = true;
-    build();
-  }
-
+  /* ===== Umumiy CSS ===== */
   function injectCss() {
     if (document.getElementById("pwaCss")) return;
     var st = document.createElement("style"); st.id = "pwaCss";
     st.textContent =
+      /* doimiy tepа tugma */
+      ".pwa-topbtn{display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;" +
+        "background:linear-gradient(135deg,#C8102E,#E8A33D);color:#fff;font-family:'Manrope',system-ui,sans-serif;" +
+        "font-weight:800;font-size:13px;line-height:1;padding:9px 14px;border-radius:999px;" +
+        "box-shadow:0 4px 12px rgba(200,16,46,.32);white-space:nowrap;margin-right:8px;flex:none}" +
+      ".pwa-topbtn:active{transform:translateY(1px)}" +
+      "@media(max-width:560px){.pwa-topbtn span{display:none}.pwa-topbtn{padding:9px 11px;font-size:15px}}" +
+      /* banner */
       "#pwaBanner{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(140%);" +
         "width:min(440px,92vw);z-index:100000;background:#fff;border-radius:20px;overflow:hidden;" +
         "box-shadow:0 18px 50px rgba(0,0,0,.28);transition:transform .45s cubic-bezier(.34,1.4,.64,1);font-family:'Manrope',system-ui,sans-serif}" +
@@ -68,20 +74,70 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
+  /* ===== Doimiy tepа tugma ===== */
+  function ensureTopBtn() {
+    if (isStandalone() || installed()) { removeTopBtn(); return; }
+    if (!loggedIn()) return;
+    if (document.getElementById("pwaTopBtn")) return;
+    var bar = document.querySelector(".topbar .tb-right") || document.querySelector(".topbar");
+    if (!bar) return;
+    injectCss();
+    var b = document.createElement("button");
+    b.id = "pwaTopBtn"; b.className = "pwa-topbtn"; b.type = "button";
+    b.setAttribute("aria-label", "Ilovani o'rnatish");
+    b.innerHTML = "📲 <span>App qilish</span>";
+    b.addEventListener("click", installNow);
+    bar.insertBefore(b, bar.firstChild);
+  }
+  function removeTopBtn() { var b = document.getElementById("pwaTopBtn"); if (b) b.remove(); }
+
+  /* Tugma bosilганда — deferred bo'lsa darhol prompt, aks holda yo'riqnoma */
+  function installNow() {
+    if (deferred) {
+      deferred.prompt();
+      deferred.userChoice.then(function (c) {
+        if (c && c.outcome === "accepted") { setLS("installed"); removeTopBtn(); }
+        deferred = null;
+      });
+      return;
+    }
+    // deferred yo'q (iOS yoki hali tayyor emas) — yo'riqnoma bannerini ko'rsatamiz
+    var b = document.getElementById("pwaBanner");
+    if (b) return;      // allaqachon ochiq
+    shown = true; build(true);
+  }
+
+  /* ===== Bir martalik banner (login'дан keyin) ===== */
+  function maybeShow() {
+    if (shown || isStandalone() || installed() || suppressed() || !loggedIn()) return;
+    if (!deferred && !iOS) return; // banner uchun: o'rnatib bo'lmasa (va iOS emas) — jim; tepа tugma baribir turadi
+    shown = true;
+    build(false);
+  }
+
   function hide() {
     var b = document.getElementById("pwaBanner");
     if (b) { b.classList.remove("on"); setTimeout(function () { b.remove(); }, 450); }
   }
 
-  function build() {
+  function bodyHtml() {
+    if (deferred) {
+      return '<ul><li>Bosh ekrandan bitta bosishда ochiladi</li><li>Alohida ilova — brauzersiz, to\'liq ekran</li><li>Login saqlanadi, qayta terish shart emas</li></ul>' +
+        '<div class="pwa-actions"><button class="pwa-btn pwa-no" id="pwaLater">Keyinroq</button><button class="pwa-btn pwa-yes" id="pwaYes">📲 O\'rnatish</button></div>';
+    }
+    if (iOS) {
+      return '<div class="pwa-ios">📲 <b>Bosh ekranga qo\'shish:</b><br>Pastdagi <b>Ulashish</b> (⬆️) tugmasini bosing → <b>"Bosh ekranga qo\'shish"</b>ni tanlang.</div>' +
+        '<div class="pwa-actions"><button class="pwa-btn pwa-no" id="pwaLater">Tushunarli</button></div>';
+    }
+    // Android/desktop, prompt hali tayyor emas — qo'lда o'rnatish yo'riqnomasi
+    return '<div class="pwa-ios">📲 <b>Ilovani o\'rnatish:</b><br>Brauzer menyusini (<b>⋮</b> yoki <b>⋯</b>) oching → <b>"Ilovani o\'rnatish"</b> yoki <b>"Bosh ekranga qo\'shish"</b>ni tanlang.</div>' +
+      '<div class="pwa-actions"><button class="pwa-btn pwa-no" id="pwaLater">Tushunarli</button></div>';
+  }
+
+  function build(manual) {
     injectCss();
     var el = document.createElement("div");
     el.id = "pwaBanner";
-    var body = iOS
-      ? '<div class="pwa-ios">📲 <b>Bosh ekranga qo\'shish:</b><br>Pastdagi <b>Ulashish</b> (⬆️) tugmasini bosing → <b>"Bosh ekranga qo\'shish"</b>ni tanlang.</div>' +
-        '<div class="pwa-actions"><button class="pwa-btn pwa-no" id="pwaLater">Tushunarli</button></div>'
-      : '<ul><li>Bosh ekrandan bitta bosishда ochiladi</li><li>Alohida ilova — brauzersiz, to\'liq ekran</li><li>Login saqlanadi, qayta terish shart emas</li></ul>' +
-        '<div class="pwa-actions"><button class="pwa-btn pwa-no" id="pwaLater">Keyinroq</button><button class="pwa-btn pwa-yes" id="pwaYes">📲 O\'rnatish</button></div>';
     el.innerHTML =
       '<div class="pwa-head">' +
         '<button class="pwa-x" id="pwaX" aria-label="Yopish">✕</button>' +
@@ -90,29 +146,32 @@
         '<p>Yetkaz ' + panel.label + ' panelini telefoningizga ilova qilib qo\'ying</p>' +
         '<svg class="pwa-wave" viewBox="0 0 400 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0,12 C80,30 150,2 220,14 C290,25 340,24 400,14 L400,26 L0,26 Z" fill="#fff"/></svg>' +
       '</div>' +
-      '<div class="pwa-body">' + body + '</div>';
+      '<div class="pwa-body">' + bodyHtml() + '</div>';
     document.body.appendChild(el);
     requestAnimationFrame(function () { el.classList.add("on"); });
 
     var x = el.querySelector("#pwaX"), later = el.querySelector("#pwaLater"), yes = el.querySelector("#pwaYes");
-    function dismiss() { setLS("later:" + Date.now()); hide(); }
+    function dismiss() { if (!manual) setLS("later:" + Date.now()); hide(); }
     if (x) x.addEventListener("click", dismiss);
     if (later) later.addEventListener("click", dismiss);
     if (yes) yes.addEventListener("click", function () {
       if (!deferred) { dismiss(); return; }
       deferred.prompt();
       deferred.userChoice.then(function (c) {
-        if (c && c.outcome === "accepted") setLS("installed"); else setLS("later:" + Date.now());
+        if (c && c.outcome === "accepted") { setLS("installed"); removeTopBtn(); } else setLS("later:" + Date.now());
         deferred = null; hide();
       });
     });
   }
 
-  /* Login qilinguncha (app "show" bo'lguncha) kutamiz */
+  /* Login qilinguncha kutamiz; kirgach — tepа tugma + bir martalik banner */
   var tries = 0;
   var iv = setInterval(function () {
     tries++;
-    if (loggedIn()) { clearInterval(iv); setTimeout(maybeShow, 1600); }
-    if (tries > 40) clearInterval(iv); // ~20s
+    if (loggedIn()) {
+      ensureTopBtn();
+      if (!bannerTried) { bannerTried = true; setTimeout(maybeShow, 1600); }
+    }
+    if (tries > 120) clearInterval(iv); // ~60s (tugma bir marta qo'yilса qoladi)
   }, 500);
 })();
