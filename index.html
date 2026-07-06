@@ -7,14 +7,30 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch.png" />
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
   <title>Yetkaz — Tez ovqat yetkazib berish</title>
   <meta name="description" content="Yetkaz — yaqin atrofdagi restoran va kafelardan tez ovqat yetkazib berish xizmati." />
+  <!-- Ijtimoiy tarmoq / Google ulashish previewи (Open Graph + Twitter) — yangi logo -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Yetkaz" />
+  <meta property="og:title" content="Yetkaz — Tez ovqat yetkazib berish" />
+  <meta property="og:description" content="Yetkaz — yaqin atrofdagi restoran va kafelardan tez ovqat yetkazib berish xizmati." />
+  <meta property="og:image" content="/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Yetkaz — Tez ovqat yetkazib berish" />
+  <meta name="twitter:description" content="Yetkaz — yaqin atrofdagi restoran va kafelardan tez ovqat yetkazib berish xizmati." />
+  <meta name="twitter:image" content="/assets/og-image.png" />
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Organization","name":"Yetkaz","logo":"/assets/logo.png","image":"/assets/og-image.png"}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="assets/favicon-64.png" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>

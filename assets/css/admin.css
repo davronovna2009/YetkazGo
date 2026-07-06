@@ -12,19 +12,39 @@ body{font-family:'Manrope',system-ui,sans-serif;color:var(--ink);background:var(
 button,input,select,textarea{font-family:inherit}
 a{color:inherit;text-decoration:none}
 
-/* ===== LOGIN ===== */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,var(--red-dark),var(--red))}
-.login-card{background:#fff;border-radius:20px;padding:32px 26px;width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
-.login-card img{height:56px;margin:0 auto 10px}
-.login-card h1{font-size:20px;font-weight:800;margin-bottom:3px}
-.login-card p{color:var(--grey);font-size:13px;margin-bottom:18px}
-.field{margin-bottom:12px;text-align:left}
+/* ===== LOGIN (to'lqinli dizayn — index/kabinet uslubida) ===== */
+.login-wrap{
+  position:relative;min-height:100vh;min-height:100dvh;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(135deg,var(--red-dark),var(--red));overflow:hidden;
+}
+/* orqa fon — yumshoq yorug'lik dog'lari */
+.login-wrap::before,.login-wrap::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+.login-wrap::before{width:420px;height:420px;top:-150px;right:-120px;background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%)}
+.login-wrap::after{width:520px;height:520px;bottom:-190px;left:-160px;background:radial-gradient(circle,rgba(0,0,0,.16),transparent 70%)}
+
+.login-card{
+  position:relative;z-index:1;overflow:hidden;text-align:center;
+  width:360px;max-width:100%;
+  /* Yuqorida qizil-oltin to'lqinli sarlavha, ostida oq karta */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 60' preserveAspectRatio='none'%3E%3Cpath d='M0,34 C220,6 470,58 720,32 C970,6 1220,58 1440,30 L1440,60 L0,60 Z' fill='%23ffffff'/%3E%3C/svg%3E") center 74px/100% 30px no-repeat,
+    linear-gradient(135deg,var(--red) 0%,#a50c22 55%,var(--red-dark) 100%) top center/100% 100px no-repeat,
+    #fff;
+  border-radius:26px;
+  padding:104px 26px 30px;
+  box-shadow:0 26px 64px rgba(0,0,0,.30);
+}
+.login-card img{height:54px;margin:0 auto 12px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.14))}
+.login-card h1{font-size:21px;font-weight:800;margin-bottom:3px}
+.login-card p{color:var(--grey);font-size:13px;margin-bottom:20px}
+.field{margin-bottom:13px;text-align:left}
 .field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px;color:var(--ink)}
-.field input{width:100%;border:2px solid var(--line);border-radius:10px;padding:11px 13px;font-size:15px;outline:none;-webkit-appearance:none;background:#fff;transition:.15s}
-.field input:focus{border-color:var(--red)}
-.login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:10px;padding:13px;font-weight:700;font-size:15px;margin-top:6px;cursor:pointer;touch-action:manipulation}
-.login-btn:active{opacity:.9}
-.login-hint{margin-top:12px;font-size:12px;color:var(--grey);background:#FBF1DF;border-radius:8px;padding:9px;line-height:1.5}
+.field input{width:100%;border:2px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px;outline:none;-webkit-appearance:none;background:#fafafa;transition:.15s}
+.field input:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 4px rgba(200,16,46,.10)}
+.login-btn{width:100%;background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;border:none;border-radius:12px;padding:14px;font-weight:700;font-size:15px;margin-top:8px;cursor:pointer;touch-action:manipulation;box-shadow:0 8px 20px rgba(200,16,46,.28);transition:.15s}
+.login-btn:active{transform:translateY(1px);opacity:.95}
+.login-hint{margin-top:14px;font-size:12px;color:var(--grey);background:#FBF1DF;border-radius:10px;padding:10px;line-height:1.5}
 .login-err{color:var(--red);font-size:12px;margin-top:8px;min-height:16px;font-weight:600}
 
 /* ===== APP SHELL ===== */
@@ -212,6 +232,34 @@ a{color:inherit;text-decoration:none}
 .time-input:focus{border-color:var(--red)}
 .select-input{border:2px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600;outline:none;background:var(--bg);-webkit-appearance:none;color:var(--ink);cursor:pointer;max-width:160px}
 .select-input:focus{border-color:var(--red)}
+
+/* ===== Taom tanlash tugmasi (rasmli) + modali ===== */
+.dishpick-btn{display:inline-flex;align-items:center;gap:8px;width:210px;max-width:100%;border:2px solid var(--line);border-radius:10px;background:var(--bg);padding:7px 10px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;transition:.15s}
+.dishpick-btn:hover{border-color:var(--red)}
+.dishpick-btn.has-sel{background:#fff;border-color:var(--red)}
+.dishpick-btn .dpb-img{width:28px;height:28px;border-radius:7px;object-fit:cover;flex:none}
+.dishpick-btn .dpb-emoji{font-size:19px;flex:none;line-height:1}
+.dishpick-btn .dpb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dishpick-btn .dpb-arrow{margin-left:auto;color:var(--grey);flex:none}
+
+.dpick-sheet{background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.32)}
+.dpick-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:none}
+.dpick-head h3{margin:0;font-size:17px}
+.dpick-x{border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer}
+.dpick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;padding:16px;overflow:auto}
+.dpick-card{border:2px solid var(--line);border-radius:14px;background:#fff;padding:0 0 10px;cursor:pointer;text-align:center;overflow:hidden;transition:.15s;display:flex;flex-direction:column}
+.dpick-card:hover{border-color:var(--red);transform:translateY(-2px)}
+.dpick-card.sel{border-color:var(--red);box-shadow:0 0 0 3px rgba(200,16,46,.16)}
+.dpick-thumb{width:100%;aspect-ratio:4/3;background:#f4f4f6;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dpick-thumb img{width:100%;height:100%;object-fit:cover}
+.dpick-thumb span{font-size:44px}
+.dpick-name{font-size:13px;font-weight:700;margin:8px 8px 3px;line-height:1.25}
+.dpick-price{font-size:12px;color:var(--red);font-weight:700}
+@media(max-width:560px){
+  .dpick-grid{grid-template-columns:repeat(2,1fr);gap:10px;padding:12px}
+  .dpick-thumb span{font-size:36px}
+  .dishpick-btn{width:100%}
+}
 .full-textarea{width:100%;border:2px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;outline:none;resize:vertical;min-height:80px;background:#fff;transition:.15s}
 .full-textarea:focus{border-color:var(--red)}
 .set-input{width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;font-weight:600;outline:none;background:#fff;-webkit-appearance:none;color:var(--ink);transition:.15s}
@@ -389,7 +437,7 @@ a{color:inherit;text-decoration:none}
   .dd-body{padding:12px}
   .kmodal{padding:16px 12px}
   .ko-timer{font-size:34px}
-  .login-card{padding:24px 16px}
+  .login-card{padding:100px 18px 26px}
   .settings-group-title{font-size:11px}
   .setting-name{font-size:13px}
   .select-input{max-width:130px;font-size:12px}

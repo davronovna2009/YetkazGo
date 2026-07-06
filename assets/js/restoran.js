@@ -308,9 +308,56 @@
     loadDishes(); renderAll(); toast("Taom o'chirildi ✓ (saytdan ham o'chadi)");
   }
 
+  /* ===== Rasm yordamchilari va taom tanlash modali ===== */
+  function isRealPhoto(p){ return p && /^\/uploads\/|^data:|^https?:/.test(String(p)); }
+  function dishImg(d){ return (d && isRealPhoto(d.photo)) ? d.photo : ""; }
+  function findDishByItem(item){
+    if(!item || !CUR || !CUR.dishes) return null;
+    var it=String(item);
+    return CUR.dishes.find(function(d){ return d.name && (it===d.name || it.indexOf(d.name)===0); }) || null;
+  }
+  function orderPhoto(x){ var d=findDishByItem(x&&x.item); return d?dishImg(d):""; }
+
+  var discSelIdx=null;   // chegirma uchun tanlangan taom indeksi
+  function updateDiscBtn(){
+    var btn=$("#discDishBtn"); if(!btn) return;
+    var d=(discSelIdx!=null)?CUR.dishes[discSelIdx]:null;
+    if(d){
+      var img=dishImg(d);
+      btn.innerHTML=(img?'<img src="'+img+'" alt="" class="dpb-img">':'<span class="dpb-emoji">'+(d.emoji||"🍽️")+'</span>')+
+        '<span class="dpb-name">'+esc(d.name)+'</span><span class="dpb-arrow">▾</span>';
+      btn.classList.add("has-sel");
+    } else {
+      btn.innerHTML='<span class="dpb-emoji">🍽️</span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span>';
+      btn.classList.remove("has-sel");
+    }
+  }
+  function openDishPicker(){
+    if(!CUR || !CUR.dishes || !CUR.dishes.length){ toast("Avval taom qo'shing"); return; }
+    var el=document.getElementById("dishPickModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="dishPickModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)";
+    var cards=CUR.dishes.map(function(d,i){
+      var img=dishImg(d);
+      return '<button type="button" class="dpick-card'+(i===discSelIdx?' sel':'')+'" data-i="'+i+'">'+
+        '<div class="dpick-thumb">'+(img?'<img src="'+img+'" alt="">':'<span>'+(d.emoji||"🍽️")+'</span>')+'</div>'+
+        '<div class="dpick-name">'+esc(d.name)+'</div>'+
+        '<div class="dpick-price">'+money(d.price)+" so'm"+(d.discount>0?' <span class="pill red" style="font-size:10px">-'+d.discount+'%</span>':'')+'</div>'+
+        '</button>';
+    }).join("");
+    el.innerHTML='<div class="dpick-sheet">'+
+      '<div class="dpick-head"><h3>🍽️ Taom tanlang</h3><button id="dpickClose" class="dpick-x" aria-label="Yopish">✕</button></div>'+
+      '<div class="dpick-grid">'+cards+'</div></div>';
+    document.body.appendChild(el);
+    var close=function(){ el.remove(); };
+    el.addEventListener("click",function(e){ if(e.target===el) close(); });
+    el.querySelector("#dpickClose").addEventListener("click",close);
+    el.querySelectorAll(".dpick-card").forEach(function(c){ c.addEventListener("click",function(){ discSelIdx=+c.dataset.i; updateDiscBtn(); close(); }); });
+  }
+
   function renderPromo(){
-    const sel=$("#discDish");
-    if(sel) sel.innerHTML=CUR.dishes.map((d,i)=>`<option value="${i}">${d.emoji} ${d.name} — ${money(d.price)} so'm</option>`).join("");
+    if(discSelIdx!=null && !CUR.dishes[discSelIdx]) discSelIdx=null;
+    updateDiscBtn();
 
     /* Faol aksiyalar paneli */
     const activeList=$("#activePromoList"), promoCount=$("#promoCount");
@@ -405,12 +452,12 @@
     renderPromo(); toast(img?"E'lon rasm bilan joylandi — saytda ko'rinadi ✓":"E'lon joylandi — saytda ko'rinadi ✓");
   }
   function applyDiscount(){
-    const i=parseInt($("#discDish").value,10), pct=parseInt(($("#discPct").value||"").replace(/\D/g,""),10);
-    if(isNaN(i)){ toast("Taom tanlang"); return; }
+    const i=discSelIdx, pct=parseInt(($("#discPct").value||"").replace(/\D/g,""),10);
+    if(i==null || !CUR.dishes[i]){ toast("Taom tanlang"); return; }
     if(!pct || pct<1 || pct>90){ toast("Chegirma 1–90% oralig'ida"); return; }
     CUR.dishes[i].discount=pct;
     try{ if(typeof STORE!=="undefined") STORE.setDiscount(CUR.name,CUR.dishes[i].name,pct); }catch(e){}
-    recompute(CUR); renderAll(); $("#discPct").value="";
+    recompute(CUR); discSelIdx=null; renderAll(); $("#discPct").value="";
     toast("Chegirma belgilandi ✓");
   }
   let tT; function toast(m){ const e=$("#toast2"); if(!e) return; e.textContent=m; e.classList.add("show"); clearTimeout(tT); tT=setTimeout(()=>e.classList.remove("show"),2200); }
@@ -485,7 +532,9 @@
     const o=(typeof STORE!=="undefined")?STORE.ordersFor(CUR.name):[];
     const tb=$("#rOrdersBody"); if(!tb) return;
     tb.innerHTML=o.length?o.map(function(x){ const s=RSM[x.status]||["?","warn"];
-      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\"><span class=\"av\">"+x.emoji+"</span>"+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
+      var ph=orderPhoto(x);
+      var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+(x.emoji||"🍽️")+"</span>";
+      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
       :"<tr><td colspan=5 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
     $$("#rOrdersBody .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
     $$("#rOrdersBody [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
@@ -533,21 +582,45 @@
     if(raw) return raw.slice(0,10).split("-").reverse().join(".");
     return (o&&o.time)||"—";
   }
+  /* Aniq yetkazilgan vaqt — mijoz tasdiqlaganda backend yozgan done_at (UTC) */
+  function orderDelivered(o){
+    var raw=(o&&o.done_at)||"";
+    var m=String(raw).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    return m ? (m[3]+"."+m[2]+"."+m[1]+" · "+m[4]+":"+m[5]) : "";
+  }
+  /* Taxminiy yetib borish vaqti = berilgan vaqt + eta (daqiqa). created_at UTC — mos ravishda UTC ko'rsatamiz */
+  function orderArrival(o){
+    try{
+      var raw=(o&&o.created_at)||""; var m=String(raw).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
+      if(!m) return "—";
+      var pad=function(n){return String(n).padStart(2,"0");};
+      var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)) + (Number(o.eta)||15)*60000);
+      return pad(d.getUTCDate())+"."+pad(d.getUTCMonth()+1)+"."+d.getUTCFullYear()+" · "+pad(d.getUTCHours())+":"+pad(d.getUTCMinutes());
+    }catch(e){ return "—"; }
+  }
   function openOrderModal(o){
     if(!o) return;
     const s=RSM[o.status]||[o.status,"warn"];
     let el=document.getElementById("ordModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="ordModal";
     el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)";
+    var ph=orderPhoto(o);
+    var head=ph
+      ? "<div style=\"width:100%;height:180px;border-radius:14px;overflow:hidden;margin-bottom:10px;background:#f4f4f6\"><img src=\""+ph+"\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\"></div>"
+      : "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>";
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
-      "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer\">✕</button>"+
-      "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>"+
+      "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;z-index:2\">✕</button>"+
+      head+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
         omr("Manzil",esc(o.addr)||"-")+omr("Summa",money(o.amount)+" so'm")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
-        omr("Kuryer",esc(o.courier)||"-")+omr("Sana / vaqt",fmtDateTime(o))+
+        omr("Kuryer",esc(o.courier)||"-")+
+        omr("🕐 Buyurtma berilgan",fmtDateTime(o))+
+        (orderDelivered(o)
+          ? omr("✅ Yetkazilgan","<span style=\"color:#16a34a\">"+orderDelivered(o)+"</span>")
+          : omr("🛵 Yetib borish (taxm.)",orderArrival(o)))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div>"+
       (canReject(o)?"<div style=\"display:flex;align-items:center;gap:8px;margin-top:16px\">"+rActions(o)+"</div><p style=\"color:var(--grey);font-size:12px;margin-top:8px\">Buyurtma avtomatik kuryerga yo'naltirildi. 3 daqiqa ichida rad etishingiz mumkin.</p>":"")+
@@ -685,6 +758,7 @@
       var dataUrl=await resizeImage(f, 500);
       if(dataUrl){ pv.style.display="block"; pv.innerHTML='<img src="'+dataUrl+'" alt="" style="max-width:170px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">'; }
     });
+    var ddb=$("#discDishBtn"); if(ddb) ddb.addEventListener("click",openDishPicker);
     $("#discBtn").addEventListener("click",applyDiscount);
     /* Sozlamalar */
     var slb=$("#setLoginBtn"); if(slb) slb.addEventListener("click",saveLogin);

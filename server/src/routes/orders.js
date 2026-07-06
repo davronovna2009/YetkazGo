@@ -18,7 +18,8 @@ function rowToOrder(r) {
   return {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
-    status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0, created_at: r.created_at,
+    status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
+    created_at: r.created_at, done_at: r.done_at || '',
   };
 }
 
@@ -213,7 +214,8 @@ router.post('/:id/received', (req, res) => {
   if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
   if (!canMutate(o, req)) return res.status(403).json({ error: 'Ruxsat yo`q' });
 
-  if (o.status === 'arrived') db.prepare("UPDATE orders SET status = 'done' WHERE id = ?").run(id);
+  // Mijoz tasdiqlaganda — aniq yetkazilgan vaqtni yozamiz (done_at, UTC)
+  if (o.status === 'arrived') db.prepare("UPDATE orders SET status = 'done', done_at = datetime('now') WHERE id = ?").run(id);
   res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 });
 
@@ -234,6 +236,10 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
   const sets = [], params = [];
   for (const k of ALLOWED) {
     if (k in patch) { sets.push(`${k} = ?`); params.push(patch[k]); }
+  }
+  /* "done" ga o'tganda — aniq yetkazilgan vaqtni bir marta yozamiz (server tomonда, UTC) */
+  if (patch.status === 'done' && existing.status !== 'done') {
+    sets.push("done_at = datetime('now')");
   }
   if (sets.length) {
     params.push(id);

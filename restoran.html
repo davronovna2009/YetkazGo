@@ -7,7 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="/restoran.webmanifest" />
-  <link rel="apple-touch-icon" href="/assets/logo.png" />
+  <link rel="apple-touch-icon" href="/assets/apple-touch.png" />
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
   <title>Yetkaz — Restoran paneli</title>
   <link rel="icon" type="image/png" href="assets/favicon-64.png" />
@@ -169,15 +169,15 @@
                 <option value="YANGI">YANGI</option>
               </select>
             </div>
-            <div class="setting-item" style="padding:12px 16px">
+            <div class="setting-item column" style="padding:12px 16px">
               <div class="setting-label">
                 <span class="setting-name">Reklama rasmi (ixtiyoriy)</span>
                 <span class="setting-desc">Bosh sahifadagi banner o'ng tomonida ko'rinadi</span>
               </div>
-              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash / olish
+              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash / olish
                 <input type="file" id="annPhoto" accept="image/*" capture="environment" style="display:none">
               </label>
-              <div id="annPhotoPreview" style="display:none;margin-top:10px"></div>
+              <div id="annPhotoPreview" style="display:none"></div>
             </div>
             <div class="settings-footer">
               <button class="btn-save" id="annBtn">📢 E'lonni joylash</button>
@@ -192,7 +192,7 @@
                 <span class="setting-name">Taom tanlang</span>
                 <span class="setting-desc">Chegirma shu taomga qo'llaniladi</span>
               </div>
-              <select id="discDish" class="select-input"></select>
+              <button type="button" id="discDishBtn" class="dishpick-btn"><span class="dpb-emoji">🍽️</span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span></button>
             </div>
             <div class="setting-item" style="padding:12px 16px">
               <div class="setting-label">

@@ -149,6 +149,7 @@ export function initSchema() {
   try { db.exec("ALTER TABLE orders ADD COLUMN token TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   try { db.exec("ALTER TABLE orders ADD COLUMN reason TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   try { db.exec('ALTER TABLE orders ADD COLUMN delivery INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
+  try { db.exec("ALTER TABLE orders ADD COLUMN done_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   try { db.exec("ALTER TABLE accounts ADD COLUMN email TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   try { db.exec('ALTER TABLE couriers ADD COLUMN fee INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
   try { db.exec('ALTER TABLE restaurants ADD COLUMN open_h INTEGER DEFAULT 9'); } catch (e) { /* bor */ }

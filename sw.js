@@ -3,13 +3,14 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-const CACHE = 'yetkaz-v2';
+const CACHE = 'yetkaz-v3';   // yangi logo — eski kesh tozalanadi
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
   '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
-  '/assets/logo.png', '/assets/logo.svg', '/assets/favicon-64.png', '/manifest.webmanifest',
+  '/assets/logo.png', '/assets/logo.svg', '/assets/favicon-64.png',
+  '/assets/apple-touch.png', '/assets/logo-maskable.png', '/manifest.webmanifest',
 ];
 
 self.addEventListener('install', (e) => {
