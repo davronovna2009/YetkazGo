@@ -277,6 +277,7 @@
     if(note){ const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0); const totalSite=done.reduce((s,o)=>s+commOf(o),0);
       note.innerHTML=`Jami aylanma (tasdiqlangan): <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`; }
     renderAdminTopCustomers(live);
+    renderLowRatedRests();
   }
   /* Bir xillik: telefon (yoki ism+manzil) bo'yicha eng ko'p buyurtma bergan mijozlar */
   function adminTopCustomers(orders, n){
@@ -299,6 +300,22 @@
     box.innerHTML='<div class="panel-head"><h3>👑 Eng ko\'p buyurtma bergan mijozlar</h3></div><div class="panel-body">'+
       (list.length?list.map(function(c,i){ var rc=Object.keys(c.rests).length; return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+(rc?' · '+rc+' restoran':'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join(""):'<p style="color:var(--grey)">Hozircha buyurtma yo\'q.</p>')+
       '</div>';
+  }
+  /* Reyting bo'yicha ENG PAST restoranlar — admin past reytinglilarni ham ko'radi */
+  function renderLowRatedRests(){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var box=document.getElementById("adminLowRests");
+    if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminLowRests"; box.style.marginTop="16px"; host.appendChild(box); }
+    var list=(RESTS||[]).slice().filter(function(r){ return r && r.name; })
+      .sort(function(a,b){ return (a.rating||0)-(b.rating||0); }).slice(0,5);
+    box.innerHTML='<div class="panel-head"><h3>📉 Eng past reytingli restoranlar</h3></div><div class="panel-body">'+
+      (list.length?list.map(function(r){
+        var rt=(r.rating!=null?r.rating:0);
+        var col=rt<3?'#dc2626':(rt<4?'#d97706':'#16a34a');
+        return '<div data-lowrest="'+r.id+'" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="font-size:18px">'+(r.emoji||'🏪')+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(r.name)+'</div><div style="color:var(--grey);font-size:13px">'+money(r.orders||0)+' buyurtma</div></div><b class="star" style="color:'+col+';white-space:nowrap">★ '+rt+'</b></div>';
+      }).join(""):'<p style="color:var(--grey)">Hozircha restoran yo\'q.</p>')+
+      '</div>';
+    box.querySelectorAll('[data-lowrest]').forEach(function(el){ el.addEventListener('click',function(){ openRest(+el.dataset.lowrest); }); });
   }
 
   /* =========================================================
@@ -358,6 +375,7 @@
   function courLeaveBadge(c){
     const be=beCourier(c);
     if(be && be.onLeave) return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef3c7;color:#b45309">🚪 Ishdan javobda</span>`;
+    if(be && be.leaveStatus==='pending') return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef9c3;color:#a16207">⏳ Javob so'rovi</span>`;
     return "";
   }
   function courHours(c){ const be=beCourier(c); if(!be) return "—"; const p=n=>String(n).padStart(2,"0"); return p(be.openH!=null?be.openH:8)+":00–"+p(be.closeH!=null?be.closeH:22)+":00"; }
@@ -369,7 +387,7 @@
           <td><div class="tname"><span class="av">${c.emoji}</span>${c.name}${courLeaveBadge(c)}</div></td>
           <td>${c.rest}</td>
           <td>${money(c.deliveries)}</td>
-          <td class="money">${money(c.earn)}</td>
+          <td>${courHours(c)}</td>
           <td><span class="star">★ ${c.rating}</span></td>
           <td><span class="mono">${c.login}</span></td>
           ${pend
@@ -702,6 +720,12 @@
     setHead(c.emoji, c.name, c.phone);
     const pend=getPending(id,"courier");
     const beC=(typeof STORE!=="undefined"&&STORE.couriers)?STORE.couriers().find(x=>x.login===c.login):null;
+    const be=beC||{};
+    const lvStatus=be.leaveStatus||c.leaveStatus||'none';
+    const onLeave=be.onLeave!=null?be.onLeave:c.onLeave;
+    const leaveReason=be.leaveReason||c.leaveReason||'';
+    const holatTxt=onLeave?'🚪 Ishdan javobda':(lvStatus==='pending'?'⏳ Javob so\'rovi kutilmoqda':'🟢 Ishda');
+    const holatCol=onLeave?'#d97706':(lvStatus==='pending'?'#b45309':'#16a34a');
     drawer(`
       <div class="dd-sec"><h4>Ish ma'lumotlari</h4>
         <div class="kv">
@@ -710,13 +734,22 @@
           <div class="k"><span>Yetkazgan</span><b>${money(c.deliveries)}</b></div>
           <div class="k"><span>Telefon</span><b>${esc(c.phone)||"—"}</b></div>
           <div class="k"><span>Ish vaqti</span><b>${String(c.openH!=null?c.openH:8).padStart(2,"0")}:00–${String(c.closeH!=null?c.closeH:22).padStart(2,"0")}:00</b></div>
-          <div class="k"><span>Holati</span><b style="color:${c.onLeave?'#d97706':'#16a34a'}">${c.onLeave?'🚪 Ishdan javobda':'🟢 Ishda'}</b></div>
+          <div class="k"><span>Holati</span><b style="color:${holatCol}">${holatTxt}</b></div>
         </div>
-        ${c.onLeave&&c.leaveReason?`<p style="color:#b45309;font-size:13px;margin-top:8px">Javob sababi: <b>${esc(c.leaveReason)}</b></p>`:''}
+        ${(onLeave||lvStatus==='denied')&&leaveReason?`<p style="color:#b45309;font-size:13px;margin-top:8px">Javob sababi: <b>${esc(leaveReason)}</b></p>`:''}
+        ${lvStatus==='pending'?`
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-top:10px">
+            <b style="color:#b45309">🚪 Ishdan javob so'rovi</b>
+            <p style="color:var(--grey);font-size:13px;margin:4px 0 10px">Kuryer ishdan javob so'rayapti${leaveReason?`: <b>${esc(leaveReason)}</b>`:''}. Tasdiqlasangiz — javobga chiqadi va faol buyurtmalari boshqa kuryerga o'tadi.</p>
+            <div style="display:flex;gap:8px">
+              <button class="dd-action-btn" id="cLvApprove" style="background:#16a34a;color:#fff;flex:1">✅ Tasdiqlash</button>
+              <button class="dd-action-btn" id="cLvDeny" style="background:#ef4444;color:#fff;flex:1">❌ Rad etish</button>
+            </div>
+          </div>`:''}
       </div>
-      <div class="dd-sec"><h4>Daromad</h4>
-        <div class="fin-row"><span>Bitta yetkazish (shartnoma)</span><b>${c.fee?money(c.fee)+" so'm":"belgilanmagan"}</b></div>
-        <div class="fin-row tot"><span>Jami daromad</span><b>${money(c.earn)} so'm</b></div>
+      <div class="dd-sec"><h4>Haq (shartnoma)</h4>
+        <div class="fin-row"><span>Bitta yetkazish haqi</span><b>${c.fee?money(c.fee)+" so'm":"belgilanmagan"}</b></div>
+        <p style="color:var(--grey);font-size:12px;margin-top:6px">Kuryerning umumiy daromadi faqat kuryerning o'ziga ko'rinadi.</p>
       </div>
       <div class="dd-sec"><h4>Kirish</h4>
         <div class="kv">
@@ -737,6 +770,10 @@
         <div class="add-field"><label>Telefon</label><input id="edcPhone" value="${c.phone||''}"></div>
         <div class="add-field"><label>Restoranlar (vergul bilan ajrating)</label><input id="edcRest" value="${esc(c.rest)||''}" placeholder="Restoran nomi"></div>
         <div class="add-field"><label>Bir yetkazish haqi (so'm)</label><input id="edcFee" type="number" value="${c.fee||0}"></div>
+        <div style="display:flex;gap:10px">
+          <div class="add-field" style="flex:1"><label>Ish boshi (soat)</label><input id="edcOpenH" type="number" min="0" max="23" value="${c.openH!=null?c.openH:8}"></div>
+          <div class="add-field" style="flex:1"><label>Ish oxiri (soat)</label><input id="edcCloseH" type="number" min="1" max="24" value="${c.closeH!=null?c.closeH:22}"></div>
+        </div>
         <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
         <div class="add-field"><label>Davlat raqami</label><input id="edcPlate" value="${esc((beC&&beC.plate)||'')}" placeholder="01A123BC"></div>
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
@@ -761,6 +798,19 @@
       </div>`);
     const ccBtn=$("#courContractBtn"); if(ccBtn) ccBtn.addEventListener("click",()=>showCourierContract(c));
 
+    /* Ishdan-javob so'rovini tasdiqlash / rad etish */
+    async function decideLeave(approve){
+      if(typeof STORE==="undefined"||!STORE.courierLeaveDecision){ toast("Serverga ulanib bo'lmadi"); return; }
+      const r=await STORE.courierLeaveDecision(c.login, approve);
+      if(r && !r.error){
+        if(typeof STORE.fetchCouriers==="function") await STORE.fetchCouriers();
+        closeDrawer(); renderAll();
+        toast(approve?("✅ Javob berildi"+(r.reassigned?(" · "+r.reassigned+" ta buyurtma boshqa kuryerga o'tdi"):"")):"❌ So'rov rad etildi");
+      } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+    }
+    const apprBtn=$("#cLvApprove"); if(apprBtn) apprBtn.addEventListener("click",()=>decideLeave(true));
+    const denyBtn=$("#cLvDeny"); if(denyBtn) denyBtn.addEventListener("click",()=>decideLeave(false));
+
     const delBtn=$("#ddBody .dd-danger");
     if(delBtn) delBtn.addEventListener("click",()=>{ closeDrawer(); dismissCourier(id); });
     const restBtn=$("#ddBody .dd-restore");
@@ -771,14 +821,17 @@
       const phone=($("#edcPhone").value||"").trim();
       const rest=($("#edcRest").value||"").trim();
       const fee=Math.max(0,parseInt(($("#edcFee").value||"").replace(/\D/g,""),10)||0);
+      const openH=Math.max(0,Math.min(23,parseInt(($("#edcOpenH")||{}).value,10)||0));
+      const closeH=Math.max(1,Math.min(24,parseInt(($("#edcCloseH")||{}).value,10)||24));
+      if(closeH<=openH){ toast("Ish oxiri ish boshidan katta bo'lsin"); return; }
       const pass=($("#edcPass").value||"").trim();
       const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
       const passport=val("edcPassport");
       if(passport && !vPassport(passport)){ toast("Pasport/ID noto'g'ri — AB1234567 yoki 14 xonali PINFL"); return; }
-      c.name=name; c.phone=phone; c.rest=rest; c.fee=fee;
+      c.name=name; c.phone=phone; c.rest=rest; c.fee=fee; c.openH=openH; c.closeH=closeH;
       recompute(); save(SK.couriers,COURIERS);
       if(typeof STORE!=="undefined" && STORE.editCourier){
-        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,
+        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,openH:openH,closeH:closeH,
           transport:val("edcTransport"), plate:val("edcPlate"), address:val("edcAddress"),
           email:val("edcEmail"), birthdate:val("edcBirth"), passport:passport.toUpperCase()};
         if(pass) body.pass=pass;

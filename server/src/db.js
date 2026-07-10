@@ -173,6 +173,8 @@ export function initSchema() {
     "ALTER TABLE couriers ADD COLUMN close_h INTEGER DEFAULT 22",
     "ALTER TABLE couriers ADD COLUMN on_leave INTEGER DEFAULT 0",
     "ALTER TABLE couriers ADD COLUMN leave_reason TEXT DEFAULT ''",
+    // Ishdan javob so'rovi holati: none | pending | approved | denied (admin qaror qiladi)
+    "ALTER TABLE couriers ADD COLUMN leave_status TEXT DEFAULT 'none'",
     // Reklama/e'longa biriktirilgan rasm (restoran o'zi yuklaydi)
     "ALTER TABLE announcements ADD COLUMN img TEXT DEFAULT ''",
     // Taom qo'shimcha ma'lumotlari (restoran kiritadi, saytda ko'rinadi)

@@ -182,14 +182,14 @@
   function renderAll(){ renderDash(); renderOrders(); renderIncome(); updateStatusBadge(); }
 
   /* ===== SOZLAMALAR: ish vaqti, ishdan javob (leave), login/parol ===== */
-  let kState = { onLeave:false, leaveReason:"", openH:8, closeH:22 };
+  let kState = { onLeave:false, leaveReason:"", leaveStatus:"none", openH:8, closeH:22 };
 
   /* Kuryerning O'Z holatini backenddan oladi (name bo'yicha) */
   async function loadCourierState(){
     try{
       const list = (typeof STORE!=="undefined" && STORE.fetchCourierStatus) ? await STORE.fetchCourierStatus() : [];
       const me = (list||[]).find(c=>c.name===CUR.name) || (list||[]).find(c=>CUR.login && c.login===CUR.login);
-      if(me){ kState = { onLeave:!!me.onLeave, leaveReason:me.leaveReason||"", openH:me.openH!=null?me.openH:8, closeH:me.closeH!=null?me.closeH:22 }; }
+      if(me){ kState = { onLeave:!!me.onLeave, leaveReason:me.leaveReason||"", leaveStatus:me.leaveStatus||"none", openH:me.openH!=null?me.openH:8, closeH:me.closeH!=null?me.closeH:22 }; }
     }catch(e){}
     return kState;
   }
@@ -205,8 +205,9 @@
 
   async function fillCourierSettings(){
     await loadCourierState();
-    const oh=$("#kSetOpenH"), ch=$("#kSetCloseH"), lg=$("#kSetLogin");
-    if(oh) oh.value=kState.openH; if(ch) ch.value=kState.closeH;
+    const hv=$("#kHoursView"), lg=$("#kSetLogin");
+    const pad=n=>String(n).padStart(2,"0");
+    if(hv) hv.textContent=pad(kState.openH)+":00 – "+pad(kState.closeH)+":00";
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
     renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
@@ -237,7 +238,7 @@
       el.innerHTML='<div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
         '<span style="font-size:30px">🌙</span>'+
         '<div style="flex:1;min-width:180px"><b style="color:#9ca3af">Hozir ishda emassiz</b>'+
-        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Ish vaqtingiz tashqarisidasiz — buyurtmalar sizga tushmaydi. Ish vaqtingiz: <b>'+String(kState.openH).padStart(2,"0")+':00–'+String(kState.closeH).padStart(2,"0")+':00</b>. Kerak bo\'lsa yuqorida o\'zgartiring.</div></div></div>';
+        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Ish vaqtingiz tashqarisidasiz — buyurtmalar sizga tushmaydi. Admin belgilagan ish vaqti: <b>'+String(kState.openH).padStart(2,"0")+':00–'+String(kState.closeH).padStart(2,"0")+':00</b>.</div></div></div>';
     } else {
       el.innerHTML='<div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
         '<span style="font-size:30px">🟢</span>'+
@@ -248,13 +249,31 @@
 
   function renderLeaveArea(){
     const el=$("#kLeaveArea"); if(!el) return;
+    const st=kState.leaveStatus||"none";
     if(kState.onLeave){
-      el.innerHTML='<button class="set-save" id="kReturnBtn" style="background:#16a34a">✅ Ishga qaytish</button>';
+      /* Admin tasdiqlagan — javobda; ishga qaytish mumkin */
+      el.innerHTML='<div style="background:#ecfdf3;border:1px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:10px;color:#15803d;font-size:14px">✅ <b>Ishdan javob olindi</b> — admin so\'rovingizni tasdiqladi.'+(kState.leaveReason?' Sabab: <b>'+esc(kState.leaveReason)+'</b>':'')+'</div>'+
+        '<button class="set-save" id="kReturnBtn" style="background:#16a34a">✅ Ishga qaytish</button>';
       const rb=$("#kReturnBtn"); if(rb) rb.addEventListener("click",returnToWork);
+    } else if(st==="pending"){
+      el.innerHTML='<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-bottom:10px;color:#b45309;font-size:14px">⏳ <b>So\'rov yuborildi</b> — admin javobini kutяпсиз.'+(kState.leaveReason?' Sabab: <b>'+esc(kState.leaveReason)+'</b>':'')+'</div>'+
+        '<button class="set-save" id="kLvCancelBtn" style="background:#9ca3af">So\'rovni bekor qilish</button>';
+      const cb=$("#kLvCancelBtn"); if(cb) cb.addEventListener("click",cancelLeaveReq);
+    } else if(st==="denied"){
+      el.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:10px;color:#b91c1c;font-size:14px">❌ <b>Ishdan javob olinmadi</b> — admin so\'rovingizni rad etdi. Siz ishда davom etasiz.</div>'+
+        '<button class="set-save" id="kLvAckBtn" style="background:#d97706">Tushundim</button>';
+      const ab=$("#kLvAckBtn"); if(ab) ab.addEventListener("click",cancelLeaveReq);
     } else {
-      el.innerHTML='<button class="set-save" id="kLeaveBtn" style="background:#d97706">🚪 Ishdan javob olish</button>';
+      el.innerHTML='<button class="set-save" id="kLeaveBtn" style="background:#d97706">🚪 Ishdan javob so\'rash</button>';
       const lb=$("#kLeaveBtn"); if(lb) lb.addEventListener("click",openLeaveModal);
     }
+  }
+
+  /* So'rovni bekor qilish / rad javobini tan olish (leave_status -> none) */
+  async function cancelLeaveReq(){
+    var r=(typeof STORE!=="undefined"&&STORE.courierLeaveCancel)? await STORE.courierLeaveCancel() : null;
+    if(r && !r.error){ kState.leaveStatus="none"; kState.leaveReason=""; renderStatusPanel(); renderLeaveArea(); updateStatusBadge(); toast("Bajarildi ✓"); }
+    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
 
   function openLeaveModal(){
@@ -263,13 +282,13 @@
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     var quick=["Kasal bo'lib qoldim","Shaxsiy sabab","Dam olish","Transport nosozligi"];
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px">'+
-      '<h3 style="margin:0 0 6px">Ishdan javob olish</h3>'+
-      '<p style="color:var(--grey);font-size:13px;margin:0 0 12px">Sababini yozing — u admin va restoranga yuboriladi. Buyurtmalaringiz boshqa kuryerga o\'tadi.</p>'+
+      '<h3 style="margin:0 0 6px">Ishdan javob so\'rash</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 12px">Sababini yozing — <b>admin tasdig\'iga</b> yuboriladi. Admin tasdiqlasa javobга chiqasiz va buyurtmalaringiz boshqa kuryerга o\'tadi.</p>'+
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'+quick.map(function(q){return '<button type="button" class="klq" style="border:1px solid var(--line);background:#faf7f8;border-radius:999px;padding:6px 11px;font-size:12px;cursor:pointer">'+q+'</button>';}).join("")+'</div>'+
       '<textarea id="kReason" rows="3" placeholder="Sabab..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:14px;resize:vertical"></textarea>'+
       '<div style="display:flex;gap:10px;margin-top:12px">'+
         '<button id="kLvCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
-        '<button id="kLvOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#d97706;color:#fff;font-weight:700;cursor:pointer">Javob olish</button>'+
+        '<button id="kLvOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#d97706;color:#fff;font-weight:700;cursor:pointer">So\'rov yuborish</button>'+
       '</div></div>';
     document.body.appendChild(el);
     var ta=el.querySelector("#kReason");
@@ -281,8 +300,8 @@
       var okBtn=el.querySelector("#kLvOk"); okBtn.disabled=true; okBtn.textContent="Yuborilmoqda...";
       var r=(typeof STORE!=="undefined"&&STORE.courierLeave)? await STORE.courierLeave(reason) : null;
       el.remove();
-      if(r && !r.error){ kState.onLeave=true; kState.leaveReason=reason; renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
-        toast("Ishdan javob olindi"+(r.reassigned?(" · "+r.reassigned+" ta buyurtma boshqa kuryerga o'tdi"):"")); loadOrders(); renderAll(); }
+      if(r && !r.error){ kState.leaveStatus="pending"; kState.leaveReason=reason; renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
+        toast("So'rov adminга yuborildi — javobни kuting"); }
       else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
     });
   }
@@ -295,14 +314,7 @@
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
 
-  async function saveHours(){
-    var oh=parseInt(($("#kSetOpenH")||{}).value,10), ch=parseInt(($("#kSetCloseH")||{}).value,10);
-    if(isNaN(oh)||isNaN(ch)){ toast("Soatlarni kiriting"); return; }
-    if(ch<=oh){ toast("Yopilish ochilishdan katta bo'lsin"); return; }
-    var r=(typeof STORE!=="undefined"&&STORE.updateCourierInfo)? await STORE.updateCourierInfo({openH:oh,closeH:ch}) : null;
-    if(r && !r.error){ kState.openH=oh; kState.closeH=ch; renderStatusPanel(); toast("Ish vaqti saqlandi — adminda ham ko'rinadi ✓"); }
-    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
-  }
+  /* Ish vaqti FAQAT admin tomonidan belgilanadi — kuryer o'zgartira olmaydi. */
   async function saveCourierLogin(){
     var v=(($("#kSetLogin")||{}).value||"").trim();
     if(v.length<3){ toast("Login kamida 3 belgi bo'lsin"); return; }
@@ -337,8 +349,7 @@
     $("#klPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
     $$(".sb-link").forEach(l=>l.addEventListener("click",()=>nav(l.dataset.view)));
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#klPass").value=""; CUR=null; try{location.href="index.html";}catch(e){} });
-    /* Sozlamalar tugmalari */
-    var sh=$("#kSaveHours"); if(sh) sh.addEventListener("click",saveHours);
+    /* Sozlamalar tugmalari (ish vaqti tugmasi yo'q — uni admin belgilaydi) */
     var spr=$("#kSaveProfile"); if(spr) spr.addEventListener("click",saveCourierProfile);
     var sl=$("#kSaveLogin"); if(sl) sl.addEventListener("click",saveCourierLogin);
     var sp=$("#kSavePass"); if(sp) sp.addEventListener("click",saveCourierPass);
@@ -367,7 +378,7 @@
       row("Hozirgi holat",'<span style="color:'+statusColor+'">'+statusTxt+'</span>')+
       row("Ish vaqti",pad(kOpenH())+":00 – "+pad(kCloseH())+":00")+
       row("Hozir soat",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}))+
-      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqtingizdan tashqarida (soat '+pad(kCloseH())+':00 dan keyin) siz <b>ishda emassiz</b> — buyurtmalar boshqa kuryerga tushadi. Ish vaqtini <b>Sozlamalar</b>da o\'zgartirasiz.</p></div>';
+      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqtingizdan tashqarida (soat '+pad(kCloseH())+':00 dan keyin) siz <b>ishda emassiz</b> — buyurtmalar boshqa kuryerga tushadi. Ish vaqtini <b>admin</b> belgilaydi.</p></div>';
     document.body.appendChild(el);
     el.querySelector("#yzOnClose").addEventListener("click",function(){ el.remove(); });
     el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });

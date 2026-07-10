@@ -118,15 +118,15 @@ function assignCourier(rest) {
   // Faol (hali yetkazilmagan) buyurtmalar — buyurtma tasdiqsiz to'g'ridan kuryerga
   // borgani uchun 'new'/'accepted' ham yukni hisoblashda inobatga olinadi.
   const ACTIVE = "('new','accepted','ready','ontheway')";
-  // 1) shu restoranga biriktirilgan kuryerlar ichidan eng kam faol buyurtmali
+  // 1) shu restoranga biriktirilgan kuryerlar ichidan eng kam faol buyurtmali (javobda bo'lmagan)
   let c = pick(
-    `SELECT c.name FROM couriers c WHERE c.rest = ? AND c.active = 1
+    `SELECT c.name FROM couriers c WHERE c.rest = ? AND c.active = 1 AND c.on_leave = 0
      ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`,
     String(rest || '')
   );
-  // 2) bo'lmasa — har qanday faol kuryer (eng kam yuklangan)
+  // 2) bo'lmasa — har qanday faol kuryer (eng kam yuklangan, javobda bo'lmagan)
   if (!c) c = pick(
-    `SELECT c.name FROM couriers c WHERE c.active = 1
+    `SELECT c.name FROM couriers c WHERE c.active = 1 AND c.on_leave = 0
      ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`
   );
   return c ? c.name : '';

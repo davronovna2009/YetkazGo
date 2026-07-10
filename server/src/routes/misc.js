@@ -23,7 +23,7 @@ function courRow(c) {
     fee: c.fee != null ? c.fee : 0, transport: c.transport || '', plate: c.plate || '', address: c.address || '', email: c.email || '', birthdate: c.birthdate || '', passport: c.passport || '',
     active: !!c.active,
     openH: c.open_h != null ? c.open_h : 8, closeH: c.close_h != null ? c.close_h : 22,
-    onLeave: !!c.on_leave, leaveReason: c.leave_reason || '',
+    onLeave: !!c.on_leave, leaveReason: c.leave_reason || '', leaveStatus: c.leave_status || 'none',
   };
 }
 
@@ -205,6 +205,9 @@ router.patch('/couriers', requireRole('admin'), (req, res) => {
   }
   if (b.rest != null) db.prepare('UPDATE couriers SET rest = ? WHERE login = ?').run(String(b.rest), login);
   if (b.fee != null) db.prepare('UPDATE couriers SET fee = ? WHERE login = ?').run(Math.max(0, Number(b.fee) || 0), login);
+  /* Ish vaqtini FAQAT admin belgilaydi */
+  if (b.openH  != null) db.prepare('UPDATE couriers SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
+  if (b.closeH != null) db.prepare('UPDATE couriers SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
   /* Chala qolgan profil maydonlarini ham to'ldirish/tahrirlash (admin) */
   for (const col of ['transport', 'plate', 'address', 'email', 'birthdate', 'passport', 'emoji']) {
     if (b[col] != null) db.prepare(`UPDATE couriers SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 120), login);
@@ -217,14 +220,13 @@ router.patch('/couriers', requireRole('admin'), (req, res) => {
 /* ===== Kuryer O'ZI boshqaradigan sozlamalar ===== */
 const COUR_ACTIVE = "('new','accepted','ready','ontheway')";
 
-/* PATCH /api/couriers/me — kuryer O'Z ish vaqtini o'zgartiradi (login/parol — /auth/me) */
+/* PATCH /api/couriers/me — kuryer O'Z profil ma'lumotini to'ldiradi.
+   MUHIM: ish vaqti (open_h/close_h) bu yerda O'ZGARMAYDI — uni FAQAT admin belgilaydi. */
 router.patch('/couriers/me', requireRole('kuryer'), (req, res) => {
   const b = req.body || {};
   const login = req.user.login;
   const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
   if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
-  if (b.openH  != null) db.prepare('UPDATE couriers SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
-  if (b.closeH != null) db.prepare('UPDATE couriers SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
   /* Kuryer o'z profil ma'lumotlarini ham to'ldiradi/tahrirlaydi (pasport — admin ixtiyorida) */
   for (const col of ['transport', 'plate', 'address', 'email', 'birthdate']) {
     if (b[col] != null) db.prepare(`UPDATE couriers SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 120), login);
@@ -239,17 +241,10 @@ router.get('/couriers/me', requireRole('kuryer'), (req, res) => {
   res.json(courRow(c));
 });
 
-/* POST /api/couriers/leave — kuryer ishdan javob oladi.
-   active=0 bo'lgani uchun yangi buyurtmalar avtomatik boshqa faol kuryerga ketadi;
-   uning FAOL (yetkazilmagan) buyurtmalari ham boshqa faol kuryerga o'tkaziladi. */
-router.post('/couriers/leave', requireRole('kuryer'), (req, res) => {
-  const login = req.user.login;
-  const reason = String((req.body && req.body.reason) || '').slice(0, 200);
-  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
-  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
-  db.prepare('UPDATE couriers SET active = 0, on_leave = 1, leave_reason = ? WHERE login = ?').run(reason, login);
-  // Faol buyurtmalarni boshqa faol kuryerga (imkon qadar shu restoranga biriktirilgan) o'tkazamiz
-  const orders = db.prepare(`SELECT * FROM orders WHERE courier = ? AND status IN ${COUR_ACTIVE}`).all(c.name);
+/* Faol (yetkazilmagan) buyurtmalarni boshqa faol kuryerga (imkon qadar shu restoranga
+   biriktirilgan, eng kam yuklangan) o'tkazadi. O'tkazilganlar sonini qaytaradi. */
+function reassignActiveOrders(courierName) {
+  const orders = db.prepare(`SELECT * FROM orders WHERE courier = ? AND status IN ${COUR_ACTIVE}`).all(courierName);
   let reassigned = 0;
   for (const o of orders) {
     const alt = db.prepare(
@@ -257,28 +252,71 @@ router.post('/couriers/leave', requireRole('kuryer'), (req, res) => {
        ORDER BY (CASE WHEN c.rest = ? THEN 0 ELSE 1 END),
                 (SELECT COUNT(*) FROM orders o2 WHERE o2.courier = c.name AND o2.status IN ${COUR_ACTIVE}) ASC,
                 RANDOM() LIMIT 1`
-    ).get(c.name, o.rest);
+    ).get(courierName, o.rest);
     if (alt && alt.name) { db.prepare('UPDATE orders SET courier = ? WHERE id = ?').run(alt.name, o.id); reassigned++; }
   }
-  res.json({ ok: true, reassigned, courier: courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)) });
+  return reassigned;
+}
+
+/* POST /api/couriers/leave — kuryer ishdan javob SO'RAYDI (admin tasdiqlashi shart).
+   So'rov 'pending' bo'ladi; kuryer admin qaroriga qadar ishда qoladi (buyurtma tushaveradi). */
+router.post('/couriers/leave', requireRole('kuryer'), (req, res) => {
+  const login = req.user.login;
+  const reason = String((req.body && req.body.reason) || '').slice(0, 200);
+  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
+  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
+  if (c.on_leave) return res.status(409).json({ error: 'Siz allaqachon ishdan javobdasiz' });
+  db.prepare("UPDATE couriers SET leave_status = 'pending', leave_reason = ? WHERE login = ?").run(reason, login);
+  res.json({ ok: true, status: 'pending', courier: courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)) });
 });
 
-/* POST /api/couriers/return — kuryer ishga qaytadi */
+/* POST /api/couriers/leave-cancel — kuryer so'rovini bekor qiladi YOKI rad javobini tan oladi.
+   leave_status ni 'none' ga qaytaradi. Tasdiqlangan (on_leave) holatда ishlamaydi — u yerда /return. */
+router.post('/couriers/leave-cancel', requireRole('kuryer'), (req, res) => {
+  const login = req.user.login;
+  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
+  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
+  if (c.on_leave) return res.status(409).json({ error: 'Tasdiqlangan javobда — «Ishga qaytish» dan foydalaning' });
+  db.prepare("UPDATE couriers SET leave_status = 'none', leave_reason = '' WHERE login = ?").run(login);
+  res.json({ ok: true, courier: courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)) });
+});
+
+/* POST /api/couriers/leave-decision — ADMIN ishdan-javob so'rovini tasdiqlaydi/rad etadi.
+   approve=true  -> kuryer javobга chiqadi (active=0, on_leave=1), faol buyurtmalari boshqa kuryerga o'tadi.
+   approve=false -> so'rov rad etiladi (leave_status='denied'), kuryer ishда qoladi. */
+router.post('/couriers/leave-decision', requireRole('admin'), (req, res) => {
+  const b = req.body || {};
+  const login = String(b.login || '').trim();
+  const approve = !!b.approve;
+  if (!login) return res.status(400).json({ error: 'login kerak' });
+  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
+  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
+  let reassigned = 0;
+  if (approve) {
+    db.prepare("UPDATE couriers SET active = 0, on_leave = 1, leave_status = 'approved' WHERE login = ?").run(login);
+    reassigned = reassignActiveOrders(c.name);
+  } else {
+    db.prepare("UPDATE couriers SET active = 1, on_leave = 0, leave_status = 'denied' WHERE login = ?").run(login);
+  }
+  res.json({ ok: true, approve, reassigned, courier: courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)) });
+});
+
+/* POST /api/couriers/return — kuryer (tasdiqlangan javobдан) ishga qaytadi */
 router.post('/couriers/return', requireRole('kuryer'), (req, res) => {
   const login = req.user.login;
   const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
   if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
-  db.prepare("UPDATE couriers SET active = 1, on_leave = 0, leave_reason = '' WHERE login = ?").run(login);
+  db.prepare("UPDATE couriers SET active = 1, on_leave = 0, leave_status = 'none', leave_reason = '' WHERE login = ?").run(login);
   res.json({ ok: true, courier: courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)) });
 });
 
 /* GET /api/couriers/status — restoran/admin/kuryer uchun MINIMAL kuryer holati
    (maxfiy maydonlarsiz). Restoran o'z kuryerlarining ishdan-javob holatini ko'radi. */
 router.get('/couriers/status', requireRole('restoran', 'kuryer', 'admin'), (_req, res) => {
-  const rows = db.prepare('SELECT id, name, rest, active, on_leave, leave_reason, open_h, close_h FROM couriers ORDER BY name').all();
+  const rows = db.prepare('SELECT id, name, rest, active, on_leave, leave_reason, leave_status, open_h, close_h FROM couriers ORDER BY name').all();
   res.json(rows.map((c) => ({
     id: c.id, name: c.name, rest: c.rest, active: !!c.active,
-    onLeave: !!c.on_leave, leaveReason: c.leave_reason || '',
+    onLeave: !!c.on_leave, leaveReason: c.leave_reason || '', leaveStatus: c.leave_status || 'none',
     openH: c.open_h != null ? c.open_h : 8, closeH: c.close_h != null ? c.close_h : 22,
   })));
 });

@@ -233,7 +233,11 @@ const STORE = (function () {
     updateCourierInfo(data) { return api("/couriers/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     fetchCourierMe() { return api("/couriers/me", { auth: true }).catch(() => null); },
     courierLeave(reason) { return api("/couriers/leave", { method: "POST", body: { reason }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    /* Kuryer so'rovini bekor qiladi / rad javobini tan oladi (leave_status -> none) */
+    courierLeaveCancel() { return api("/couriers/leave-cancel", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     courierReturn() { return api("/couriers/return", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    /* ADMIN: ishdan-javob so'rovini tasdiqlash/rad etish */
+    courierLeaveDecision(login, approve) { return api("/couriers/leave-decision", { method: "POST", body: { login, approve }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
