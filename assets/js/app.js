@@ -232,7 +232,11 @@
       )) || null;
     }catch(e){ return null; }
   }
-  function makeDishCard(d){
+  /* Taom qaysi restoranga tegishli — id topamiz (taom bosilganda o'sha restoranga kiritish uchun) */
+  function restIdOf(d){
+    try{ const r=restList().find(x=>x.name===d.rest); return r?r.id:null; }catch(e){ return null; }
+  }
+  function makeDishCard(d, inRest){
     const c=document.createElement("div");
     c.className="card";
     c.dataset.dishId = d.id;
@@ -254,9 +258,13 @@
           <div class="card-foot"></div>
         </div>
         <div class="card-pod"><div class="card-pod-action"></div></div>`;
-    // Rasm va sarlavhaga bosganda modal
-    c.querySelector(".card-img").addEventListener("click",()=>openDishModal(d));
-    c.querySelector("h3").addEventListener("click",()=>openDishModal(d));
+    // Index/aksiya gridida: taomga bosilsa — o'sha taomning restorani sahifasiga kiritamiz
+    // (bitta buyurtma = bitta restoran). Restoran sahifasi ichida esa taom tafsilotlari (modal) ochiladi.
+    const onDishClick = inRest
+      ? ()=>openDishModal(d)
+      : ()=>{ const rid=restIdOf(d); if(rid!=null) location.hash="restoran/"+rid; else openDishModal(d); };
+    c.querySelector(".card-img").addEventListener("click",onDishClick);
+    c.querySelector("h3").addEventListener("click",onDishClick);
     // Card-foot ni render qilish
     updateCardQty(c,d);
     return c;
@@ -420,7 +428,7 @@
         <div class="grid dishes-grid" id="rMenuGrid"></div>
       </div>`;
     const grid=view.querySelector("#rMenuGrid");
-    (menu.length?menu:DISHES.slice(0,8)).forEach(d=>grid.appendChild(makeDishCard(d)));
+    (menu.length?menu:DISHES.slice(0,8)).forEach(d=>grid.appendChild(makeDishCard(d,true)));
     /* Reklama banneri ishlaydi: chegirmali taomga bosilsa modal, «+» savatga qo'shadi */
     view.querySelectorAll(".rpromo-dish").forEach(it=>it.addEventListener("click",(e)=>{
       if(e.target.classList.contains("rpromo-add")) return;

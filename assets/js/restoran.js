@@ -139,7 +139,7 @@
     const pLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[incomePeriod];
     const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><b>${mln(periodNet)}</b><span>Sof daromad (${pLabel}, komissiyadan keyin)</span>
+      <div class="scard c1"><div class="si">💰</div><b>${mln(periodNet)}</b><span>Daromad (${pLabel})</span>
         <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div></div>
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
       <div class="scard c3"><div class="si">🧮</div><b>${money(avg)}</b><span>O'rtacha chek (so'm)</span></div>
@@ -246,8 +246,6 @@
         <td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}${so?' <span class="pill warn" style="font-size:10px">Tugagan</span>':''}</div></td>
         <td>${d.discount?`<span style="text-decoration:line-through;color:var(--grey)">${money(d.price)}</span> <b style="color:var(--red)">${money(d.eff)}</b> <span class="pill red">-${d.discount}%</span>`:money(d.price)}</td>
         <td>${money(d.sold)}</td>
-        <td class="money">${money(d.gross)}</td>
-        <td style="color:var(--grey)">−${money(d.commission)}</td>
         <td><b style="color:var(--green)">${money(d.net)}</b></td>
         <td style="white-space:nowrap">
           <button class="so-btn" data-name="${esc(d.name)}" title="Sotuvda bor/yo'q" style="background:${so?'#e9f7ef':'#fde9c8'};color:${so?'#16a34a':'#b45309'};border:none;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">${so?'✅ Sotuvga':'⛔ Tugadi'}</button>
@@ -478,29 +476,31 @@
       var g=m.reduce(function(s,o){return s+(o.amount||0);},0);
       return { sold:m.length, net:Math.round(g*keep/100) };
     };
+    /* Eng ko'p sotilgan taomlar (nima ko'p sotilyapti) */
+    const rows=r.dishes.map(d=>({d, st:dishStats(d)}));
+    const best=rows.slice().sort((a,b)=>b.st.sold-a.st.sold).filter(x=>x.st.sold>0).slice(0,5);
+    const maxSold=(best[0]&&best[0].st.sold)||1;
+    const bestSellers = best.length ? best.map(x=>`
+      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${x.d.emoji||"🍽️"} ${esc(x.d.name)}</b><span>${money(x.st.sold)} marta</span></div>
+      <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(x.st.sold/maxSold*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha sotuv yo\'q</p>';
     $("#incomeBody").innerHTML=`
       <div class="row2">
-        <div class="panel"><div class="panel-head"><h3>Moliya xulosasi (oy)</h3></div><div class="panel-body">
-          <div class="fin-row"><span>Umumiy savdo (gross)</span><b>${money(gross)} so'm</b></div>
-          <div class="fin-row"><span>Sayt komissiyasi (shartnoma ${pct}%)</span><b style="color:var(--red)">−${money(commission)} so'm</b></div>
-          <div class="fin-row tot"><span>Sizning sof daromadingiz</span><b>${money(net)} so'm</b></div>
+        <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (oy)</h3></div><div class="panel-body">
+          <div class="fin-row tot"><span>Sizning daromadingiz</span><b>${money(net)} so'm</b></div>
           <div class="fin-row"><span>Haftalik (o'rtacha)</span><b>${money(weekly)} so'm</b></div>
         </div></div>
-        <div class="panel"><div class="panel-head"><h3>Foiz taqsimoti</h3></div><div class="panel-body" style="text-align:center">
-          <div style="font-size:46px;font-weight:800;color:var(--green)">${keep}%</div>
-          <p style="color:var(--grey);font-size:14px;margin-bottom:14px">Sizga qoladi</p>
-          <div style="font-size:30px;font-weight:800;color:var(--red)">${pct}%</div>
-          <p style="color:var(--grey);font-size:14px">Sayt komissiyasi</p>
+        <div class="panel"><div class="panel-head"><h3>🔥 Eng ko'p sotilgan taomlar</h3></div><div class="panel-body">
+          ${bestSellers}
         </div></div>
       </div>
-      <div class="panel"><div class="panel-head"><h3>Har bir taomdan daromad (oy)</h3></div>
+      <div class="panel"><div class="panel-head"><h3>Har bir taomdan qancha daromad (oy)</h3></div>
         <div class="panel-body" style="padding:0;overflow-x:auto">
-          <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>1 donadan sizga (${keep}%)</th><th>Sotildi</th><th>Jami sof</th></tr></thead>
-          <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${d.name}</div></td>
-            <td>${money(d.price)}</td><td style="color:var(--green);font-weight:700">${money(d.eff*keep/100)}</td>
+          <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi</th><th>Daromad</th></tr></thead>
+          <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}</div></td>
+            <td>${money(d.price)}</td>
             <td>${money(st.sold)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
         </div></div>
-      <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: kuryerlar va sayt ichki hisob-kitoblari sizga ko'rinmaydi. Faqat taomingizdan keladigan, shartnoma asosidagi sof daromad ko'rsatiladi.</p>`;
+      <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: bu yerda faqat sizning taomlaringizdan keladigan daromad ko'rsatiladi.</p>`;
   }
 
   const RSM={new:["Avtomatik kuryerga yo'naltirilgan","blue"],accepted:["Kuryerga yo'naltirilgan","blue"],ready:["Kuryer kutilmoqda","blue"],ontheway:["Yo'lda","red"],arrived:["Yetkazildi (tasdiq kutilmoqda)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};

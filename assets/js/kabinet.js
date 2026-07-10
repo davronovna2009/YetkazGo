@@ -369,7 +369,31 @@
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
   function addToCart(id){
     const d=kcatalog().find(x=>x.id===id); if(!d) return;
-    const ex=cart.find(i=>i.id===id); if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1});
+    const ex=cart.find(i=>i.id===id);
+    /* Bitta buyurtma = bitta restoran — boshqa restoran taomi qo'shilsa so'raymiz */
+    if(!ex && cart.length && cart[0].rest && d.rest && cart[0].rest!==d.rest){
+      const c=$("#koContent");
+      if(c){
+        c.innerHTML=`<div style="text-align:center;padding:10px 4px">
+          <div style="font-size:42px">🏪</div>
+          <h2 style="margin:8px 0;font-size:19px">${esc(d.rest)} ga o'tamizmi?</h2>
+          <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:16px">Bitta buyurtmada faqat bitta restoran bo'ladi. Savatingizda <b>${esc(cart[0].rest)}</b> taomlari bor. <b>${esc(d.rest)}</b> ga o'tsangiz — savat yangilanadi va shu restoran taomlari ko'rinadi.</p>
+          <div style="display:flex;gap:10px">
+            <button class="set-save" id="kSwitchNo" style="flex:1;background:#eee;color:#333">Yo'q, qolaman</button>
+            <button class="set-save" id="kSwitchYes" style="flex:1">Ha, kirish</button>
+          </div></div>`;
+        $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+        const no=$("#kSwitchNo"); if(no) no.addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
+        const yes=$("#kSwitchYes"); if(yes) yes.addEventListener("click",()=>{
+          cart=[{id:d.id,name:d.name,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1}];
+          renderCart(); $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open");
+          filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){}
+          toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
+        });
+      }
+      return;
+    }
+    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1});
     renderCart(); updateKMenuQty(); toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
   }
   function changeQty(id,m){ const i=cart.find(x=>x.id===id); if(!i) return; i.qty+=m; if(i.qty<=0) cart=cart.filter(x=>x.id!==id); renderCart(); updateKMenuQty(); }
@@ -714,7 +738,10 @@
   }
   function bindMenuEvents(){
     document.querySelectorAll("#kMenu .kimg, #kMenu h4").forEach(el=>el.addEventListener("click",()=>{
-      const id=+el.dataset.id; const d=kcatalog().find(x=>x.id===id); if(d) openKDishModal(d);
+      const id=+el.dataset.id; const d=kcatalog().find(x=>x.id===id); if(!d) return;
+      /* Restoran ichida bo'lsak — taom tafsiloti; aks holda taomga bosilsa o'sha restoranga kiramiz */
+      if(activeRest){ openKDishModal(d); }
+      else { filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){} }
     }));
     document.querySelectorAll("#kMenu .kadd").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(+b.dataset.id); }));
     document.querySelectorAll("#kMenu .kqty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
@@ -893,7 +920,7 @@
       /* index.html i18n ham */
       if(typeof I18N!=="undefined") I18N.apply();
     }
-    const savedLang=localStorage.getItem("yz_lang")||"lat";
+    const savedLang=localStorage.getItem("yz_lang")||"cyr";
     applyKabLang(savedLang);
     knsLat && knsLat.addEventListener("click",()=>applyKabLang("lat"));
     knsCyr && knsCyr.addEventListener("click",()=>applyKabLang("cyr"));

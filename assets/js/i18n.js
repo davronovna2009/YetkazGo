@@ -97,14 +97,14 @@ const I18N = (function(){
       stat_rest:"Ресторан", stat_dish:"Таом тури", stat_eta:"дақиқада етказиш", stat_rating:"ўртача рейтинг"
     }
   };
-  let lang = "lat";
+  let lang = (function(){ try{ return localStorage.getItem('yz_lang')||"cyr"; }catch(e){ return "cyr"; } })();
   function t(key){ return (DICT[lang] && DICT[lang][key]) || (DICT.lat[key]||key); }
   function apply(){
     document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
     document.documentElement.setAttribute("lang", lang==="lat"?"uz":"uz-Cyrl");
   }
-  function toggle(){ lang = (lang==="lat")?"cyr":"lat"; apply(); return lang; }
+  function toggle(){ lang = (lang==="lat")?"cyr":"lat"; try{ localStorage.setItem('yz_lang',lang); }catch(e){} apply(); return lang; }
   function current(){ return lang; }
   return { t, apply, toggle, current };
 })();
@@ -185,7 +185,7 @@ const I18N = (function(){
 
   /* Kabinet uchun tarjima funksiyasi */
   window.KT = function(key, vars){
-    const lang = localStorage.getItem('yz_lang')||'lat';
+    const lang = localStorage.getItem('yz_lang')||'cyr';
     const dict = KAB[lang]||KAB.lat;
     let str = dict[key]||KAB.lat[key]||key;
     if(vars) Object.keys(vars).forEach(k=>{ str=str.replace('{'+k+'}',vars[k]); });
@@ -194,7 +194,7 @@ const I18N = (function(){
 
   /* DOM elementlarini yangilash */
   window.KT_APPLY = function(){
-    const lang = localStorage.getItem('yz_lang')||'lat';
+    const lang = localStorage.getItem('yz_lang')||'cyr';
     const dict = KAB[lang]||KAB.lat;
 
     /* data-kt atributli elementlarni yangilash */
