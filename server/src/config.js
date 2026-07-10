@@ -14,8 +14,13 @@ export const PORT = Number(process.env.PORT) || 5050;
 export const JWT_SECRET = process.env.JWT_SECRET || 'yetkaz-dev-secret-CHANGE-IN-PRODUCTION';
 export const JWT_EXPIRES = process.env.JWT_EXPIRES || '7d';
 
-/* Ma'lumotlar bazasi fayli */
+/* Ma'lumotlar bazasi fayli (Turso ulanганда — lokal embedded replica fayli) */
 export const DB_PATH = process.env.DB_PATH || resolve(SERVER_DIR, 'data', 'yetkaz.db');
+
+/* Turso (libSQL) — doimiy bulutli baza. Ikkalasi berilса embedded replica ishlaydi;
+   berilmasa — oddiy lokal fayl (dev/test). */
+export const TURSO_URL = process.env.TURSO_DATABASE_URL || '';
+export const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || '';
 
 /* Yuklangan rasmlar papkasi */
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || resolve(SERVER_DIR, 'uploads');

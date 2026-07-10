@@ -1,14 +1,26 @@
-/* ===== Yetkaz.uz backend — ma'lumotlar bazasi (node:sqlite) ===== */
-import { DatabaseSync } from 'node:sqlite';
+/* ===== Yetkaz.uz backend — ma'lumotlar bazasi (libSQL + Turso embedded replica) =====
+   Turso ulanганда (TURSO_URL bor): lokal fayl = tez o'qish uchun replica, yozuvlar
+   remote (bulut) primary'ga yoziladi va DOIMIY saqlanadi. Ulanmagan bo'lsa — oddiy
+   lokal fayl (dev). API node:sqlite bilan bir xil (sinxron: prepare/get/all/run/exec). */
+import Database from 'libsql';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { DB_PATH } from './config.js';
+import { DB_PATH, TURSO_URL, TURSO_TOKEN } from './config.js';
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
-export const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+const opts = {};
+if (TURSO_URL) { opts.syncUrl = TURSO_URL; opts.authToken = TURSO_TOKEN; }
+export const db = new Database(DB_PATH, opts);
+
+/* Boot: remote'dan lokal replica'ga mavjud ma'lumotlarni tortib olamiz */
+if (TURSO_URL) {
+  try { db.sync(); console.log('[Turso] embedded replica sinxronlandi'); }
+  catch (e) { console.warn('[Turso] boshlang\'ich sync xato:', e.message); }
+  /* Boshqa nusxalar o'zgartirsa — davriy tortib olamiz (bir server uchun ham zararsiz) */
+  setInterval(() => { try { db.sync(); } catch (e) { /* jim */ } }, 60000);
+}
+try { db.exec('PRAGMA foreign_keys = ON;'); } catch (e) { /* ba'zi rejimlarda qo'llanmaydi */ }
 
 export function initSchema() {
   db.exec(`
