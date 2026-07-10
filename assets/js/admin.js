@@ -264,7 +264,20 @@
       <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span></div></div>
       <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span></div></div>`;
     $$("#statCards .a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderDash(); }); });
-    $("#revChart").innerHTML='<p style="color:var(--grey);font-size:13px;padding:16px;text-align:center">Daromad grafigi real buyurtmalar bilan to\'ladi.</p>';
+    /* REAL komissiya grafigi — so'nggi 6 oy (done buyurtmalar komissiyasi bo'yicha) */
+    (function(){
+      const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+      const now=new Date(); const slots=[];
+      for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],sum:0}); }
+      done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth(); const sl=slots.find(x=>x.y===y&&x.m===mo); if(sl) sl.sum+=commOf(o); });
+      const max=Math.max.apply(null,slots.map(x=>x.sum).concat([1]));
+      const el=$("#revChart"); if(!el) return;
+      el.style.cssText="display:flex;align-items:flex-end;gap:10px;padding:12px 6px;height:180px";
+      el.innerHTML=slots.map(function(x){ return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
+        '<div style="font-size:11px;font-weight:700;color:#8a7f76">'+(x.sum?mln(x.sum).replace(" mln",""):"0")+'</div>'+
+        '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--red,#C8102E),#ff7a5c);height:'+Math.max(4,Math.round(x.sum/max*130))+'px"></div>'+
+        '<small style="font-size:11px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+    })();
     /* Real: top restoranlar haqiqiy buyurtmalar bo'yicha */
     const rAgg={};
     live.forEach(function(o){ if(!o.rest) return; if(!rAgg[o.rest]) rAgg[o.rest]={name:o.rest,rev:0,count:0,items:{}}; rAgg[o.rest].rev+=(o.amount||0); rAgg[o.rest].count++; const it=o.item||""; if(it) rAgg[o.rest].items[it]=(rAgg[o.rest].items[it]||0)+1; });
@@ -308,7 +321,8 @@
     var host=document.getElementById("view-dash"); if(!host) return;
     var box=document.getElementById("adminLowRests");
     if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminLowRests"; box.style.marginTop="16px"; host.appendChild(box); }
-    var list=(RESTS||[]).slice().filter(function(r){ return r && r.name; })
+    /* Faqat REYTINGGA ega (baholangan) restoranlar — yangi 0-reytinglilar ro'yxatni egallamasin */
+    var list=(RESTS||[]).slice().filter(function(r){ return r && r.name && (r.rating||0)>0; })
       .sort(function(a,b){ return (a.rating||0)-(b.rating||0); }).slice(0,5);
     box.innerHTML='<div class="panel-head"><h3>📉 Eng past reytingli restoranlar</h3></div><div class="panel-body">'+
       (list.length?list.map(function(r){

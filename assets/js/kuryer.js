@@ -164,16 +164,23 @@
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });
 
   function renderIncome(){
-    const c=CUR, month=c.deliveries*PER, week=Math.round(month/4.3), day=Math.round(month/26);
+    /* REAL: yetkazilgan (done) buyurtmalar soniga qarab (dashboard bilan bir xil manba) */
+    const doneAll=ORDERS.filter(o=>o.status==="done");
+    const doneCount=doneAll.length;
+    const monthCnt=doneAll.filter(o=>kInPeriod(o,"oylik")).length;
+    const weekCnt=doneAll.filter(o=>kInPeriod(o,"haftalik")).length;
+    const dayCnt=doneAll.filter(o=>kInPeriod(o,"kunlik")).length;
+    const month=monthCnt*PER, week=weekCnt*PER, day=dayCnt*PER;
     $("#incomeBody").innerHTML=`
       <div class="stat-grid">
-        <div class="scard c3"><div class="si">📅</div><b>${money(day)}</b><span>Bugun (taxminiy)</span></div>
+        <div class="scard c3"><div class="si">📅</div><b>${money(day)}</b><span>Bugun</span></div>
         <div class="scard c2"><div class="si">🗓️</div><b>${money(week)}</b><span>Haftalik</span></div>
         <div class="scard c1"><div class="si">💵</div><b>${money(month)}</b><span>Oylik</span></div>
       </div>
       <div class="panel"><div class="panel-head"><h3>Daromad qanday hisoblanadi</h3></div><div class="panel-body">
         <div class="fin-row"><span>Bitta yetkazish haqi (sayt to'laydi)</span><b>${PER?money(PER)+" so'm":"belgilanmagan"}</b></div>
-        <div class="fin-row"><span>Oyiga yetkazilgan</span><b>${money(c.deliveries)} ta</b></div>
+        <div class="fin-row"><span>Bu oyda yetkazilgan</span><b>${money(monthCnt)} ta</b></div>
+        <div class="fin-row"><span>Jami yetkazilgan</span><b>${money(doneCount)} ta</b></div>
         <div class="fin-row tot"><span>Jami oylik daromad</span><b>${money(month)} so'm</b></div>
         <p style="color:var(--grey);font-size:13px;margin-top:10px">Daromad masofaga emas, yetkazilgan buyurtmalar soniga qarab hisoblanadi. To'lovni yetkaz.uz amalga oshiradi.</p>
       </div></div>`;

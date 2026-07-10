@@ -870,7 +870,7 @@
     renderCartOrders();
 
     // Step 4: modal ichida mini tracking
-    const steps = ["Qabul qilindi","Tayyorlanmoqda","Tayyor","Yo'lda","Yetib keldi"];
+    const steps = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
     const icons = ["📥","👨‍🍳","✅","🛵","🎉"];
 
     openModal(`
@@ -990,7 +990,7 @@
         tTimer.textContent = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
       }
       if(tStatus){
-        const statusLabels = ["Qabul qilindi","Tayyorlanmoqda","Tayyor","Yo'lda","Yetib keldi"];
+        const statusLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
         tStatus.textContent = statusLabels[step]||"";
       }
       if(tBar){
@@ -1037,7 +1037,7 @@
     }
     el.style.display = "";
 
-    const stepLabels = ["Qabul qilindi","Tayyorlanmoqda","Tayyor","Yo'lda","Yetib keldi 🎉"];
+    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")+" 🎉"];
     const stepColors = ["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
 
     el.innerHTML = `
@@ -1063,7 +1063,7 @@
             <div class="otb-bar-wrap">
               <div class="otb-bar" style="width:${pct}%;background:${stepColors[step]}"></div>
             </div>
-            ${step<3?`<button class="otb-cancel" data-cancel="${o.id}" style="margin-top:8px;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">✕ Bekor qilish</button>`:""}
+            ${step<3?`<button class="otb-cancel" data-cancel="${o.id}" style="margin-top:8px;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">✕ ${I18N.t("cancel_btn")}</button>`:""}
           </div>`;
         }).join("")}
       </div>`;
@@ -1117,7 +1117,7 @@
       if(drawerBody) drawerBody.before(panel);
     }
 
-    const stepLabels = ["Qabul qilindi","Tayyorlanmoqda ⏳","Tayyor ✅","Yo'lda 🛵","Yetib keldi 🎉"];
+    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking")+" ⏳",I18N.t("st_ready")+" ✅",I18N.t("st_ontheway")+" 🛵",I18N.t("st_arrived")+" 🎉"];
     const stepColors = ["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
 
     panel.innerHTML = `
@@ -1166,10 +1166,10 @@
       <div class="arrived-card">
         <button class="arrived-close" id="arrivedClose">✕</button>
         <div class="arrived-emoji">${order.emoji}</div>
-        <div class="arrived-title">Yetib keldi! 🎉</div>
+        <div class="arrived-title">${I18N.t("st_arrived")}! 🎉</div>
         <div class="arrived-name">${esc(order.label)}</div>
-        <div class="arrived-msg">Buyurtmangiz eshigingizda.<br>Qabul qildingizmi?</div>
-        <button class="btn btn-primary" id="arrivedOk">Rahmat, oldim! ✓</button>
+        <div class="arrived-msg">${I18N.t("arrived_msg")}</div>
+        <button class="btn btn-primary" id="arrivedOk">${I18N.t("got_it")} ✓</button>
       </div>`;
     document.body.appendChild(overlay);
 
@@ -1238,7 +1238,7 @@
     openModal(`
       <div style="text-align:center">
         <div style="font-size:40px">⭐</div>
-        <h2 style="margin:6px 0 2px">Baholang</h2>
+        <h2 style="margin:6px 0 2px">${I18N.t("rate_title")}</h2>
         <p class="modal-sub" style="margin-bottom:14px">Buyurtmangiz uchun rahmat! Fikringiz muhim.</p>
         <div class="rate-block">
           <div class="rate-label">🍽️ ${esc(e.dish||"Taom")}</div>
@@ -1252,7 +1252,7 @@
         <textarea id="rateText" rows="2" placeholder="Izoh (ixtiyoriy)" style="width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:11px;padding:10px;font-family:inherit;font-size:14px;margin:10px 0;resize:vertical"></textarea>
         <div style="display:flex;gap:10px">
           <button class="btn btn-outline btn-block" id="rateSkip">Keyinroq</button>
-          <button class="btn btn-primary btn-block" id="rateSend">Yuborish</button>
+          <button class="btn btn-primary btn-block" id="rateSend">${I18N.t("rate_send")}</button>
         </div>
       </div>`);
     let dishR=0, courR=0;
@@ -1267,7 +1267,7 @@
       if(!dishR && !courR){ toast("Kamida bitta baho bering","error"); return; }
       if(dishR>0 && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:dishR, dish:e.dish, text:text}, e.token);
       if(courR>0 && e.courier && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:courR, dish:"🛵 Kuryer: "+e.courier, text:text}, e.token);
-      removePendingRating(e.id); closeModal(); toast("Rahmat! Bahoyingiz yuborildi ✓","success");
+      removePendingRating(e.id); closeModal(); toast(I18N.t("rate_thanks")+" ✓","success");
       try{ renderReviews(); }catch(_){}
     });
   }

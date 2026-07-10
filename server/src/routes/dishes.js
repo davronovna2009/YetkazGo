@@ -8,6 +8,12 @@ import { requireRole } from '../auth.js';
 const router = Router();
 const key = (rest, name) => `${rest}|${name}`;
 
+/* Egalik: restoran FAQAT o'z nomi bilan ishlay oladi (body.rest e'tiborsiz qoldiriladi);
+   admin esa istalgan restoranni ko'rsatishi mumkin. Shu boshqa restoranni buzishni to'sadi. */
+function restFor(req) {
+  return req.user && req.user.role === 'restoran' ? req.user.name : String(req.body?.rest || '');
+}
+
 function addedRow(r) {
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr || '', emoji: r.emoji, price: r.price,
@@ -33,12 +39,14 @@ router.get('/overrides', (_req, res) => res.json(getOverrides()));
 router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   const b = req.body || {};
   const id = Number(b.id) || Date.now();
+  const rest = restFor(req);
+  if (!rest) return res.status(400).json({ error: 'rest kerak' });
   db.prepare(
     `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     id, String(b.name || ''), String(b.nameCyr || ''), String(b.emoji || '🍽️'),
-    Number(b.price) || 0, String(b.rest || ''), String(b.cat || 'Fastfood'),
+    Number(b.price) || 0, rest, String(b.cat || 'Fastfood'),
     String(b.kw || ''), String(b.photo || ''), Number(b.rating) || 4.5,
     Number(b.sold) || 0, String(b.badge || ''),
     String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300)
@@ -48,7 +56,7 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
 
 /* DELETE /api/dishes — taomni o'chirish (rest+name) */
 router.delete('/dishes', requireRole('restoran', 'admin'), (req, res) => {
-  const rest = String(req.body?.rest || '');
+  const rest = restFor(req);
   const name = String(req.body?.name || '');
   if (!rest || !name) return res.status(400).json({ error: 'rest va name kerak' });
   db.prepare('DELETE FROM added_dishes WHERE rest = ? AND name = ?').run(rest, name);
@@ -58,7 +66,7 @@ router.delete('/dishes', requireRole('restoran', 'admin'), (req, res) => {
 
 /* POST /api/discounts — chegirma o'rnatish (pct=0 -> olib tashlash) */
 router.post('/discounts', requireRole('restoran', 'admin'), (req, res) => {
-  const rest = String(req.body?.rest || '');
+  const rest = restFor(req);
   const name = String(req.body?.name || '');
   const pct = Number(req.body?.pct) || 0;
   if (!rest || !name) return res.status(400).json({ error: 'rest va name kerak' });
@@ -69,7 +77,7 @@ router.post('/discounts', requireRole('restoran', 'admin'), (req, res) => {
 
 /* POST /api/soldout — taomni "sotuvda yo'q" / qaytadan sotuvga qo'yish */
 router.post('/soldout', requireRole('restoran', 'admin'), (req, res) => {
-  const rest = String(req.body?.rest || '');
+  const rest = restFor(req);
   const name = String(req.body?.name || '');
   if (!rest || !name) return res.status(400).json({ error: 'rest va name kerak' });
   if (req.body?.soldout) db.prepare('INSERT OR IGNORE INTO soldout_dishes (rest, name) VALUES (?,?)').run(rest, name);

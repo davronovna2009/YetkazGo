@@ -52,7 +52,9 @@ const I18N = (function(){
       soldout:"Tugagan", closed_now:"hozir yopiq", nothing_found:"Hech narsa topilmadi",
       today_rec:"Bugungi tavsiya", rec_sub:"Har kuni boshqa restoran taomlari birinchi chiqadi",
       ri_hours:"Ish vaqti", ri_addr:"Manzil", ri_area:"Yetkazish hududi", ri_contact:"Aloqa",
-      ri_about:"haqida", ri_rating:"Reyting", closed_l:"Yopiq", open_l:"Ochiq"
+      ri_about:"haqida", ri_rating:"Reyting", closed_l:"Yopiq", open_l:"Ochiq",
+      rate_title:"Baholang", rate_send:"Yuborish", cancel_btn:"Bekor qilish",
+      got_it:"Rahmat, oldim!", rate_thanks:"Rahmat! Bahoyingiz yuborildi"
     },
     cyr:{
       nav_restaurants:"Ресторанлар", nav_dishes:"Таомлар", nav_about:"Сайт ҳақида",
@@ -104,7 +106,9 @@ const I18N = (function(){
       soldout:"Тугаган", closed_now:"ҳозир ёпиқ", nothing_found:"Ҳеч нарса топилмади",
       today_rec:"Бугунги тавсия", rec_sub:"Ҳар куни бошқа ресторан таомлари биринчи чиқади",
       ri_hours:"Иш вақти", ri_addr:"Манзил", ri_area:"Етказиш ҳудуди", ri_contact:"Алоқа",
-      ri_about:"ҳақида", ri_rating:"Рейтинг", closed_l:"Ёпиқ", open_l:"Очиқ"
+      ri_about:"ҳақида", ri_rating:"Рейтинг", closed_l:"Ёпиқ", open_l:"Очиқ",
+      rate_title:"Баҳоланг", rate_send:"Юбориш", cancel_btn:"Бекор қилиш",
+      got_it:"Раҳмат, олдим!", rate_thanks:"Раҳмат! Баҳоингиз юборилди"
     }
   };
   let lang = (function(){ try{ return localStorage.getItem('yz_lang')||"cyr"; }catch(e){ return "cyr"; } })();
