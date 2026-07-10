@@ -47,7 +47,12 @@ const I18N = (function(){
       order_now:"Buyurtma", view_menu:"Menyuni ko'rish",
       free:"Bepul", free_delivery:"Tez yetkazib berish", footer_team:"Yetkaz jamoasi",
       orders_word:"buyurtma", reviews_title:"Mijozlar fikri", reviews_sub:"Haqiqiy buyurtmalardan haqiqiy izohlar", nav_reviews:"Izohlar", back:"Orqaga", open_now:"Hozir ochiq", rest_menu:"Menyu",
-      stat_rest:"Restoran", stat_dish:"Taom turi", stat_eta:"daqiqada yetkazish", stat_rating:"o'rtacha reyting"
+      stat_rest:"Restoran", stat_dish:"Taom turi", stat_eta:"daqiqada yetkazish", stat_rating:"o'rtacha reyting",
+      added_btn:"Savatga qo'shish", view_cart_btn:"Savatni ko'rish", ingredients_l:"Tarkibi",
+      soldout:"Tugagan", closed_now:"hozir yopiq", nothing_found:"Hech narsa topilmadi",
+      today_rec:"Bugungi tavsiya", rec_sub:"Har kuni boshqa restoran taomlari birinchi chiqadi",
+      ri_hours:"Ish vaqti", ri_addr:"Manzil", ri_area:"Yetkazish hududi", ri_contact:"Aloqa",
+      ri_about:"haqida", ri_rating:"Reyting", closed_l:"Yopiq", open_l:"Ochiq"
     },
     cyr:{
       nav_restaurants:"Ресторанлар", nav_dishes:"Таомлар", nav_about:"Сайт ҳақида",
@@ -94,7 +99,12 @@ const I18N = (function(){
       order_now:"Буюртма", view_menu:"Менюни кўриш",
       free:"Бепул", free_delivery:"Тез етказиб бериш", footer_team:"Yetkaz жамоаси",
       orders_word:"буюртма", reviews_title:"Мижозлар фикри", reviews_sub:"Ҳақиқий буюртмалардан ҳақиқий изоҳлар", nav_reviews:"Изоҳлар", back:"Орқага", open_now:"Ҳозир очиқ", rest_menu:"Меню",
-      stat_rest:"Ресторан", stat_dish:"Таом тури", stat_eta:"дақиқада етказиш", stat_rating:"ўртача рейтинг"
+      stat_rest:"Ресторан", stat_dish:"Таом тури", stat_eta:"дақиқада етказиш", stat_rating:"ўртача рейтинг",
+      added_btn:"Саватга қўшиш", view_cart_btn:"Саватни кўриш", ingredients_l:"Таркиби",
+      soldout:"Тугаган", closed_now:"ҳозир ёпиқ", nothing_found:"Ҳеч нарса топилмади",
+      today_rec:"Бугунги тавсия", rec_sub:"Ҳар куни бошқа ресторан таомлари биринчи чиқади",
+      ri_hours:"Иш вақти", ri_addr:"Манзил", ri_area:"Етказиш ҳудуди", ri_contact:"Алоқа",
+      ri_about:"ҳақида", ri_rating:"Рейтинг", closed_l:"Ёпиқ", open_l:"Очиқ"
     }
   };
   let lang = (function(){ try{ return localStorage.getItem('yz_lang')||"cyr"; }catch(e){ return "cyr"; } })();

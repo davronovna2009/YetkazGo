@@ -473,6 +473,9 @@
   function money(n){ return Math.round(n).toLocaleString('ru-RU'); }
 
   function syncCards(){
+    /* admin.js dagi TO'LIQ versiyani chaqiramiz (barcha statuslar + bosib ochish + narx tafsiloti).
+       Faqat u yo'q bo'lsa (eski holat) — quyidagi oddiy zaxira ishlaydi. */
+    if (typeof window._adminRenderLiveOrders === 'function') { window._adminRenderLiveOrders(); return; }
     var tbody = document.getElementById('liveOrders');
     var cards = document.getElementById('liveOrderCards');
     if(!tbody || !cards) return;

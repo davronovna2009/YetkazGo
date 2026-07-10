@@ -11,7 +11,8 @@ const router = Router();
    keyin ishlaydi. Bu yerda (import paytida) yozilsa, yangi bazada jadval hali yo'q
    bo'lib jim yiqilardi va ustun umuman qo'shilmasdi. */
 
-const ALLOWED = ['user', 'phone', 'rest', 'item', 'emoji', 'amount', 'addr', 'pay', 'courier', 'status', 'eta', 'time', 'reason', 'delivery', 'paid'];
+/* Eslatma: 'paid' bu ro'yxatда YO'Q — to'lov faqat QR endpointлари orqali (telefon tasdig'i bilan) o'rnatiladi */
+const ALLOWED = ['user', 'phone', 'rest', 'item', 'emoji', 'amount', 'addr', 'pay', 'courier', 'status', 'eta', 'time', 'reason', 'delivery'];
 
 /* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga POST javobida beriladi */
 function rowToOrder(r) {

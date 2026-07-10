@@ -210,6 +210,8 @@
       $$("#liveOrderCards [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ openOrderModal(o.find(function(t){return t.id==row.dataset.oid;})); }); });
     }
   }
+  /* admin.html ичидаги davriy yangilagich shu to'liq versiyani chaqiradi (dublikat/klobber bo'lmasin) */
+  window._adminRenderLiveOrders = renderLiveOrders;
   function omr(k,v){ return "<div style=\"display:flex;justify-content:space-between;gap:10px\"><span style=\"color:var(--grey)\">"+k+"</span><b style=\"text-align:right\">"+v+"</b></div>"; }
   function openOrderModal(o){
     if(!o) return;
@@ -389,10 +391,7 @@
           <td>${money(c.deliveries)}</td>
           <td>${courHours(c)}</td>
           <td><span class="star">★ ${c.rating}</span></td>
-          <td><span class="mono">${c.login}</span></td>
-          ${pend
-            ? `<td><span class="pill warn">O'chiriladi · ${formatCountdown(pend.deleteAt-Date.now())}</span></td>`
-            : ""}
+          <td><span class="mono">${c.login}</span>${pend?` <span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`:""}</td>
         </tr>`;
       }).join("");
       $$("#courTbody tr").forEach(tr=>tr.addEventListener("click",()=>openCourier(+tr.dataset.id)));
@@ -989,7 +988,25 @@
   /* =========================================================
      SETTINGS
      ========================================================= */
-  function saveSettings(){ toast("Sozlamalar saqlandi ✓"); }
+  /* Moliyaviy/bildirishnoma sozlamalari — localStorage'ga saqlanadi (yangi restoran/kuryer
+     qo'shishда standart qiymat sifatida ishlatish uchun ma'lumot). */
+  function saveSettings(){
+    try{
+      const g=id=>{ const el=document.getElementById(id); return el?el.value:""; };
+      const toggles=[]; document.querySelectorAll('#view-settings .toggle-switch input[type="checkbox"]').forEach(c=>toggles.push(!!c.checked));
+      const s={ comm:g("setComm"), delivery:g("setDelivery"), min:g("setMin"), courier:g("setCourier"), toggles:toggles };
+      localStorage.setItem("yz_admin_settings", JSON.stringify(s));
+      toast("Sozlamalar saqlandi ✓");
+    }catch(e){ toast("Saqlashда xato"); }
+  }
+  function loadSettings(){
+    try{
+      const s=JSON.parse(localStorage.getItem("yz_admin_settings")||"{}");
+      const set=(id,v)=>{ const el=document.getElementById(id); if(el && v!=null && v!=="") el.value=v; };
+      set("setComm",s.comm); set("setDelivery",s.delivery); set("setMin",s.min); set("setCourier",s.courier);
+      if(Array.isArray(s.toggles)){ document.querySelectorAll('#view-settings .toggle-switch input[type="checkbox"]').forEach((c,i)=>{ if(s.toggles[i]!=null) c.checked=s.toggles[i]; }); }
+    }catch(e){}
+  }
   function fillProfile(){
     const ses=(typeof STORE!=="undefined")?STORE.session():null; if(!ses) return;
     const set=(id,v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=(v||""); };
@@ -1170,6 +1187,7 @@
 
     // Settings
     const ss=$("#setSave"); if(ss) ss.addEventListener("click",saveSettings);
+    loadSettings();
     const sps=$("#setProfileSave"); if(sps) sps.addEventListener("click",saveProfile);
     fillProfile();
     if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }

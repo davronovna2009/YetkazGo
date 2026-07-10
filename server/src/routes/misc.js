@@ -347,34 +347,56 @@ router.get('/couriers/status', requireRole('restoran', 'kuryer', 'admin'), (_req
   })));
 });
 
-/* ===== OMMAVIY TO'LOV (QR orqali) — mijoz login qilmasdan ochadi ===== */
+/* ===== OMMAVIY TO'LOV (QR orqali) — mijoz login qilmasdan ochadi =====
+   XAVFSIZLIK: QR kuryernikи (doimiy), lekin mijoz FAQAT O'Z telefoni bo'yicha
+   O'Z buyurtmasini ko'radi/to'laydi. Shunда boshqa mijozlar ma'lumoti sizmaydi
+   va begona buyurtmани "to'landi" deb belgilab bo'lmaydi. */
 const PAY_ACTIVE = "('new','accepted','ready','ontheway','arrived')";
+function payNormPhone(p) { return String(p == null ? '' : p).replace(/\D/g, ''); }
+/* Telefon mosligi (oxirgi raqamlar bo'yicha — +998 bilan yoki bilamsiz kiritса ham) */
+function phoneMatches(a, b) {
+  const x = payNormPhone(a), y = payNormPhone(b);
+  if (x.length < 7 || y.length < 7) return false;
+  return x.endsWith(y) || y.endsWith(x);
+}
 
-/* GET /api/pay/:token — QR skanerlanganda: kuryerning to'lanmagan faol buyurtmalari (minimal ma'lumot) */
+/* GET /api/pay/:token — QR skanerlanganda: FAQAT kuryer nomi (mijozlar ma'lumoti YO'Q) */
 router.get('/pay/:token', (req, res) => {
   const token = String(req.params.token || '').trim();
   if (!token) return res.status(400).json({ error: 'token kerak' });
+  const c = db.prepare('SELECT name, emoji FROM couriers WHERE pay_token = ?').get(token);
+  if (!c) return res.status(404).json({ error: 'QR yaroqsiz' });
+  res.json({ courier: c.name, emoji: c.emoji || '🛵' });
+});
+
+/* POST /api/pay/:token/lookup — mijoz O'Z telefoni bo'yicha FAQAT O'Z buyurtmalarini oladi */
+router.post('/pay/:token/lookup', (req, res) => {
+  const token = String(req.params.token || '').trim();
+  const phone = payNormPhone(req.body && req.body.phone);
   const c = db.prepare('SELECT * FROM couriers WHERE pay_token = ?').get(token);
   if (!c) return res.status(404).json({ error: 'QR yaroqsiz' });
+  if (phone.length < 7) return res.status(400).json({ error: 'Telefon raqamini to`liq kiriting' });
   const rows = db.prepare(
-    `SELECT id, item, emoji, amount, user, pay, paid FROM orders
+    `SELECT id, item, emoji, amount, pay, phone FROM orders
      WHERE courier = ? AND paid = 0 AND status IN ${PAY_ACTIVE} ORDER BY id DESC`
-  ).all(c.name);
+  ).all(c.name).filter((o) => phoneMatches(o.phone, phone));
   res.json({
     courier: c.name, emoji: c.emoji || '🛵',
-    orders: rows.map((o) => ({ id: o.id, item: o.item, emoji: o.emoji, amount: o.amount, user: o.user, pay: o.pay })),
+    orders: rows.map((o) => ({ id: o.id, item: o.item, emoji: o.emoji, amount: o.amount, pay: o.pay })),
   });
 });
 
-/* POST /api/pay/:token/:orderId — mijoz to'lovni tasdiqlaydi (buyurtma shu kuryerники bo'lishi shart) */
+/* POST /api/pay/:token/:orderId — mijoz O'Z buyurtmasini to'laydi (telefon MOS kelishi shart) */
 router.post('/pay/:token/:orderId', (req, res) => {
   const token = String(req.params.token || '').trim();
   const id = Number(req.params.orderId);
+  const phone = payNormPhone(req.body && req.body.phone);
   const c = db.prepare('SELECT * FROM couriers WHERE pay_token = ?').get(token);
   if (!c) return res.status(404).json({ error: 'QR yaroqsiz' });
   const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
   if (o.courier !== c.name) return res.status(403).json({ error: 'Bu buyurtma bu kuryerга tegishli emas' });
+  if (!phoneMatches(o.phone, phone)) return res.status(403).json({ error: 'Telefon raqami mos kelmadi' });
   if (o.status === 'cancelled') return res.status(409).json({ error: 'Buyurtma bekor qilingan' });
   if (o.paid) return res.json({ ok: true, already: true, order: { id: o.id, item: o.item, amount: o.amount } });
   db.prepare("UPDATE orders SET paid = 1, paid_at = datetime('now') WHERE id = ?").run(id);

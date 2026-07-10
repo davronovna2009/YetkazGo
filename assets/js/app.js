@@ -80,7 +80,7 @@
     }
     if(!pod) return;
     if(d.soldout){
-      pod.innerHTML = `<span class="pod-soldout">Tugagan</span>`;
+      pod.innerHTML = `<span class="pod-soldout">${I18N.t("soldout")}</span>`;
       return;
     }
     /* Restoran hozir yopiqmi — yopiq bo'lsa savatga qo'shib/uchirib bo'lmaydi */
@@ -89,7 +89,7 @@
       if(closed){
         /* "+" o'rniga o'chiq (yopiq) tugma — bosilsa faqat xabar, uchmaydi/qo'shilmaydi */
         pod.innerHTML = `<button class="add-btn add-closed" aria-label="Restoran hozir yopiq" title="Restoran hozir yopiq">⏱</button>`;
-        pod.querySelector(".add-btn").addEventListener("click",(e)=>{e.stopPropagation();toast(d.rest+" hozir yopiq","error");});
+        pod.querySelector(".add-btn").addEventListener("click",(e)=>{e.stopPropagation();toast(d.rest+" "+I18N.t("closed_now"),"error");});
         return;
       }
       pod.innerHTML = `<button class="add-btn" aria-label="Savatga qo'shish">+</button>`;
@@ -105,7 +105,7 @@
       pod.querySelector(".qty-plus").addEventListener("click",(e)=>{
         e.stopPropagation();
         /* Yopiq bo'lsa: uchmaydi, qo'shilmaydi — faqat xabar */
-        if(closed){ toast(d.rest+" hozir yopiq","error"); return; }
+        if(closed){ toast(d.rest+" "+I18N.t("closed_now"),"error"); return; }
         flyToCart(d,e.currentTarget); addToCart(d); updateAllCards();
       });
     }
@@ -167,25 +167,25 @@
           <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${d.rest}</div>
           <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)">⭐ <b style="color:var(--ink)">${d.rating}</b></span>
-            <span style="font-size:13px;color:var(--grey)">🛒 ${d.sold}+ buyurtma</span>
+            <span style="font-size:13px;color:var(--grey)">🛒 ${d.sold}+ ${I18N.t("orders_word")}</span>
             ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(d.weight)}</span>`:""}
           </div>
           ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(d.descr)}</p>`:""}
-          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 Tarkibi:</b> ${esc(d.ingredients)}</div>`:""}
+          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 ${I18N.t("ingredients_l")}:</b> ${esc(d.ingredients)}</div>`:""}
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:18px">
             ${oldPrice}
             <span style="font-size:22px;font-weight:800;color:var(--red)">${price}</span>
-            <span style="font-size:13px;color:var(--grey)"> so'm</span>
+            <span style="font-size:13px;color:var(--grey)"> ${I18N.t("sum")}</span>
           </div>
           <div class="dish-modal-foot">
             ${qty===0
-              ? `<button class="btn btn-primary btn-block" id="dmAddBtn">Savatga qo'shish</button>`
+              ? `<button class="btn btn-primary btn-block" id="dmAddBtn">${I18N.t("added_btn")}</button>`
               : `<div class="dm-qty">
                   <button class="qty-btn qty-minus" id="dmMinus">−</button>
                   <span class="qty-num" id="dmNum">${qty}</span>
                   <button class="qty-btn qty-plus" id="dmPlus">+</button>
                 </div>
-                <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">Savatni ko'rish</button>`
+                <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">${I18N.t("view_cart_btn")}</button>`
             }
           </div>
         </div>
@@ -196,7 +196,7 @@
       const foot = document.querySelector(".dish-modal-foot");
       if(!foot) return;
       if(q===0){
-        foot.innerHTML=`<button class="btn btn-primary btn-block" id="dmAddBtn">Savatga qo'shish</button>`;
+        foot.innerHTML=`<button class="btn btn-primary btn-block" id="dmAddBtn">${I18N.t("added_btn")}</button>`;
         foot.querySelector("#dmAddBtn").addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
       } else {
         foot.innerHTML=`<div class="dm-qty">
@@ -204,7 +204,7 @@
             <span class="qty-num" id="dmNum">${q}</span>
             <button class="qty-btn qty-plus" id="dmPlus">+</button>
           </div>
-          <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">Savatni ko'rish</button>`;
+          <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">${I18N.t("view_cart_btn")}</button>`;
         foot.querySelector("#dmMinus").addEventListener("click",()=>{changeQty(d.id,-1);updateAllCards();refreshModal();});
         foot.querySelector("#dmPlus").addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
         foot.querySelector("#dmGoCart").addEventListener("click",()=>{closeModal();openCart();});
@@ -326,7 +326,7 @@
         catL.toLowerCase().includes(q) ||
         catC.toLowerCase().includes(q);
     });
-    if(!list.length){ g.innerHTML='<p style="color:var(--grey);grid-column:1/-1;text-align:center;padding:34px 10px">Hech narsa topilmadi 🔍</p>'; return; }
+    if(!list.length){ g.innerHTML='<p style="color:var(--grey);grid-column:1/-1;text-align:center;padding:34px 10px">'+I18N.t("nothing_found")+' 🔍</p>'; return; }
     /* Faqat "Hammasi" va qidiruvsiz holatda kunlik rotatsiya + tavsiya banneri */
     if(activeCat==="Hammasi" && !q){
       const order=dailyRestOrder();
@@ -336,7 +336,7 @@
       if(featured){
         const banner=document.createElement("div");
         banner.style.cssText="grid-column:1/-1;display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#fff4e6,#ffe9ec);border:1px solid #ffd9c2;border-radius:14px;padding:12px 16px;margin-bottom:6px";
-        banner.innerHTML='<span style="font-size:24px">🔥</span><div><div style="font-weight:800;color:#C8102E;font-size:15px">Bugungi tavsiya: '+esc(featured)+'</div><div style="font-size:12px;color:#8a7f76">Har kuni boshqa restoran taomlari birinchi chiqadi</div></div>';
+        banner.innerHTML='<span style="font-size:24px">🔥</span><div><div style="font-weight:800;color:#C8102E;font-size:15px">'+I18N.t("today_rec")+': '+esc(featured)+'</div><div style="font-size:12px;color:#8a7f76">'+I18N.t("rec_sub")+'</div></div>';
         g.appendChild(banner);
       }
     }
@@ -352,14 +352,14 @@
     const be=restBackend(r.name)||{};
     const open=isRestOpen(r.name);
     const rows=[];
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🕒</span><div><div class="rinfo-k">Ish vaqti</div><div class="rinfo-v">${esc(restHoursText(r.name))} <span class="rinfo-badge ${open?'ok':'off'}">${open?'🟢 Hozir ochiq':'🔴 Yopiq'}</span></div></div></div>`);
-    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">Manzil</div><div class="rinfo-v">${esc(be.addr)}</div></div></div>`);
-    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">Yetkazish hududi</div><div class="rinfo-v">${esc(be.area)}</div></div></div>`);
-    if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">✉️</span><div><div class="rinfo-k">Aloqa</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">Reyting</div><div class="rinfo-v">${r.rating} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(r.dist||"")}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🕒</span><div><div class="rinfo-k">${I18N.t("ri_hours")}</div><div class="rinfo-v">${esc(restHoursText(r.name))} <span class="rinfo-badge ${open?'ok':'off'}">${open?'🟢 '+I18N.t("open_now"):'🔴 '+I18N.t("closed_l")}</span></div></div></div>`);
+    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(be.addr)}</div></div></div>`);
+    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(be.area)}</div></div></div>`);
+    if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">✉️</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${r.rating} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(r.dist||"")}</div></div></div>`);
     const desc = be.descr ? `<p class="rinfo-desc">${esc(be.descr)}</p>` : "";
     return `<div class="rinfo-card">
-      <div class="rinfo-title">🏪 ${esc(nm(r))} haqida</div>
+      <div class="rinfo-title">🏪 ${esc(nm(r))} ${I18N.t("ri_about")}</div>
       ${desc}
       <div class="rinfo-grid">${rows.join("")}</div>
     </div>`;
@@ -479,7 +479,7 @@
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
         <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}
-          ${openLbl?`<span class="rest-openbadge ${isOpen?'is-open':'is-closed'}">${isOpen?'🟢 Ochiq':'🔴 Yopiq'}</span>`:""}</div>
+          ${openLbl?`<span class="rest-openbadge ${isOpen?'is-open':'is-closed'}">${isOpen?'🟢 '+I18N.t("open_l"):'🔴 '+I18N.t("closed_l")}</span>`:""}</div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
@@ -572,13 +572,13 @@
     try{
       const hrs=restHoursText(restName);
       /* Ish vaqti DOIM ko'rinadi — ochiq/yopiq holati bilan birga */
-      return isRestOpen(restName) ? ("🟢 Ochiq · "+hrs) : ("🔴 Yopiq · "+hrs);
+      return isRestOpen(restName) ? ("🟢 "+I18N.t("open_l")+" · "+hrs) : ("🔴 "+I18N.t("closed_l")+" · "+hrs);
     }catch(e){ return "🟢 Ochiq"; }
   }
   function addToCart(d){
     const ex = cart.find(i=>i.id===d.id);
     if(!ex && d.soldout){ toast("Bu taom hozir sotuvda yo'q","error"); return; }
-    if(!ex && d.rest && !isRestOpen(d.rest)){ toast(d.rest+" hozir yopiq","error"); return; }
+    if(!ex && d.rest && !isRestOpen(d.rest)){ toast(d.rest+" "+I18N.t("closed_now"),"error"); return; }
     /* Bitta buyurtmada faqat bitta restoran — boshqa restoran taomi qo'shilsa so'raymiz */
     if(!ex && cart.length && cart[0].rest && d.rest && cart[0].rest!==d.rest){
       const newRest=(typeof RESTAURANTS!=="undefined")?RESTAURANTS.find(x=>x.name===d.rest):null;
@@ -610,18 +610,8 @@
   }
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
   /* Yetkazish narxi — restoran masofasi (km) bo'yicha: 4000 + 1500/km */
-  function deliveryFee(){
-    if(!cart.length) return 0;
-    const restName = cart[0].rest;
-    let distStr = "";
-    try{
-      const r = (typeof STORE!=="undefined" && STORE.restaurants) ? STORE.restaurants().find(x=>x.name===restName) : null;
-      distStr = (r && r.dist) || ((typeof RESTAURANTS!=="undefined" ? RESTAURANTS.find(x=>x.name===restName) : null)||{}).dist || "";
-    }catch(e){}
-    const m = String(distStr).match(/[\d.,]+/);
-    const km = m ? (parseFloat(m[0].replace(",","."))||2) : 2;
-    return Math.max(3000, Math.round((4000 + km*1500)/500)*500);
-  }
+  /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
+  function deliveryFee(){ return 0; }
   function updateCart(){
     $("#cartCount").textContent = cart.reduce((s,i)=>s+i.qty,0);
     const body=$("#cartItems");

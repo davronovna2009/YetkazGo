@@ -273,6 +273,19 @@
     const base=(typeof DISHES!=="undefined"?DISHES:[]).map(d=> m[d.rest]?Object.assign({},d,{rest:m[d.rest]}):d);
     return STORE.mergeDishes(base);
   }
+  /* Taom kategoriyasini nomi/emojisidan taxmin qilamiz (data.js da cat yo'q — bosh saytдагидек) */
+  const K_CAT_RULES=[
+    {cat:"Ichimlik",emo:"🥤🧃☕🍵🧋🍹🥛🍶🫖🧉🍺🍸🧊",kw:["ichimlik","sharbat","juice","cola","kola","pepsi","fanta","sprite","choy","tea","kofe","coffee","cappuccino","latte","suv ","water","limonad","kompot","milkshake","shake","smuzi","ayron","lassi","kvas","energetik","napitok","koktey"]},
+    {cat:"Shirinlik",emo:"🍰🎂🧁🍮🍩🍪🍨🍦🍧🥧🍫🍬🍭🍯🥮🍡",kw:["tort","cake","shirin","desert","dessert","muzqaymoq","morojen","ice cream","pirog","donut","ponchik","keks","pechen","cookie","shokolad","choco","halva","holva","chak","medovik","napoleon","tiramisu","cheesecake","pudding","jele","pirojn","vafli","waffle","kruassan","croissant","baklava","pahlava"]},
+    {cat:"Milliy",emo:"🍚🍛🥘🫕🍲🥟",kw:["osh","palov","plov","manti","mant","lag'mon","lagmon","lagman","somsa","samsa","shashlik","shashlyk","kabob","kabab","kebab","norin","shurva","sho'rva","shorva","dimlama","chuchvara","chuchvora","beshbarmoq","dolma","mastava","mosh","milliy","tandir","hasip","xasip","qozon","xonim","gumma","jarkop","qovurma","kuurdak","qazi","damlama"]},
+    {cat:"Fastfood",emo:"🍔🍟🌭🍕🌮🌯🥪🧀🍗🥙🥗",kw:["burger","gamburger","chizburger","cheeseburger","lavash","lavaş","hotdog","hot dog","xotdog","pizza","pitsa","sendvich","sandwich","fri ","fries","nagets","nuggets","shaurma","shawarma","shaverma","doner","dyuner","club","strips","wings","qanot","gyros","salat","salad","sezar","caesar"]}
+  ];
+  function kDishCat(d){
+    if(d.cat && d.cat!=="Fastfood") return d.cat;
+    const hay=((d.name||"")+" "+(d.nameCyr||"")+" ").toLowerCase(), emo=d.emoji||"";
+    for(const r of K_CAT_RULES){ if(emo&&r.emo.includes(emo)) return r.cat; if(r.kw.some(k=>hay.includes(k))) return r.cat; }
+    return d.cat||"Fastfood";
+  }
   /* Taom modal */
   function openKDishModal(d){
     const qty = (cart.find(i=>i.id===d.id)||{}).qty||0;
@@ -345,7 +358,7 @@
   function renderMenu(){
     if(activeRest){ filterByRest(activeRest); return; }
     const g=$("#kMenu"); if(!g) return;
-    g.innerHTML=kcatalog().filter(d=>activeCat==="Hammasi"||d.cat===activeCat).map(d=>{
+    g.innerHTML=kcatalog().filter(d=>activeCat==="Hammasi"||kDishCat(d)===activeCat).map(d=>{
       const qty=(cart.find(i=>i.id===d.id)||{}).qty||0;
       const price=d.discount?`<span style="text-decoration:line-through;color:#b9a;font-size:11px">${money(d.price)}</span> ${money(d.eff)}`:money(d.price);
       const qtyHtml=qty===0
@@ -481,14 +494,8 @@
     closeKabCartDrawer();
     openCheckout(total);
   }
-  function koDeliveryFee(){
-    if(!cart.length) return 0;
-    const restName=cart[0].rest; let distStr="";
-    try{ const r=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===restName):null;
-      distStr=(r&&r.dist)||((typeof RESTAURANTS!=="undefined"?RESTAURANTS.find(x=>x.name===restName):null)||{}).dist||""; }catch(e){}
-    const m=String(distStr).match(/[\d.,]+/); const km=m?(parseFloat(m[0].replace(",","."))||2):2;
-    return Math.max(3000, Math.round((4000+km*1500)/500)*500);
-  }
+  /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
+  function koDeliveryFee(){ return 0; }
   function openCheckout(total){
     koPay="card";
     const fee=koDeliveryFee();
@@ -550,13 +557,16 @@
     USER.orders.unshift({id:Date.now(), dish:first.name+more, emoji:first.emoji, rest:first.rest,
       date:new Date().toLocaleDateString("ru-RU"), amount:total, addr:addr, pay:koPay, deliveredIn:eta, promised:eta+3, reviewed:false, status:"new"});
     const addrFull = addr + (USER.geo ? " · 📍GPS: " + USER.geo.lat.toFixed(5) + "," + USER.geo.lng.toFixed(5) : "");
-    try{ STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:first.name+more, emoji:first.emoji,
+    let created=null;
+    try{ created = STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:first.name+more, emoji:first.emoji,
       amount:total, delivery:(typeof koDeliveryFee==="function"?koDeliveryFee():0), addr:addrFull, pay:koPay, courier:STORE.courierForRest(first.rest), status:"new", eta:eta,
       time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}) }); }catch(e){}
     cart=[]; renderCart(); updateKMenuQty(); renderProfil();
-    startTrack(addr,eta,first.emoji,first.name+more);
+    startTrack(addr,created,first.emoji,first.name+more);
   }
-  function startTrack(addr,eta,emoji,label){
+  /* REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s yangilaydi).
+     Bekor qilinса — bekor ko'rsatadi; "arrived" bo'lса mijoz "Qabul qildim" bosadi -> backendga done. */
+  function startTrack(addr,created,emoji,label){
     emoji=emoji||"🛵"; label=label||"Buyurtma";
     const kt4=typeof KT==="function"?KT:function(k){return k;};
     const steps=[kt4('st_accepted')||"Qabul qilindi",kt4('st_cooking')||"Tayyorlanmoqda",kt4('st_ready')||"Tayyor",kt4('st_ontheway')||"Yo'lda",kt4('st_arrived')||"Yetib keldi"], ic=["📥","👨‍🍳","✅","🛵","🎉"];
@@ -566,32 +576,47 @@
         <h2 style="font-size:19px;margin-bottom:4px">${kt4('qabul')||'Buyurtma qabul qilindi!'}</h2>
         <p class="ko-sub">📍 ${addr} · ${koPay==="card"?"💳 Karta":"💵 Naqd"}</p>
         <p style="font-size:13px;color:var(--grey);background:#f0f9f4;border-radius:10px;padding:10px;margin:10px 0">
-          🛵 Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
+          🛵 Buyurtmangiz real vaqtда kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
         </p>
-        <div class="ko-timer" id="koTimer">${String(eta).padStart(2,'0')}:00</div>
-        <div class="ko-status" id="koStatus">${steps[0]}</div>
+        <div class="ko-status" id="koStatus" style="font-weight:800;margin:6px 0">${steps[0]}</div>
         <div class="ko-steps">${steps.map((s,i)=>`<div class="ko-step"><div class="dot">${ic[i]}</div><span>${s}</span></div>`).join("")}</div>
-        <button class="set-save" id="koDone" style="width:100%;margin-top:12px">${kt4('ok_btn')||'Tushunarli, yopish'}</button>
+        <div id="koTrackAction"></div>
+        <button class="set-save" id="koDone" style="width:100%;margin-top:12px;background:#eee;color:#333">${kt4('ok_btn')||'Tushunarli, yopish'}</button>
       </div>`;
     $("#koDone").addEventListener("click", closeCheckoutKeepOrder);
-    const els=$$("#koContent .ko-step"); if(els[0]) els[0].classList.add("active");
-    let cur=0; const tot=eta*60; let left=tot;
+    const els=$$("#koContent .ko-step");
     const stepColors=["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
-    const si=setInterval(()=>{
-      if(els[cur]) els[cur].classList.remove("active"), els[cur].classList.add("done-step");
-      cur++;
-      if(cur<els.length){ if(els[cur]) els[cur].classList.add("active"); const st=$("#koStatus"); if(st){ st.textContent=steps[cur]; st.style.color=stepColors[cur]; } }
-      if(cur>=els.length-1){ clearInterval(si); clearInterval(ti);
-        const tm=$("#koTimer"); if(tm){ tm.textContent="00:00 ✓"; tm.classList.add("done"); }
-        /* Yetib keldi overlay */
-        setTimeout(()=>showKabArrived(emoji,label), 500);
+    const STMAP={ new:0, accepted:1, ready:2, ontheway:3, arrived:4, done:4 };
+    function orderNow(){ try{ return (STORE.orders()||[]).find(o=> created && o.id===created.id) || created; }catch(e){ return created; } }
+    function paint(idx){
+      els.forEach((el,i)=>{ el.classList.remove("active","done-step"); if(i<idx) el.classList.add("done-step"); else if(i===idx) el.classList.add("active"); });
+      const st=$("#koStatus"); if(st){ st.textContent=steps[idx]||steps[0]; st.style.color=stepColors[idx]||""; }
+    }
+    let finished=false;
+    function tick(){
+      const o=orderNow(); const s=(o&&o.status)||"new";
+      if(s==="cancelled"){ clearInterval(poll); paint(0); showKabCancelled(o&&o.reason,emoji); return; }
+      paint(STMAP[s]!=null?STMAP[s]:0);
+      const act=$("#koTrackAction");
+      if(s==="arrived" && act && !act.dataset.on){
+        act.dataset.on="1";
+        act.innerHTML='<button class="set-save" id="koGotIt" style="width:100%;background:#16a34a">✅ '+((kt4('yetib_keldi')||'Qabul qildim').replace(' 🎉',''))+'</button>';
+        const gi=$("#koGotIt"); if(gi) gi.addEventListener("click",()=>{ try{ if(o&&o.id&&STORE.confirmReceived) STORE.confirmReceived(o.id); }catch(e){} });
       }
-    },2400);
-    const ti=setInterval(()=>{ left-=Math.ceil(tot/13); if(left<0)left=0;
-      const tm=$("#koTimer"); if(tm&&!tm.classList.contains("done")){
-        const m=Math.floor(left/60),s=left%60; tm.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"); }
-    },1000);
-    koTimers=[si,ti];
+      if(s==="done" && !finished){ finished=true; clearInterval(poll); setTimeout(()=>showKabArrived(emoji,label),300); }
+    }
+    const poll=setInterval(tick, 2500); tick();
+    koTimers=[poll];
+  }
+  /* Bekor qilingan buyurtma oynasi */
+  function showKabCancelled(reason,emoji){
+    let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
+    ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">❌</div><div class="arrived-title">Buyurtma bekor qilindi</div>'+(reason?'<div class="arrived-msg">Sabab: '+esc(reason)+'</div>':'<div class="arrived-msg">Buyurtmangiz bekor qilindi.</div>')+'<button class="btn btn-primary" id="kabCancOk">Tushunarli</button></div>';
+    document.body.appendChild(ov);
+    const close=()=>{ ov.remove(); };
+    ov.querySelector("#kabCancOk").addEventListener("click",close);
+    ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
   }
 
   /* Yetib keldi overlay */
