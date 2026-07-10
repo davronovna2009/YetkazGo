@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#C8102E">
+  <title>Yetkaz — To'lov</title>
+  <style>
+    :root{ --red:#C8102E; --ink:#2b2330; --grey:#8a7f76; --line:#eee2e6; --green:#16a34a; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:linear-gradient(160deg,#fff4f0,#ffe9ec); color:var(--ink); min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:20px; }
+    .wrap{ width:100%; max-width:440px; }
+    .brand{ text-align:center; font-weight:900; font-size:22px; color:var(--red); margin:8px 0 16px; letter-spacing:.5px; }
+    .card{ background:#fff; border-radius:20px; box-shadow:0 10px 30px rgba(200,16,46,.08); padding:22px; }
+    h1{ font-size:19px; margin:0 0 4px; }
+    .sub{ color:var(--grey); font-size:14px; margin:0 0 16px; }
+    .ord{ display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; cursor:pointer; transition:.15s; background:#fff; }
+    .ord:hover{ border-color:var(--red); background:#fff7f8; }
+    .ord .em{ font-size:28px; }
+    .ord .info{ flex:1; min-width:0; }
+    .ord .info b{ display:block; font-size:15px; }
+    .ord .info span{ color:var(--grey); font-size:13px; }
+    .ord .amt{ font-weight:800; color:var(--red); white-space:nowrap; }
+    .btn{ display:block; width:100%; border:none; border-radius:14px; padding:14px; font-size:16px; font-weight:800; color:#fff; background:var(--red); cursor:pointer; margin-top:6px; }
+    .btn:disabled{ opacity:.6; cursor:default; }
+    .center{ text-align:center; }
+    .ok-ico{ font-size:64px; line-height:1; margin:6px 0; }
+    .muted{ color:var(--grey); font-size:13px; }
+    .big-amt{ font-size:30px; font-weight:900; color:var(--green); margin:6px 0; }
+    .err{ color:var(--red); font-weight:700; }
+    .spin{ width:34px;height:34px;border:4px solid #f0dfe3;border-top-color:var(--red);border-radius:50%;animation:sp 1s linear infinite;margin:20px auto; }
+    @keyframes sp{ to{ transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">🛵 Yetkaz</div>
+    <div class="card" id="card">
+      <div class="center"><div class="spin"></div><p class="muted">Yuklanmoqda...</p></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var card = document.getElementById("card");
+      var params = new URLSearchParams(location.search);
+      var token = (params.get("k") || "").trim();
+      var money = function(n){ return Math.round(Number(n)||0).toLocaleString("ru-RU"); };
+      var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); };
+
+      function show(html){ card.innerHTML = html; }
+      function fail(msg){ show('<div class="center"><div class="ok-ico">⚠️</div><p class="err">'+esc(msg)+'</p><p class="muted">QR-kod yaroqsiz yoki muddati o\'tgan bo\'lishi mumkin.</p></div>'); }
+
+      if(!token){ fail("QR-kod noto'g'ri"); return; }
+
+      function loadOrders(){
+        fetch("/api/pay/"+encodeURIComponent(token))
+          .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+          .then(function(res){
+            if(!res.ok){ fail((res.j&&res.j.error)||"Xatolik"); return; }
+            renderList(res.j);
+          })
+          .catch(function(){ fail("Serverга ulanib bo'lmadi"); });
+      }
+
+      function renderList(data){
+        var orders = data.orders || [];
+        if(!orders.length){
+          show('<div class="center"><div class="ok-ico">✅</div><h1>To\'lanmagan buyurtma yo\'q</h1><p class="muted">'+(data.emoji||"🛵")+' '+esc(data.courier||"Kuryer")+' — barcha buyurtmalar to\'langan yoki hali yo\'q.</p></div>');
+          return;
+        }
+        var html = '<h1>To\'lovni tasdiqlash</h1>'+
+          '<p class="sub">Kuryer: <b>'+(data.emoji||"🛵")+' '+esc(data.courier||"")+'</b>. Buyurtmangizni tanlang va to\'lovni tasdiqlang.</p>';
+        orders.forEach(function(o){
+          html += '<div class="ord" data-id="'+o.id+'">'+
+            '<span class="em">'+(o.emoji||"🍽️")+'</span>'+
+            '<div class="info"><b>'+esc(o.item||"Buyurtma")+'</b><span>#'+o.id+(o.user?' · '+esc(o.user):'')+' · '+(o.pay==="cash"?"💵 Naqd":"💳 Karta")+'</span></div>'+
+            '<span class="amt">'+money(o.amount)+" so'm"+'</span>'+
+          '</div>';
+        });
+        show(html);
+        Array.prototype.forEach.call(card.querySelectorAll(".ord"), function(el){
+          el.addEventListener("click", function(){ confirmPay(el.dataset.id, el); });
+        });
+      }
+
+      function confirmPay(id, el){
+        Array.prototype.forEach.call(card.querySelectorAll(".ord"), function(x){ x.style.pointerEvents="none"; x.style.opacity=".5"; });
+        if(el) el.style.opacity="1";
+        fetch("/api/pay/"+encodeURIComponent(token)+"/"+encodeURIComponent(id), { method:"POST" })
+          .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+          .then(function(res){
+            if(!res.ok){ fail((res.j&&res.j.error)||"To'lovни tasdiqlab bo'lmadi"); return; }
+            var o = res.j.order || {};
+            show('<div class="center">'+
+              '<div class="ok-ico">✅</div>'+
+              '<h1>To\'lov qabul qilindi!</h1>'+
+              (o.item?'<p class="muted">'+esc(o.item)+'</p>':'')+
+              (o.amount?'<div class="big-amt">'+money(o.amount)+" so'm"+'</div>':'')+
+              '<p class="muted">Rahmat! Yoqimli ishtaha 🎉</p>'+
+              '</div>');
+          })
+          .catch(function(){ fail("Serverга ulanib bo'lmadi"); });
+      }
+
+      loadOrders();
+    })();
+  </script>
+</body>
+</html>

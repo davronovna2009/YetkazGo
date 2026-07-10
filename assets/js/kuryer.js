@@ -179,7 +179,28 @@
       </div></div>`;
   }
 
-  function renderAll(){ renderDash(); renderOrders(); renderIncome(); updateStatusBadge(); }
+  /* Kuryerning DOIMIY to'lov QR-kodi (mijoz eshikда skanerlaydi -> to'lovni tasdiqlaydi) */
+  let __payQR=null;
+  async function renderPayQR(){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var box=document.getElementById("kPayQR");
+    if(!box){ box=document.createElement("div"); box.id="kPayQR"; box.className="panel"; box.style.marginTop="16px"; host.insertBefore(box, host.firstChild); }
+    /* Bir marta yuklaymiz — keyingi render'larда qayta so'ralmaydi */
+    if(__payQR){ paintPayQR(box,__payQR); return; }
+    box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body" style="text-align:center"><p style="color:var(--grey);font-size:13px">QR yuklanmoqda...</p></div>';
+    var r=(typeof STORE!=="undefined"&&STORE.fetchMyPayQR)? await STORE.fetchMyPayQR():null;
+    if(r && (r.qr||r.url)){ __payQR=r; paintPayQR(box,r); }
+    else box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body"><p style="color:var(--grey);font-size:13px">QR yuklab bo\'lmadi — internetни tekshiring.</p></div>';
+  }
+  function paintPayQR(box,r){
+    box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body" style="text-align:center">'+
+      '<p style="color:var(--grey);font-size:13px;margin-bottom:12px">Mijoz eshigingizда to\'lovni shu QR orqali tasdiqlaydi.</p>'+
+      (r.qr?'<img src="'+r.qr+'" alt="To\'lov QR" style="width:220px;height:220px;max-width:80%;border-radius:12px;border:1px solid var(--line)">':'')+
+      '<p style="font-size:12px;color:var(--grey);margin-top:10px;word-break:break-all">'+esc(r.url||"")+'</p>'+
+      '</div>';
+  }
+
+  function renderAll(){ renderDash(); renderOrders(); renderIncome(); updateStatusBadge(); renderPayQR(); }
 
   /* ===== SOZLAMALAR: ish vaqti, ishdan javob (leave), login/parol ===== */
   let kState = { onLeave:false, leaveReason:"", leaveStatus:"none", openH:8, closeH:22 };

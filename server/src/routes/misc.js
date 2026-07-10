@@ -1,5 +1,7 @@
 /* ===== /api/bootstrap, /api/restaurants, /api/couriers ===== */
 import { Router } from 'express';
+import { randomBytes } from 'node:crypto';
+import QRCode from 'qrcode';
 import { db } from '../db.js';
 import { requireRole, hashPassword } from '../auth.js';
 import { getOverrides } from './dishes.js';
@@ -241,6 +243,30 @@ router.get('/couriers/me', requireRole('kuryer'), (req, res) => {
   res.json(courRow(c));
 });
 
+/* Kuryerning doimiy to'lov tokenini ta'minlaydi (yo'q bo'lsa yaratadi) */
+function ensurePayToken(login) {
+  const c = db.prepare('SELECT * FROM couriers WHERE login = ?').get(login);
+  if (!c) return null;
+  if (!c.pay_token) {
+    const tok = randomBytes(12).toString('hex');
+    db.prepare('UPDATE couriers SET pay_token = ? WHERE login = ?').run(tok, login);
+    c.pay_token = tok;
+  }
+  return c;
+}
+
+/* GET /api/couriers/me/qr — kuryer O'Z DOIMIY to'lov QR'ini oladi (rasm data-URI + havola).
+   Mijoz eshikда shu QR'ni skanerlaydi -> /pay.html ochiladi -> to'lovni tasdiqlaydi. */
+router.get('/couriers/me/qr', requireRole('kuryer'), async (req, res) => {
+  const c = ensurePayToken(req.user.login);
+  if (!c) return res.status(404).json({ error: 'Kuryer topilmadi' });
+  const base = `${req.protocol}://${req.get('host')}`;
+  const url = `${base}/pay.html?k=${c.pay_token}`;
+  let qr = '';
+  try { qr = await QRCode.toDataURL(url, { width: 320, margin: 1 }); } catch (e) { /* rasm bo'lmasa — havola qaytadi */ }
+  res.json({ url, qr, payToken: c.pay_token });
+});
+
 /* Faol (yetkazilmagan) buyurtmalarni boshqa faol kuryerga (imkon qadar shu restoranga
    biriktirilgan, eng kam yuklangan) o'tkazadi. O'tkazilganlar sonini qaytaradi. */
 function reassignActiveOrders(courierName) {
@@ -319,6 +345,40 @@ router.get('/couriers/status', requireRole('restoran', 'kuryer', 'admin'), (_req
     onLeave: !!c.on_leave, leaveReason: c.leave_reason || '', leaveStatus: c.leave_status || 'none',
     openH: c.open_h != null ? c.open_h : 8, closeH: c.close_h != null ? c.close_h : 22,
   })));
+});
+
+/* ===== OMMAVIY TO'LOV (QR orqali) — mijoz login qilmasdan ochadi ===== */
+const PAY_ACTIVE = "('new','accepted','ready','ontheway','arrived')";
+
+/* GET /api/pay/:token — QR skanerlanganda: kuryerning to'lanmagan faol buyurtmalari (minimal ma'lumot) */
+router.get('/pay/:token', (req, res) => {
+  const token = String(req.params.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'token kerak' });
+  const c = db.prepare('SELECT * FROM couriers WHERE pay_token = ?').get(token);
+  if (!c) return res.status(404).json({ error: 'QR yaroqsiz' });
+  const rows = db.prepare(
+    `SELECT id, item, emoji, amount, user, pay, paid FROM orders
+     WHERE courier = ? AND paid = 0 AND status IN ${PAY_ACTIVE} ORDER BY id DESC`
+  ).all(c.name);
+  res.json({
+    courier: c.name, emoji: c.emoji || '🛵',
+    orders: rows.map((o) => ({ id: o.id, item: o.item, emoji: o.emoji, amount: o.amount, user: o.user, pay: o.pay })),
+  });
+});
+
+/* POST /api/pay/:token/:orderId — mijoz to'lovni tasdiqlaydi (buyurtma shu kuryerники bo'lishi shart) */
+router.post('/pay/:token/:orderId', (req, res) => {
+  const token = String(req.params.token || '').trim();
+  const id = Number(req.params.orderId);
+  const c = db.prepare('SELECT * FROM couriers WHERE pay_token = ?').get(token);
+  if (!c) return res.status(404).json({ error: 'QR yaroqsiz' });
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
+  if (o.courier !== c.name) return res.status(403).json({ error: 'Bu buyurtma bu kuryerга tegishli emas' });
+  if (o.status === 'cancelled') return res.status(409).json({ error: 'Buyurtma bekor qilingan' });
+  if (o.paid) return res.json({ ok: true, already: true, order: { id: o.id, item: o.item, amount: o.amount } });
+  db.prepare("UPDATE orders SET paid = 1, paid_at = datetime('now') WHERE id = ?").run(id);
+  res.json({ ok: true, order: { id: o.id, item: o.item, amount: o.amount } });
 });
 
 /* GET /api/users — ro'yxatdan o'tgan foydalanuvchilar (admin) */

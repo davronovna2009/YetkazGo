@@ -11,7 +11,7 @@ const router = Router();
    keyin ishlaydi. Bu yerda (import paytida) yozilsa, yangi bazada jadval hali yo'q
    bo'lib jim yiqilardi va ustun umuman qo'shilmasdi. */
 
-const ALLOWED = ['user', 'phone', 'rest', 'item', 'emoji', 'amount', 'addr', 'pay', 'courier', 'status', 'eta', 'time', 'reason', 'delivery'];
+const ALLOWED = ['user', 'phone', 'rest', 'item', 'emoji', 'amount', 'addr', 'pay', 'courier', 'status', 'eta', 'time', 'reason', 'delivery', 'paid'];
 
 /* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga POST javobida beriladi */
 function rowToOrder(r) {
@@ -19,6 +19,7 @@ function rowToOrder(r) {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
     status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
+    paid: r.paid ? 1 : 0, paid_at: r.paid_at || '',
     created_at: r.created_at, done_at: r.done_at || '',
   };
 }

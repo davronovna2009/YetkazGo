@@ -232,6 +232,8 @@ const STORE = (function () {
     /* ---- KURYER O'ZI: ish vaqti, ishdan javob (leave), ishga qaytish ---- */
     updateCourierInfo(data) { return api("/couriers/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     fetchCourierMe() { return api("/couriers/me", { auth: true }).catch(() => null); },
+    /* Kuryer O'Z doimiy to'lov QR'ini oladi (rasm + havola) */
+    fetchMyPayQR() { return api("/couriers/me/qr", { auth: true }).catch(() => null); },
     courierLeave(reason) { return api("/couriers/leave", { method: "POST", body: { reason }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
     /* Kuryer so'rovini bekor qiladi / rad javobini tan oladi (leave_status -> none) */
     courierLeaveCancel() { return api("/couriers/leave-cancel", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
