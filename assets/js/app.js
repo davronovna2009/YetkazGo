@@ -738,7 +738,7 @@
       <div class="field" id="f-name"><label>${I18N.t("lbl_name")}</label>
         <input id="in-name" value="${user.name}" placeholder="${I18N.t("ph_name")}"><div class="err">${I18N.t("err_name")}</div></div>
       <div class="field" id="f-phone"><label>${I18N.t("lbl_phone")}</label>
-        <input id="in-phone" value="${user.phone}" placeholder="${I18N.t("ph_phone")}"><div class="err">${I18N.t("err_phone")}</div></div>
+        <input id="in-phone" type="tel" value="${user.phone}" placeholder="${I18N.t("ph_phone")}"><div class="err">${I18N.t("err_phone")}</div></div>
       <div class="field" id="f-addr"><label>${I18N.t("lbl_address")}</label>
         <input id="in-addr" value="${user.address}" placeholder="${I18N.t("ph_address")}"><div class="err">${I18N.t("err_address")}</div></div>
       <button type="button" class="btn btn-outline btn-block" id="geoBtn" style="margin-bottom:10px">📍 Joylashuvimni aniqlash</button>
@@ -1590,10 +1590,13 @@
     if(document.getElementById("yzTour")) return;
     let i=0;
     const ov=document.createElement("div"); ov.id="yzTour";
+    ov.style.cssText="position:fixed;inset:0;z-index:99999";
     ov.innerHTML='<div class="yz-tour-hole"></div><div class="yz-tour-tip"></div>';
     document.body.appendChild(ov);
     const hole=ov.querySelector(".yz-tour-hole"), tip=ov.querySelector(".yz-tour-tip");
     function end(){ try{ ov.remove(); }catch(e){} try{ closeCart(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin 🎉","success"); }
+    /* Chetга (qorong'i fon) bosilса — tur yopiladi (tip kartaсiga bosilса yopilmaydi) */
+    ov.addEventListener("click",(e)=>{ if(!e.target.closest(".yz-tour-tip")) end(); });
     function next(){ i++; if(i>=TOUR_STEPS.length){ end(); return; } show(); }
     function show(){
       const step=TOUR_STEPS[i];

@@ -776,11 +776,10 @@
           <div class="k"><span>Manzil</span><b>${esc((beC&&beC.address)||'—')}</b></div>
           <div class="k"><span>Email</span><b>${esc((beC&&beC.email)||'—')}</b></div>
           <div class="k"><span>Tug'ilgan</span><b>${esc((beC&&beC.birthdate)||'—')}</b></div>
-          <div class="k"><span>Pasport</span><b>${esc((beC&&beC.passport)||'—')}</b></div>
         </div></div>
       <div class="dd-sec"><h4>✏️ Tahrirlash</h4>
         <div class="add-field"><label>Ism</label><input id="edcName" value="${c.name}"></div>
-        <div class="add-field"><label>Telefon</label><input id="edcPhone" value="${c.phone||''}"></div>
+        <div class="add-field"><label>Telefon</label><input id="edcPhone" type="tel" value="${c.phone||''}"></div>
         <div class="add-field"><label>Restoranlar (vergul bilan ajrating)</label><input id="edcRest" value="${esc(c.rest)||''}" placeholder="Restoran nomi"></div>
         <div class="add-field"><label>Bir yetkazish haqi (so'm)</label><input id="edcFee" type="number" value="${c.fee||0}"></div>
         <div style="display:flex;gap:10px">
@@ -790,9 +789,8 @@
         <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
         <div class="add-field"><label>Davlat raqami</label><input id="edcPlate" value="${esc((beC&&beC.plate)||'')}" placeholder="01A123BC"></div>
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
-        <div class="add-field"><label>Email</label><input id="edcEmail" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
+        <div class="add-field"><label>Email</label><input id="edcEmail" type="email" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
         <div class="add-field"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
-        <div class="add-field"><label>Pasport / ID</label><input id="edcPassport" value="${esc((beC&&beC.passport)||'')}" placeholder="AB1234567 yoki 14 xonali PINFL"></div>
         <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="edcPass" placeholder="••••••" autocomplete="new-password"></div>
         <button class="dd-action-btn" id="edcSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>
@@ -839,14 +837,14 @@
       if(closeH<=openH){ toast("Ish oxiri ish boshidan katta bo'lsin"); return; }
       const pass=($("#edcPass").value||"").trim();
       const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
-      const passport=val("edcPassport");
-      if(passport && !vPassport(passport)){ toast("Pasport/ID noto'g'ri — AB1234567 yoki 14 xonali PINFL"); return; }
+      const emailV=val("edcEmail");
+      if(emailV && window.YZ_EMAIL && !YZ_EMAIL.valid(emailV)){ toast("Email noto'g'ri formatda"); return; }
       c.name=name; c.phone=phone; c.rest=rest; c.fee=fee; c.openH=openH; c.closeH=closeH;
       recompute(); save(SK.couriers,COURIERS);
       if(typeof STORE!=="undefined" && STORE.editCourier){
         const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,openH:openH,closeH:closeH,
           transport:val("edcTransport"), plate:val("edcPlate"), address:val("edcAddress"),
-          email:val("edcEmail"), birthdate:val("edcBirth"), passport:passport.toUpperCase()};
+          email:emailV, birthdate:val("edcBirth")};
         if(pass) body.pass=pass;
         STORE.editCourier(body);
       }
@@ -909,7 +907,6 @@
     if(!vName(name)){  acErr("Ismni to'g'ri kiriting (kamida 2 harf, raqam emas)"); return; }
     if(!(window.YZ_PHONE && YZ_PHONE.valid(phone))){ acErr("Telefon raqamini to'g'ri kiriting: +998 XX XXX XX XX"); return; }
     var acEmailV=f("acEmail"); if(acEmailV && window.YZ_EMAIL && !YZ_EMAIL.valid(acEmailV)){ acErr("Email noto'g'ri formatda"); return; }
-    var acPP=f("acPassport"); if(acPP && !vPassport(acPP)){ acErr("Pasport/ID raqami noto'g'ri — masalan AB1234567 yoki 14 xonali PINFL"); return; }
     if(!fee){   acErr("Bir yetkazish haqini kiriting"); return; }
     if(!vLogin(login)){ acErr("Login kamida 3 belgi — faqat harf, raqam yoki _"); return; }
     if(!vPass(pass)){  acErr("Parol kamida 4 belgi bo'lsin"); return; }
@@ -927,7 +924,7 @@
     recompute();
     save(SK.couriers, COURIERS);
     /* Backendga: kuryer akkaunti + yozuvi (login + fee uchun) */
-    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), plate:f("acPlate"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail"), passport:acPP.toUpperCase()}); }
+    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), plate:f("acPlate"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail")}); }
     closeAddCourier();
     renderAll();
     toast(`✅ ${name} kuryerlar ro'yxatiga qo'shildi!`);
