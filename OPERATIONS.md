@@ -62,30 +62,77 @@ Faqat aniq "test" belgili yozuvlar o'chadi; haqiqiy ma'lumotga tegmaydi.
 - ✅ Rasm yuklash — rol tekshiruvi + tur (png/jpg/webp/gif) + 6MB limit + xavfsiz nom
 - ✅ Body limitlari (1MB / rasm 8MB), JSON xato ishlovi
 - ✅ Rollarga qat'iy ruxsat (admin/restoran/kuryer/user)
+- ✅ Buyurtma summasi **serverda** hisoblanadi — mijoz narxni o'zgartira olmaydi
+- ✅ Standart admin paroli **yo'q qilindi** (`ADMIN_PASS` yoki tasodifiy parol)
+- ✅ Panellar tokenni **serverda** tekshiradi (`/api/auth/me`) — localStorage'ga ishonilmaydi
 
 **Productionда SIZ qilishingiz shart:**
 - [ ] `server/.env` da **kuchli `JWT_SECRET`**:
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+- [ ] `server/.env` da **`ADMIN_PASS`** — kuchli admin paroli (pastga qarang)
 - [ ] HTTPS (SSL) — `deploy/nginx.conf.example` + certbot, yoki hosting SSL
 - [ ] Har restoran/kuryerга **kuchli, alohida parol** (admin panelida)
+
+### Admin paroli
+
+Eski `admin` / `admin123` standart paroli **olib tashlandi**. Endi:
+
+- `.env` da `ADMIN_PASS` bering — admin shu parol bilan yaratiladi. Bazada eski
+  standart parol qolgan bo'lsa, server ishga tushganда **avtomatik shunga almashadi**.
+- `ADMIN_PASS` bermasangiz — server tasodifiy kuchli parol yaratib, logga
+  **BIR MARTA** chiqaradi. O'sha zahoti saqlab qo'ying.
+
+Parolni istalgan vaqtda o'zgartirish (yoki unutganda tiklash):
+
+```bash
+cd server
+npm run set-admin-pass -- "YangiKuchliParol#2026"
+npm run set-admin-pass                 # parolsiz — o'zi yaratib beradi
+```
+
+> `ADMIN_PASS` ni keyinchalik o'zgartirish ta'sir qilmaydi — u faqat admin
+> yaratilganда va standart parolni almashtirishда ishlatiladi. Bu admin panelида
+> qo'ygan parolingiz server qayta yuklanganда bekor bo'lmasligi uchun.
 
 ---
 
 ## 5. Docker (ixtiyoriy)
 
+Image sayt (frontend) + backendni bitta 5050-portда beradi. Bot alohida.
+
 ```bash
 docker build -t yetkaz .
+
+# .env fayli bilan (JWT_SECRET, ADMIN_PASS shu yerда):
 docker run -d --name yetkaz -p 5050:5050 \
   -v yetkaz_data:/app/server/data \
   -v yetkaz_uploads:/app/server/uploads \
   --env-file server/.env  yetkaz
 ```
 
+`.env` bo'lmasa — muhim o'zgaruvchilarni to'g'ridan-to'g'ri bering:
+
+```bash
+docker run -d --name yetkaz -p 5050:5050 \
+  -e JWT_SECRET="$(node -e "console.log(require('crypto').randomBytes(48).toString('hex'))")" \
+  -e ADMIN_PASS="KuchliParol#2026" \
+  -v yetkaz_data:/app/server/data \
+  -v yetkaz_uploads:/app/server/uploads \
+  yetkaz
+```
+
+> `-v yetkaz_data:...` — SQLite bazasi konteyner o'chsa ham saqlanadi (volume).
+> Busiz har `docker rm` da baza (buyurtmalar, admin paroli) yo'qoladi.
+> `ADMIN_PASS` bermasangiz — parol `docker logs yetkaz` da bir marta chiqadi.
+
+Foydali: `docker logs -f yetkaz` (loglar), `docker restart yetkaz`, `docker stop yetkaz`.
+
 ---
 
 ## 6. Topshirishдан oldin — yakuniy ro'yxat
 
 - [ ] Kuchli `JWT_SECRET` (.env)
+- [ ] Kuchli `ADMIN_PASS` (.env) — standart parol qolmagan
 - [ ] HTTPS ulandi
 - [ ] pm2/Docker — 24/7 + auto-restart
 - [ ] Kunlik backup + tashqi nusxa

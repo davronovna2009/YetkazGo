@@ -107,7 +107,7 @@
                 <div class="set-field"><label>Tarkibi (ichidagi mahsulotlar)</label><input id="ndIngredients" placeholder="Masalan: go'sht, piyoz, ziravorlar" /></div>
                 <div class="set-field"><label>Tavsif / ta'mi (ixtiyoriy)</label><input id="ndDescr" placeholder="Masalan: achchiq, mazali, yangi tayyorlangan" /></div>
                 <div class="set-field"><label>Rasm (ixtiyoriy)</label>
-                  <label class="file-drop"><span class="file-drop-ico">📷</span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden onchange="var t=document.getElementById('ndPhotoTxt');if(t)t.textContent=this.files&&this.files[0]?this.files[0].name:'Rasm tanlash yoki suratga olish';"></label>
+                  <label class="file-drop"><span class="file-drop-ico">📷</span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden></label>
                 </div>
                 <button class="set-save" id="addDishBtn">+ Qo'shish</button>
               </div>
@@ -326,7 +326,8 @@
   </div>
 
   <div class="toast2" id="toast2"></div>
-  <script src="assets/js/lottie.min.js"></script>
+  <script src="assets/js/safe.js"></script>
+<script src="assets/js/lottie.min.js"></script>
   <script src="assets/js/courier-anim.js"></script>
   <script src="assets/js/store.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
@@ -381,7 +382,8 @@
      Shu restoranга biriktirilgan kuryer ishdan javob olsa, restoran egasi shu bannerni
      ko'radi. Buyurtmalar avtomatik boshqa kuryerga yo'naltiriladi (backend). */
   (function(){
-    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba) */
+    var esc = YZ_SAFE.esc;
     function restName(){ try{ var s=STORE.session(); return (s&&s.role==="restoran")?(s.name||""):""; }catch(e){ return ""; } }
     var dismissed={};
     function bar(){

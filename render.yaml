@@ -12,7 +12,20 @@ services:
     envVars:
       - key: JWT_SECRET
         generateValue: true   # Render avtomatik xavfsiz kalit yaratadi
+      - key: ADMIN_PASS
+        sync: false           # Render Dashboard'да O'ZINGIZ kiritasiz (maxfiy).
+                              # Kiritmasangiz — server tasodifiy parol yaratib,
+                              # Logs'ga bir marta chiqaradi (o'sha yerdan oling).
+      - key: NODE_ENV
+        value: production
       - key: NODE_VERSION
         value: "22"
-    # SQLite fayli saqlanib qolishi uchun doimiy disk (ixtiyoriy, lekin tavsiya):
- 
+    # DIQQAT: bepul planда doimiy disk YO'Q — har deploy'да SQLite bazasi
+    # o'chadi (buyurtmalar, restoranlar, admin paroli ham). Haqiqiy ish uchun
+    # Turso ulang (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) yoki to'lovli plan +
+    # disk qo'shing:
+    # disk:
+    #   name: yetkaz-data
+    #   mountPath: /opt/render/project/src/server/data
+    #   sizeGB: 1
+

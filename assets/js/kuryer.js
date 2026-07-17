@@ -2,7 +2,9 @@
 (function(){
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
-  const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+     qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+  const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
   let PER=0; // bitta yetkazish haqi — admin shartnomada belgilaydi (kuryer fee)
   const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
 
@@ -360,18 +362,31 @@
   }
   let kToastT; function toast(m){ var e=$("#toast2"); if(!e){ return; } e.textContent=m; e.classList.add("show"); clearTimeout(kToastT); kToastT=setTimeout(function(){ e.classList.remove("show"); },2600); }
 
+  /* Sessiyadan panelni ochish (rol allaqachon tasdiqlangan bo'lishi kerak) */
+  function enterFromSession(ses){
+    var cc=COURIERS.find(x=>x.login===ses.login);
+    /* Admin qo'shgan (lokal massivда yo'q) kuryer uchun minimal panel */
+    if(!cc){ cc={ id:Date.now(), name:ses.name||ses.login, login:ses.login, emoji:"🛵", rest:"", deliveries:0, rating:0, fee:(ses.fee||0), phone:ses.phone||"" }; }
+    cc.fee=(ses.fee!=null?ses.fee:(cc.fee||0));
+    enter(cc);
+  }
+
   document.addEventListener("DOMContentLoaded",()=>{
-    var ses=(typeof STORE!=="undefined")?STORE.session():null;
-    if(ses && ses.role==="kuryer"){
-      var cc=COURIERS.find(x=>x.login===ses.login);
-      /* Admin qo'shgan (lokal massivда yo'q) kuryer uchun minimal panel */
-      if(!cc){ cc={ id:Date.now(), name:ses.name||ses.login, login:ses.login, emoji:"🛵", rest:"", deliveries:0, rating:0, fee:(ses.fee||0), phone:ses.phone||"" }; }
-      cc.fee=(ses.fee!=null?ses.fee:(cc.fee||0));
-      enter(cc);
-    } else {
-      /* Sessiya yo'q — saytga sakramasdan panelning O'Z login ekranini ko'rsatamiz
-         (app sifatida ochilganda to'g'ridan-to'g'ri login/parol so'raydi) */
-      $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    /* ===== Sessiya SERVERда tekshiriladi =====
+       localStorage'dagi yz_session ga ishonmaymiz — rol /api/auth/me dan keladi.
+       Bonus: fee ham serverdan keladi, ya'ni admin uni o'zgartirса qayta
+       login qilmasdan yangilanadi. */
+    $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    if(typeof STORE!=="undefined" && STORE.sessionExpired && STORE.sessionExpired()){
+      var le=$("#loginErr"); if(le) le.textContent="Sessiyangiz tugadi — qaytadan kiring.";
+    }
+    if(typeof STORE!=="undefined" && STORE.verifySession){
+      STORE.verifySession().then(v=>{
+        if(v.ok && v.account.role==="kuryer"){ enterFromSession(v.account); }
+        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="kuryer"){
+          enterFromSession(v.session);   // tarmoq yo'q — keshdagi holat bilan
+        }
+      }).catch(()=>{});
     }
     $("#loginBtn").addEventListener("click",login);
     $("#klPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });

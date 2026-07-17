@@ -2,7 +2,9 @@
 (function(){
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
-  const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+     qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+  const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
   /* Geolokatsiya — manzilni qurilma joylashuvidan to'ldiradi */
   function detectLocation(inputEl, btn){
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni qo'llamaydi","error"); return; }
@@ -296,7 +298,7 @@
       <div style="margin:-20px -20px 0;height:200px;background:linear-gradient(135deg,#FCEEDF,#F7E2E5);
         display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:16px 16px 0 0">
         <span style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));position:relative;z-index:1">${d.emoji}</span>
-        <img src="${d.photo}" alt="${d.name}" onerror="this.remove()"
+        <img src="${d.photo}" alt="${d.name}" data-onerr="remove"
           style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:16px 16px 0 0" />
         ${d.badge?`<span style="position:absolute;top:10px;left:12px;z-index:3;background:var(--gold);color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px">${d.badge}</span>`:''}
       </div>
@@ -367,8 +369,8 @@
       const disc=d.discount>0;
       return `<div class="kcard${disc?' kcard-disc':''}" data-id="${d.id}" data-discounted="${disc}">
         <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
-          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:''}
-          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
+          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
+          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" data-onerr="remove">
           ${disc?'<span class="kcard-disc-badge">🏷</span>':''}
         </div>
         <div class="kbody">
@@ -554,15 +556,35 @@
     if(phoneVal) USER.phone=(window.YZ_PHONE?YZ_PHONE.pretty(phoneVal):phoneVal);
     USER.address=addr;
     const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=(Math.random()<0.5?10:20);
-    USER.orders.unshift({id:Date.now(), dish:first.name+more, emoji:first.emoji, rest:first.rest,
+    const orderLocalId=Date.now();
+    const savedCart=cart.map(i=>({...i}));   // server rad etsa — savatni qaytaramiz
+    USER.orders.unshift({id:orderLocalId, dish:first.name+more, emoji:first.emoji, rest:first.rest,
       date:new Date().toLocaleDateString("ru-RU"), amount:total, addr:addr, pay:koPay, deliveredIn:eta, promised:eta+3, reviewed:false, status:"new"});
     const addrFull = addr + (USER.geo ? " · 📍GPS: " + USER.geo.lat.toFixed(5) + "," + USER.geo.lng.toFixed(5) : "");
     let created=null;
+    /* Summani SERVER hisoblaydi — biz faqat nima/nechta olayotganimizni aytamiz.
+       Quyidagi rest/item/amount local ko'rinish uchun; server ularni e'tiborsiz
+       qoldiradi. Rad etsa (min. summa / sotuvda yo'q taom) — orqaga qaytaramiz. */
     try{ created = STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:first.name+more, emoji:first.emoji,
+      items:cart.map(i=>({id:i.id, qty:i.qty})),
       amount:total, delivery:(typeof koDeliveryFee==="function"?koDeliveryFee():0), addr:addrFull, pay:koPay, courier:STORE.courierForRest(first.rest), status:"new", eta:eta,
-      time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}) }); }catch(e){}
+      time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}) },{
+      onFail: err => koOrderRejected(orderLocalId, savedCart, err)
+    }); }catch(e){}
     cart=[]; renderCart(); updateKMenuQty(); renderProfil();
     startTrack(addr,created,first.emoji,first.name+more);
+  }
+
+  /* Server buyurtmani RAD ETDI — local yozuvni o'chirib, savatni qaytaramiz va
+     sababni aytamiz. Aks holda mijoz mavjud bo'lmagan buyurtmani kuzatardi. */
+  function koOrderRejected(localId, restoreCart, err){
+    USER.orders = USER.orders.filter(o=>o.id!==localId);
+    if(restoreCart && restoreCart.length){ cart = restoreCart.map(i=>({...i})); }
+    renderCart(); updateKMenuQty(); renderProfil();
+    try{ koTimers.forEach(t=>clearInterval(t)); koTimers=[]; }catch(e){}
+    const m=$("#koModal"), b=$("#koBackdrop");
+    if(m) m.classList.remove("open"); if(b) b.classList.remove("open");
+    toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
   }
   /* REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s yangilaydi).
      Bekor qilinса — bekor ko'rsatadi; "arrived" bo'lса mijoz "Qabul qildim" bosadi -> backendga done. */
@@ -687,7 +709,7 @@
       return `<div class="krest-card${hasPromo?' krest-promo':''}" data-rest="${r.name}">
         <div class="krest-img tone-${r.kw||'burger'}">
           <span class="kemoji" style="font-size:44px;position:relative;z-index:1">${r.emoji||"🏪"}</span>
-          ${(function(){const p=restPhotoK(r.name);return p?`<img src="${p}" alt="${esc(r.name)}" loading="lazy" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:0">`:"";})()}
+          ${(function(){const p=restPhotoK(r.name);return p?`<img src="${p}" alt="${esc(r.name)}" loading="lazy" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:0">`:"";})()}
           ${hasPromo?'<span class="krest-promo-badge">🏷 AKSIYA</span>':''}
         </div>
         <div class="krest-body">
@@ -750,8 +772,8 @@
         :`<div class="kcard-qty"><button class="kqty-btn" data-id="${d.id}" data-m="-1">−</button><span class="kqty-num">${qty}</span><button class="kqty-btn" data-id="${d.id}" data-m="1">+</button></div>`;
       return `<div class="kcard${disc?' kcard-disc':''}" data-id="${d.id}" data-discounted="${disc}">
         <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
-          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:''}
-          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.remove()">
+          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
+          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" data-onerr="remove">
           ${disc?'<span class="kcard-disc-badge">🏷 CHEGIRMA</span>':''}
         </div>
         <div class="kbody"><h4 data-id="${d.id}">${d.name}</h4>
@@ -864,9 +886,20 @@
   }
 
   document.addEventListener("DOMContentLoaded",()=>{
-    var ses=(typeof STORE!=="undefined")?STORE.session():null;
-    if(ses && ses.role==="user"){ enterUser({login:ses.login,name:ses.name,phone:ses.phone}); }
-    else { /* Sessiya yo'q — kabinetning O'Z login ekrani (app to'g'ridan-to'g'ri login/parol so'raydi) */ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
+    /* ===== Sessiya SERVERда tekshiriladi =====
+       localStorage'dagi yz_session ga ishonmaymiz — rol /api/auth/me dan keladi. */
+    $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    if(typeof STORE!=="undefined" && STORE.sessionExpired && STORE.sessionExpired()){
+      var le=$("#loginErr"); if(le) le.textContent="Sessiyangiz tugadi — qaytadan kiring.";
+    }
+    if(typeof STORE!=="undefined" && STORE.verifySession){
+      STORE.verifySession().then(v=>{
+        var a = (v.ok && v.account.role==="user") ? v.account
+              : (!v.ok && v.reason==="offline" && v.session && v.session.role==="user") ? v.session
+              : null;
+        if(a) enterUser({login:a.login, name:a.name, phone:a.phone});
+      }).catch(()=>{});
+    }
     $("#loginBtn").addEventListener("click",login);
     $("#ulPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
     $$(".sb-link").forEach(l=>l.addEventListener("click",()=>nav(l.dataset.view)));

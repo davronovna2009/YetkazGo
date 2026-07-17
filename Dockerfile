@@ -4,6 +4,7 @@
 
 FROM node:22-alpine
 
+# Sog'liq tekshiruvi uchun wget (alpine'da bor, lekin aniqlik uchun)
 WORKDIR /app/server
 
 # Bog'liqliklar (kesh uchun avval faqat manifest)
@@ -13,11 +14,16 @@ RUN npm ci --omit=dev || npm install --omit=dev
 # Backend kodi
 COPY server/ ./
 
-# Statik frontend (loyiha ildizidan beriladi -> ROOT_DIR = ../)
+# ===== Statik frontend (loyiha ildizidan beriladi -> ROOT_DIR = ../) =====
+# MUHIM: Dockerfile'da COPY — bu SHELL emas, shuning uchun `2>/dev/null || true`
+# kabi konstruksiyalar ISHLAMAYDI (ular fayl nomi deb qabul qilinib, build
+# yiqiladi). Har bir manba ANIQ va MAVJUD bo'lishi kerak.
 COPY assets/ ../assets/
 COPY *.html ../
-COPY sw.js manifest.webmanifest ../ 2>/dev/null || true
-COPY README.md ../ 2>/dev/null || true
+# PWA: service worker + barcha web-manifestlar (admin/kabinet/kuryer/restoran/manifest)
+COPY sw.js ../
+COPY *.webmanifest ../
+COPY favicon.ico ../
 
 # Ma'lumot va yuklamalar uchun doimiy papkalar (volume tavsiya etiladi)
 RUN mkdir -p data uploads backups

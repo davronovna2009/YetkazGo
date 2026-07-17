@@ -3,7 +3,9 @@
   const $ = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
   const fmt = n => n.toLocaleString("ru-RU");
-  const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+     qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+  const esc = YZ_SAFE.esc, html = YZ_SAFE.html, raw = YZ_SAFE.raw;
   const MIN_ORDER = 20000, DELIVERY_FEE = 0;  // yetkazish bepul
   let cart = [];            // {id,name,nameCyr,price,emoji,img,qty}
   let user = { name:"", phone:"", address:"", debt:0 };
@@ -159,7 +161,7 @@
       <div class="dish-modal">
         <div class="dish-modal-img tone-${d.kw}">
           <span class="food-emoji" style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2))">${d.emoji}</span>
-          <img src="${d.photo}" alt="${esc(nm(d))}" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;">
+          <img src="${d.photo}" alt="${esc(nm(d))}" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;">
           ${d.badge?`<span class="card-badge" style="z-index:3;top:12px;left:12px">${d.badge}</span>`:""}
         </div>
         <div class="dish-modal-body">
@@ -246,8 +248,8 @@
     c.innerHTML = `
         <div class="card-img tone-${d.kw}" style="cursor:pointer">
           <span class="food-emoji">${d.emoji}</span>
-          ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">`:""}
-          <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" onerror="this.remove()">
+          ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:""}
+          <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
           ${d.badge?`<span class="card-badge">${d.badge}</span>`:""}
           ${promoBadge}
         </div>
@@ -374,28 +376,35 @@
     const realImg=s=>/^\/uploads\/|^data:|^https?:/.test(String(s||""));
     const annHtml=anns.map(p=>{
       const photo=p.img||promoPhoto(p);
-      return `<div class="rpromo-item">
-        <div class="rpromo-ph">${photo?`<img src="${photo}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${p.emoji||"📢"}'}))">`:`<span>${p.emoji||"📢"}</span>`}</div>
+      /* Rasm yuklanmasa emoji ko'rsatamiz — ilgari bu `onerror` ichidagi JS
+         satriga qo'yilardi va restoran emoji orqali skript yuklay olardi.
+         Endi data-* atributi (safe.js dagi global ishlovchi o'qiydi). */
+      return html`<div class="rpromo-item">
+        <div class="rpromo-ph">${photo
+          ? html`<img src="${photo}" alt="" data-onerr="emoji" data-emoji="${p.emoji||"📢"}">`
+          : html`<span>${p.emoji||"📢"}</span>`}</div>
         <div class="rpromo-body">
-          <div class="rpromo-text">${esc(p.text)}</div>
-          <div class="rpromo-meta">${p.tag?`<span class="rpromo-tag">${esc(p.tag)}</span>`:""}${p.dish?`<span class="rpromo-why">🍽️ ${esc(p.dish)}</span>`:""}</div>
+          <div class="rpromo-text">${p.text}</div>
+          <div class="rpromo-meta">${p.tag?html`<span class="rpromo-tag">${p.tag}</span>`:""}${p.dish?html`<span class="rpromo-why">🍽️ ${p.dish}</span>`:""}</div>
         </div>
       </div>`;
-    }).join("");
+    });
     const discHtml=disc.map(d=>{
       const photo=realImg(d.photo)?d.photo:"";
-      return `<div class="rpromo-item rpromo-dish" data-dish-id="${d.id}" style="cursor:pointer">
-        <div class="rpromo-ph">${photo?`<img src="${photo}" alt="" onerror="this.remove()">`:`<span>${d.emoji}</span>`}</div>
+      return html`<div class="rpromo-item rpromo-dish" data-dish-id="${d.id}" style="cursor:pointer">
+        <div class="rpromo-ph">${photo?html`<img src="${photo}" alt="" data-onerr="remove">`:html`<span>${d.emoji}</span>`}</div>
         <div class="rpromo-body">
-          <div class="rpromo-text">${esc(nm(d))}</div>
+          <div class="rpromo-text">${nm(d)}</div>
           <div class="rpromo-meta"><span class="rpromo-old">${fmt(d.price)}</span> <b class="rpromo-new">${fmt(d.eff)} so'm</b> <span class="rpromo-tag">−${d.discount}%</span></div>
           <div class="rpromo-why">🔥 ${d.discount}% chegirma — hoziroq oling!</div>
         </div>
         <button class="rpromo-add" data-add="${d.id}" aria-label="Savatga qo'shish">+</button>
       </div>`;
-    }).join("");
-    return `<div class="rinfo-card rpromo-banner">
-      <div class="rpromo-head">🔥 ${esc(nm(r))} — aksiya va chegirmalar</div>
+    });
+    /* Eslatma: annHtml/discHtml — massiv; html`` ularni o'zi qo'shadi
+       (.join("") YOZMANG — u qatorga aylantirib, escape'ga tushib qolardi). */
+    return html`<div class="rinfo-card rpromo-banner">
+      <div class="rpromo-head">🔥 ${nm(r)} — aksiya va chegirmalar</div>
       <div class="rpromo-list">${annHtml}${discHtml}</div>
       <svg class="rpromo-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,14 C240,42 480,2 720,18 C960,34 1200,44 1440,20 L1440,40 L0,40 Z" fill="rgba(255,255,255,.28)"/></svg>
     </div>`;
@@ -405,9 +414,9 @@
     const r=restList().find(x=>x.id===id)||((typeof RESTAURANTS!=="undefined")?RESTAURANTS.find(x=>x.id===id):null); if(!r) return;
     const menu=catalog().filter(d=>d.rest===r.name);
     const view=$("#restaurantView");
-    view.innerHTML=`
+    view.innerHTML=html`
       <div class="rhero tone-${r.kw}">
-        ${(function(){const p=restPhoto(r.name);return p?`<img class="rhero-photo-bg" src="${p}" alt="" aria-hidden="true" onerror="this.remove()"><img class="rhero-photo" src="${p}" alt="${esc(nm(r))}" onerror="this.remove()">`:"";})()}
+        ${(function(){const p=restPhoto(r.name);return p?html`<img class="rhero-photo-bg" src="${p}" alt="" aria-hidden="true" data-onerr="remove"><img class="rhero-photo" src="${p}" alt="${nm(r)}" data-onerr="remove">`:"";})()}
         <div class="rhero-overlay"></div>
         <div class="container rhero-inner">
           <button class="rback" id="rBack">← ${I18N.t("back")}</button>
@@ -420,7 +429,7 @@
         </div>
       </div>
       <div class="container">
-        ${restInfoBlock(r)}
+        ${raw(restInfoBlock(r))}
         ${restPromoBlock(r)}
       </div>
       <div class="container rmenu">
@@ -478,7 +487,7 @@
       const isOpen=/ochiq|open|очиқ/i.test(openLbl);
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
-        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" onerror="this.remove()">`:"";})()}
+        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:"";})()}
           ${openLbl?`<span class="rest-openbadge ${isOpen?'is-open':'is-closed'}">${isOpen?'🟢 '+I18N.t("open_l"):'🔴 '+I18N.t("closed_l")}</span>`:""}</div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
@@ -801,6 +810,40 @@
 
   function genOrderId(){ return Date.now()+"_"+Math.random().toString(36).slice(2,7); }
 
+  /* Server bergan haqiqiy buyurtma id sini local yozuvga bog'laydi.
+     Shundan keyin kuzatish/bekor qilish taxminга emas, ANIQ id ga tayanadi
+     (server summani o'zi hisoblagani uchun amount bo'yicha topib bo'lmaydi). */
+  function attachBackendId(orderId, beId){
+    if(!beId) return;
+    const arr = loadOrders();
+    const o = arr.find(x=>x.id===orderId);
+    if(!o) return;
+    o.backendId = beId;
+    saveOrders(arr);
+  }
+
+  /* Server buyurtmani RAD ETDI — local yozuvni o'chirib, savatni qaytaramiz.
+     Aks holda mijoz mavjud bo'lmagan buyurtmani "qabul qilindi" deb kuzatardi. */
+  function rollbackFailedOrder(orderId, restoreCart, err){
+    if(orderTimers[orderId]){ clearInterval(orderTimers[orderId]); delete orderTimers[orderId]; }
+    saveOrders(loadOrders().filter(o=>o.id!==orderId));
+    if(restoreCart && restoreCart.length){ cart = restoreCart.map(i=>({...i})); updateCart(); updateAllCards(); }
+    renderTrackerBanner(); renderCartOrders();
+    closeModal();
+    toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
+  }
+
+  /* Local buyurtmaga mos backend yozuvini topadi — avval aniq id bo'yicha,
+     bo'lmasa (eski yozuvlar uchun) eski taxminiy usul bilan. */
+  function findBackendOrder(order){
+    try{
+      if(typeof STORE==="undefined" || !STORE.orders) return null;
+      const list = STORE.orders();
+      if(order.backendId){ return list.find(o=>o.id===order.backendId) || null; }
+      return list.find(o=> o.user===order.user && o.item===order.label && o.amount===order.totalPrice) || null;
+    }catch(e){ return null; }
+  }
+
   /* Barcha timer va interval lar: {orderId: {stepInt, tInt}} */
   const orderTimers = {};
 
@@ -841,6 +884,10 @@
         STORE.addOrder({
           user: user.name || "Mehmon",
           phone: user.phone || "",
+          /* Serverga NIMA olayotganimizni aytamiz — summani O'ZI hisoblaydi.
+             Quyidagi rest/item/emoji/amount faqat local ko'rinish uchun; server
+             ularni e'tiborsiz qoldirib, javobda o'z qiymatlarini qaytaradi. */
+          items: cart.map(i=>({ id:i.id, qty:i.qty })),
           rest: restName,
           item: label,
           emoji: emoji,
@@ -852,6 +899,11 @@
           status: "new",
           eta: eta,
           time: new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})
+        },{
+          /* Server qabul qildi — ANIQ id ni bog'laymiz (taxminiy moslashtirish o'rniga) */
+          onOk: saved => attachBackendId(orderId, saved.id),
+          /* Server rad etdi (min. summa / sotuvda yo'q taom) — hammasini qaytaramiz */
+          onFail: err => rollbackFailedOrder(orderId, savedCart, err)
         });
       }
     }catch(e){}
@@ -923,12 +975,7 @@
       const left = Math.max(0, order.arriveAt - Date.now());
 
       // Backenddagi real buyurtmani topish (kuryer statusi bo'yicha)
-      let be = null;
-      try{
-        if(typeof STORE!=="undefined" && STORE.orders){
-          be = STORE.orders().find(o=> o.user===order.user && o.item===order.label && o.amount===order.totalPrice);
-        }
-      }catch(e){}
+      const be = findBackendOrder(order);
 
       // Bosqich: backend bo'lsa real statusdan, bo'lmasa vaqt bo'yicha simulyatsiya
       let step = getCurrentStep(order);
@@ -1086,8 +1133,7 @@
   function cancelActiveOrder(orderId){
     const order = loadOrders().find(o=>o.id===orderId);
     if(!order){ return; }
-    let be=null;
-    try{ if(typeof STORE!=="undefined" && STORE.orders){ be=STORE.orders().find(o=>o.user===order.user && o.item===order.label && o.amount===order.totalPrice); } }catch(e){}
+    const be = findBackendOrder(order);
     const beId = order.backendId || (be && be.id);
     if(beId && typeof STORE!=="undefined" && STORE.cancelOrder){ STORE.cancelOrder(beId); }
     if(orderTimers[orderId]){ clearInterval(orderTimers[orderId]); delete orderTimers[orderId]; }
@@ -1460,7 +1506,7 @@
       /* Haqiqiy taom/restoran rasmi (bo'lmasa emoji ko'rsatiladi) */
       const photo = promoPhoto(p);
       const photoInner = `<span class="ph-emoji">${p.emoji||"🍽️"}</span>` +
-        (photo ? `<img class="ph-img" src="${photo}" alt="${esc(p.rest)}" onerror="this.remove()">` : "");
+        (photo ? `<img class="ph-img" src="${photo}" alt="${esc(p.rest)}" data-onerr="remove">` : "");
       /* Butun hero kartasi bosilganda — mavjud promo modal ochiladi (yangi funksiya yo'q) */
       slidesEl.innerHTML=`
         <div class="ph-card">
@@ -1519,7 +1565,7 @@
       /* Rasm: avval restoran yuklagan e'lon rasmi (p.img), bo'lmasa taom/restoran rasmi */
       const photo = p.img || promoPhoto(p);
       const photoInner = `<span class="apb-emoji">${p.emoji||"🔥"}</span>` +
-        (photo ? `<img class="apb-img" src="${photo}" alt="${esc(p.rest||"")}" onerror="this.remove()">` : "");
+        (photo ? `<img class="apb-img" src="${photo}" alt="${esc(p.rest||"")}" data-onerr="remove">` : "");
       return `
         <div class="apb-slide">
           <div class="apb-left">

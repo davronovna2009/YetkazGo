@@ -67,16 +67,25 @@ npm run seed
 > Restoran qo'shishda `commission` (foiz) ham yuboriladi — har restoran shartnomasi
 > bo'yicha daromad avtomatik bo'linadi (default 18%). Yuklangan rasmlar `server/uploads/` da.
 
-## Sinov akkauntlari (seed)
+## Admin akkaunti
 
-| Rol      | Login         | Parol      |
-| -------- | ------------- | ---------- |
-| Admin    | `admin`       | `admin123` |
-| Restoran | `burgerhouse` | `bh#2026`  |
-| Kuryer   | `bekzod_k`    | `bk#2026`  |
-| Mijoz    | `dilnoza`     | `1234`     |
+Baza bo'sh bo'lganda FAQAT admin yaratiladi (restoran/kuryer/mijoz seed'i yo'q —
+ularni admin panel orqali qo'shasiz).
 
-> Barcha restoran/kuryer loginlari `assets/js/seed` mantig'ida — qolganlari ham xuddi shu sxemada.
+- Login: `ADMIN_LOGIN` (default `admin`)
+- Parol: `ADMIN_PASS` (.env dan). **Berilmasa** — tasodifiy kuchli parol yaratilib,
+  server logiga **bir marta** chiqariladi. Uni o'sha zahoti saqlab qo'ying.
+
+Parolni o'zgartirish / unutilganda tiklash:
+
+```bash
+cd server
+npm run set-admin-pass -- "YangiKuchliParol#2026"   # yoki parolsiz — o'zi yaratadi
+```
+
+> Xavfsizlik: eski `admin123` standart paroli olib tashlangan. Bazada u hali
+> qolgan bo'lsa, server ishga tushganda **avtomatik almashtiriladi** va yangi
+> parol logga chiqadi.
 
 ## Frontend integratsiyasi
 

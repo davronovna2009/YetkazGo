@@ -68,11 +68,37 @@ const STORE = (function () {
     if (!res.ok) { const err = new Error((data && data.error) || ("HTTP " + res.status)); err.status = res.status; err.data = data; throw err; }
     return data;
   }
-  /* Yozish so'rovlari — xatoni yutadi (optimistik kesh allaqachon yangilangan) */
+  /* ---- Sessiya tugaganini bir marta e'lon qilamiz ----
+     Token eskirsa/bekor bo'lsa, panel "✅ saqlandi" deb YOLG'ON ko'rsatmasligi
+     kerak: sessiyani tozalab, sahifani qayta yuklaymiz — panel login ekraniga
+     qaytadi va sabab ko'rsatiladi. */
+  let authLost = false;
+  function onAuthLost() {
+    if (authLost) return;
+    authLost = true;
+    try { localStorage.removeItem(K.sess); } catch (e) {}
+    setToken(null);
+    try { localStorage.setItem("yz_session_expired", "1"); } catch (e) {}
+    try { location.reload(); } catch (e) {}
+  }
+
+  /* Yozish so'rovlari — xatoni yutadi (optimistik kesh allaqachon yangilangan).
+     LEKIN 401/403 — bu "sessiyangiz tugagan" degani, uni yutib bo'lmaydi. */
   function send(path, opts) {
+    return sendStrict(path, opts)
+      .catch(e => {
+        if (e && (e.status === 401 || e.status === 403)) onAuthLost();
+        console.warn("[STORE] sync xato:", path, e.message);
+        return null;
+      });
+  }
+
+  /* Yozish so'rovi — xatoni YUTMAYDI. Server rad etishi mumkin bo'lgan
+     (va mijozga aytilishi SHART bo'lgan) amallar uchun: masalan buyurtma
+     yaratish — minimal summa / sotuvda yo'q taom / eskirgan narx. */
+  function sendStrict(path, opts) {
     inflight++;
     return api(path, Object.assign({ auth: true }, opts))
-      .catch(e => { console.warn("[STORE] sync xato:", path, e.message); return null; })
       .finally(() => { inflight = Math.max(0, inflight - 1); });
   }
 
@@ -151,16 +177,26 @@ const STORE = (function () {
     ordersFor: (rest) => cache.orders.filter(o => o.rest === rest),
     ordersForCourier: (name) => cache.orders.filter(o => o.courier === name),
     ordersForUser: (name) => cache.orders.filter(o => o.user === name),
-    addOrder(o) {
+    /* Buyurtma yaratish. Summani SERVER hisoblaydi — `o.items` ([{id,qty}])
+       majburiy. Server rad etsa (min. summa, sotuvda yo'q taom), optimistik
+       yozuv keshdan OLIB TASHLANADI va cbs.onFail(err) chaqiriladi — mijoz
+       bo'lmagan buyurtmani "qabul qilindi" deb ko'rmasligi uchun. */
+    addOrder(o, cbs) {
       const tempId = o.id || ("tmp_" + Date.now());
       const order = Object.assign({}, o, { id: tempId, status: o.status || "new" });
       cache.orders.unshift(order); lsWrite(K.orders, cache.orders); fire();
-      send("/orders", { method: "POST", body: o }).then(saved => {
+      sendStrict("/orders", { method: "POST", body: o }).then(saved => {
         if (saved && saved.id) {
           Object.assign(order, saved); lsWrite(K.orders, cache.orders);
           saveOrderToken(saved.id, saved.token);   // token'ni alohida saqlaymiz (polling keshni almashtiradi)
           fire();
+          if (cbs && cbs.onOk) { try { cbs.onOk(saved); } catch (e) {} }
         }
+      }).catch(err => {
+        cache.orders = cache.orders.filter(x => x !== order);
+        lsWrite(K.orders, cache.orders); fire();
+        console.warn("[STORE] buyurtma rad etildi:", err.message);
+        if (cbs && cbs.onFail) { try { cbs.onFail(err); } catch (e) {} }
       });
       return order;
     },
@@ -311,6 +347,39 @@ const STORE = (function () {
     session() { return lsRead(K.sess, null); },
     setSession(s) { lsWrite(K.sess, s); },
     clearSession() { try { localStorage.removeItem(K.sess); } catch (e) {} setToken(null); },
+
+    /* Tokenni SERVERда tekshiradi — localStorage'dagi sessiyaga ISHONMAYMIZ.
+       (yz_session ni qo'lda yozib panelni ochib bo'lmasin.)
+       Qaytaradi:
+         { ok:true,  account }              — token haqiqiy, rol serverdan
+         { ok:false, reason:"auth" }        — token yo'q/eskirgan -> login kerak
+         { ok:false, reason:"offline", session } — serverга ulanib bo'lmadi;
+             chaqiruvchi keshdagi sessiya bilan davom etishi mumkin (offline PWA).
+    */
+    async verifySession() {
+      const cached = lsRead(K.sess, null);
+      if (!getToken()) { this.clearSession(); return { ok: false, reason: "auth" }; }
+      try {
+        const r = await api("/auth/me", { auth: true });
+        if (r && r.account) { this.setSession(r.account); return { ok: true, account: r.account }; }
+        this.clearSession();
+        return { ok: false, reason: "auth" };
+      } catch (e) {
+        /* Server javob berdi va rad etdi (401/403) — sessiya haqiqiy emas */
+        if (e && e.status) { this.clearSession(); return { ok: false, reason: "auth" }; }
+        /* Tarmoq yo'q — keshdagi sessiya bilan davom etish mumkin */
+        return { ok: false, reason: "offline", session: cached };
+      }
+    },
+
+    /* Sessiya tugagani sababli qayta yuklandikmi? (login ekranida sabab ko'rsatish) */
+    sessionExpired() {
+      try {
+        if (localStorage.getItem("yz_session_expired") !== "1") return false;
+        localStorage.removeItem("yz_session_expired");
+        return true;
+      } catch (e) { return false; }
+    },
 
     onChange(cb) {
       if (typeof cb === "function") listeners.push(cb);

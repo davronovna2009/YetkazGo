@@ -6,8 +6,9 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { PORT, ROOT_DIR, JWT_SECRET, UPLOAD_DIR } from './config.js';
-import { seed } from './seed.js';
+import { seed, ensureAdminSecure } from './seed.js';
 import { attachUser } from './auth.js';
+import { htmlWithCsp } from './security.js';
 
 import authRoutes from './routes/auth.js';
 import ordersRoutes from './routes/orders.js';
@@ -20,6 +21,8 @@ import resetRoutes from './routes/reset.js';
 
 /* Birinchi ishga tushganda bazani seed qilamiz */
 seed();
+/* Eski bazada standart admin paroli qolgan bo'lsa — majburan almashtiramiz */
+ensureAdminSecure();
 
 const app = express();
 
@@ -27,9 +30,10 @@ const app = express();
    rate-limit IP'ni shu orqali aniqlaydi. */
 app.set('trust proxy', 1);
 
-/* Xavfsizlik sarlavhalari. CSP o'chirilgan — frontend inline skript/uslub va
-   tashqi rasm (Unsplash) / shrift (Google Fonts) ishlatadi; productionda
-   to'g'ri CSP siyosatini sozlash tavsiya etiladi. */
+/* Xavfsizlik sarlavhalari.
+   helmet'ning O'Z CSP'si o'chirilgan — uning o'rniga security.js dagi nonce'li
+   CSP ishlaydi (HTML javobiga qo'yiladi). Ikkitasi bir vaqtда bo'lsa, ular
+   KESISHMA bo'yicha qo'llanib, sayt buzilardi. */
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
 app.use(cors());
@@ -58,7 +62,12 @@ const orderLimiter = rateLimit({
   max: 15,                          // har IP uchun daqiqasiga 15 ta yangi buyurtma
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.method !== 'POST',   // faqat POST /api/orders cheklanadi
+  /* FAQAT yangi buyurtma yaratish (POST /api/orders) cheklanadi.
+     req.path bu yerda router ichidagi yo'l: yangi buyurtma -> '/'.
+     Mijozning "bekor qilish" (/:id/cancel) va "qabul qildim" (/:id/received)
+     so'rovlari ham POST — ular limitга TUSHMASLIGI kerak, aks holda bitta
+     IP ortidagi (Wi-Fi/NAT) mijozlar buyurtmasini tasdiqlay olmay qolardi. */
+  skip: (req) => req.method !== 'POST' || req.path !== '/',
   message: { error: 'Juda ko`p buyurtma yuborildi. Bir daqiqadan so`ng urinib ko`ring.' },
 });
 
@@ -95,7 +104,11 @@ app.use('/api', (err, _req, res, _next) => {
   res.status(500).json({ error: 'Server xatosi' });
 });
 
-/* Statik frontend (loyiha ildizi) */
+/* HTML — CSP + nonce bilan (statik'dan OLDIN: inline skriptlarga nonce qo'yadi).
+   Shu tufayli injektsiya qilingan <script> yoki onerror= brauzerда ISHLAMAYDI. */
+app.use(htmlWithCsp(ROOT_DIR));
+
+/* Qolgan statik fayllar (js/css/rasm) */
 app.use(express.static(ROOT_DIR, { extensions: ['html'] }));
 
 app.listen(PORT, () => {

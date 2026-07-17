@@ -11,6 +11,18 @@ function publicAccount(a) {
   return { id: a.id, role: a.role, login: a.login, name: a.name, phone: a.phone || '', email: a.email || '', target: a.target };
 }
 
+/* Sessiya uchun to'liq akkaunt. Kuryer o'z yetkazish haqini (fee) sessiyada
+   olib yuradi — /login va /me BIR XIL shaklni qaytarishi shart, aks holda
+   sessiya /me dan yangilanganda fee yo'qolib, daromad 0 ko'rinadi. */
+function sessionAccount(acc) {
+  const account = publicAccount(acc);
+  if (acc.role === 'kuryer') {
+    const c = db.prepare('SELECT fee FROM couriers WHERE login = ?').get(acc.login);
+    account.fee = c ? (c.fee || 0) : 0;
+  }
+  return account;
+}
+
 /* O'zbekiston mobil raqami validatsiyasi (ro'yxatdan o'tishda) */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
 function validUzPhone(p) {
@@ -28,13 +40,7 @@ router.post('/login', (req, res) => {
   if (!acc || !verifyPassword(pass, acc.pass_hash)) {
     return res.status(401).json({ error: 'Login yoki parol xato' });
   }
-  const account = publicAccount(acc);
-  // Kuryer o'z yetkazish haqini (fee) sessiyada olib yuradi
-  if (acc.role === 'kuryer') {
-    const c = db.prepare('SELECT fee FROM couriers WHERE login = ?').get(acc.login);
-    account.fee = c ? (c.fee || 0) : 0;
-  }
-  res.json({ token: signToken(acc), account });
+  res.json({ token: signToken(acc), account: sessionAccount(acc) });
 });
 
 /* POST /api/auth/register — faqat oddiy foydalanuvchi */
@@ -79,15 +85,15 @@ router.patch('/me', authRequired, (req, res) => {
   }
   if (b.pass && String(b.pass).length >= 4) db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(String(b.pass)), acc.id);
   const updated = db.prepare('SELECT * FROM accounts WHERE id = ?').get(acc.id);
-  const account = publicAccount(updated);
-  res.json({ token: signToken(updated), account });
+  res.json({ token: signToken(updated), account: sessionAccount(updated) });
 });
 
-/* GET /api/auth/me — joriy token egasini qaytaradi */
+/* GET /api/auth/me — joriy token egasini qaytaradi.
+   Panellar SHU orqali tokenni tekshiradi: localStorage'dagi sessiyaga ishonilmaydi. */
 router.get('/me', authRequired, (req, res) => {
   const acc = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.user.id);
   if (!acc) return res.status(404).json({ error: 'Topilmadi' });
-  res.json({ account: publicAccount(acc) });
+  res.json({ account: sessionAccount(acc) });
 });
 
 export default router;

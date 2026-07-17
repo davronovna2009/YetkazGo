@@ -19,14 +19,22 @@ Quyidagi yo'l **Android Studio talab qilmaydi** — eng oson variant.
 1. render.com'ga GitHub bilan kiring.
 2. **New + → Blueprint** → yuqoridagi repozitoriyni tanlang.
 3. Render `render.yaml`ni o'qiydi va avtomatik sozlaydi (`JWT_SECRET`ni o'zi yaratadi).
-4. **Apply** bosing → 1-2 daqiqaдан keyin sizга manzil beradi:
+4. **`ADMIN_PASS`ni kiriting** — Render Blueprint uni maxfiy deb so'raydi (sync: false).
+   Bu admin panelига kirish paroli. Kuchli qiling (masalan `Yetkaz#Admin2026!`).
+   Kiritmasangiz — server tasodifiy parol yaratib, **Logs**'ga bir marta chiqaradi.
+5. **Apply** bosing → 1-2 daqiqaдан keyin sizга manzil beradi:
    ```
    https://yetkaz.onrender.com
    ```
-5. Shu manzilni telefon/kompyuter brauzerида ochib, sayt ishlashini tekshiring.
+6. Shu manzilni telefon/kompyuter brauzerида ochib, sayt ishlashini tekshiring.
+   Admin panel: `https://yetkaz.onrender.com/admin` — login `admin`, parol yuqoridagi.
 
 > Eslatma: bepul Render 15 daqiqa harakatsizlikдан keyin "uxlaydi" — birinchi
 > ochilish 30-50 soniya sekin bo'lishi mumkin. To'lovli plan buni yo'qotadi.
+>
+> ⚠️ **Bepul planда doimiy disk YO'Q** — har deploy'да SQLite bazasi (buyurtmalar,
+> restoranlar, admin paroli) o'chadi. Doimiy saqlash uchun: `.env`га Turso
+> ulang (`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`) yoki to'lovli plan + disk.
 
 ## 3-qadam — APK yasash (PWABuilder, bepul)
 

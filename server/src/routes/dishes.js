@@ -41,12 +41,14 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   const id = Number(b.id) || Date.now();
   const rest = restFor(req);
   if (!rest) return res.status(400).json({ error: 'rest kerak' });
+  /* Narx manfiy yoki kasr bo'lmasin — buyurtma summasi shundan hisoblanadi (pricing.js) */
+  const price = Math.max(0, Math.round(Number(b.price) || 0));
   db.prepare(
     `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     id, String(b.name || ''), String(b.nameCyr || ''), String(b.emoji || '🍽️'),
-    Number(b.price) || 0, rest, String(b.cat || 'Fastfood'),
+    price, rest, String(b.cat || 'Fastfood'),
     String(b.kw || ''), String(b.photo || ''), Number(b.rating) || 4.5,
     Number(b.sold) || 0, String(b.badge || ''),
     String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300)
@@ -64,11 +66,14 @@ router.delete('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   res.json({ ok: true });
 });
 
-/* POST /api/discounts — chegirma o'rnatish (pct=0 -> olib tashlash) */
+/* POST /api/discounts — chegirma o'rnatish (pct=0 -> olib tashlash).
+   pct 0..100 oralig'iga qisiladi: endi summa SHU foiz bo'yicha serverда
+   hisoblanadi (pricing.js), shuning uchun tekshirilmagan pct manfiy narx bergan
+   bo'lardi (masalan pct=200 -> narx manfiy). */
 router.post('/discounts', requireRole('restoran', 'admin'), (req, res) => {
   const rest = restFor(req);
   const name = String(req.body?.name || '');
-  const pct = Number(req.body?.pct) || 0;
+  const pct = Math.max(0, Math.min(100, Math.round(Number(req.body?.pct) || 0)));
   if (!rest || !name) return res.status(400).json({ error: 'rest va name kerak' });
   if (pct > 0) db.prepare('INSERT OR REPLACE INTO discounts (rest, name, pct) VALUES (?,?,?)').run(rest, name, pct);
   else db.prepare('DELETE FROM discounts WHERE rest = ? AND name = ?').run(rest, name);

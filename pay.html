@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#C8102E">
-  <title>Yetkaz — To'lov</title>
+  <title>Yetkaz â€” To'lov</title>
   <style>
     :root{ --red:#C8102E; --ink:#2b2330; --grey:#8a7f76; --line:#eee2e6; --green:#16a34a; }
     *{ box-sizing:border-box; }
@@ -38,40 +38,43 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="brand">🛵 Yetkaz</div>
+    <div class="brand">ðŸ›µ Yetkaz</div>
     <div class="card" id="card">
       <div class="center"><div class="spin"></div><p class="muted">Yuklanmoqda...</p></div>
     </div>
   </div>
 
+  <script src="assets/js/safe.js"></script>
   <script>
     (function(){
       var card = document.getElementById("card");
       var params = new URLSearchParams(location.search);
       var token = (params.get("k") || "").trim();
-      var courier = null, emoji = "🛵", phone = "";
+      var courier = null, emoji = "ðŸ›µ", phone = "";
       var money = function(n){ return Math.round(Number(n)||0).toLocaleString("ru-RU"); };
-      var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); };
+      /* XSS himoyasi â€” ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham
+         escape qiladi). Bu yerÐ´Ð° faqat qisqartma. */
+      var esc = YZ_SAFE.esc;
       function show(html){ card.innerHTML = html; }
-      function fail(msg){ show('<div class="center"><div class="ok-ico">⚠️</div><p class="err">'+esc(msg)+'</p><button class="link" id="retry">↻ Qayta urinish</button></div>'); var r=document.getElementById("retry"); if(r) r.addEventListener("click", askPhone); }
+      function fail(msg){ show('<div class="center"><div class="ok-ico">âš ï¸</div><p class="err">'+esc(msg)+'</p><button class="link" id="retry">â†» Qayta urinish</button></div>'); var r=document.getElementById("retry"); if(r) r.addEventListener("click", askPhone); }
 
-      if(!token){ show('<div class="center"><div class="ok-ico">⚠️</div><p class="err">QR-kod noto\'g\'ri</p></div>'); return; }
+      if(!token){ show('<div class="center"><div class="ok-ico">âš ï¸</div><p class="err">QR-kod noto\'g\'ri</p></div>'); return; }
 
       /* 1-qadam: kuryer nomini olamiz, telefon so'raymiz */
       function init(){
         fetch("/api/pay/"+encodeURIComponent(token))
           .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
           .then(function(res){
-            if(!res.ok){ show('<div class="center"><div class="ok-ico">⚠️</div><p class="err">'+esc((res.j&&res.j.error)||"QR yaroqsiz")+'</p></div>'); return; }
-            courier = res.j.courier; emoji = res.j.emoji || "🛵";
+            if(!res.ok){ show('<div class="center"><div class="ok-ico">âš ï¸</div><p class="err">'+esc((res.j&&res.j.error)||"QR yaroqsiz")+'</p></div>'); return; }
+            courier = res.j.courier; emoji = res.j.emoji || "ðŸ›µ";
             askPhone();
           })
-          .catch(function(){ show('<div class="center"><div class="ok-ico">⚠️</div><p class="err">Serverга ulanib bo\'lmadi</p></div>'); });
+          .catch(function(){ show('<div class="center"><div class="ok-ico">âš ï¸</div><p class="err">ServerÐ³Ð° ulanib bo\'lmadi</p></div>'); });
       }
 
       function askPhone(){
         show('<h1>To\'lovni tasdiqlash</h1>'+
-          '<p class="sub">Kuryer: <b>'+emoji+' '+esc(courier||"")+'</b>. Buyurtmangizni topish uchun <b>telefon raqamingizni</b> kiriting.</p>'+
+          '<p class="sub">Kuryer: <b>'+esc(emoji)+' '+esc(courier||"")+'</b>. Buyurtmangizni topish uchun <b>telefon raqamingizni</b> kiriting.</p>'+
           '<label>Telefon raqamingiz</label>'+
           '<input id="ph" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" value="'+esc(phone)+'">'+
           '<button class="btn" id="find">Buyurtmamni topish</button>');
@@ -92,27 +95,27 @@
             if(!res.ok){ fail((res.j&&res.j.error)||"Xatolik"); return; }
             renderList(res.j.orders || []);
           })
-          .catch(function(){ fail("Serverга ulanib bo'lmadi"); });
+          .catch(function(){ fail("ServerÐ³Ð° ulanib bo'lmadi"); });
       }
 
       function renderList(orders){
         if(!orders.length){
-          show('<div class="center"><div class="ok-ico">🔎</div><h1>To\'lanmagan buyurtma topilmadi</h1>'+
-            '<p class="muted">Bu raqamga ('+esc(phone)+') tegishли to\'lanmagan buyurtma yo\'q.</p>'+
-            '<button class="link" id="again">← Boshqa raqam kiritish</button></div>');
+          show('<div class="center"><div class="ok-ico">ðŸ”Ž</div><h1>To\'lanmagan buyurtma topilmadi</h1>'+
+            '<p class="muted">Bu raqamga ('+esc(phone)+') tegishÐ»Ð¸ to\'lanmagan buyurtma yo\'q.</p>'+
+            '<button class="link" id="again">â† Boshqa raqam kiritish</button></div>');
           var a=document.getElementById("again"); if(a) a.addEventListener("click", askPhone);
           return;
         }
         var html = '<h1>Buyurtmani tasdiqlang</h1>'+
-          '<p class="sub">Kuryer: <b>'+emoji+' '+esc(courier||"")+'</b>. To\'lovni amalga oshirish uchun buyurtmani bosing.</p>';
+          '<p class="sub">Kuryer: <b>'+esc(emoji)+' '+esc(courier||"")+'</b>. To\'lovni amalga oshirish uchun buyurtmani bosing.</p>';
         orders.forEach(function(o){
           html += '<div class="ord" data-id="'+o.id+'">'+
-            '<span class="em">'+(o.emoji||"🍽️")+'</span>'+
-            '<div class="info"><b>'+esc(o.item||"Buyurtma")+'</b><span>#'+o.id+' · '+(o.pay==="cash"?"💵 Naqd":"💳 Karta")+'</span></div>'+
+            '<span class="em">'+esc(o.emoji||"ðŸ½ï¸")+'</span>'+
+            '<div class="info"><b>'+esc(o.item||"Buyurtma")+'</b><span>#'+o.id+' Â· '+(o.pay==="cash"?"ðŸ’µ Naqd":"ðŸ’³ Karta")+'</span></div>'+
             '<span class="amt">'+money(o.amount)+" so'm"+'</span>'+
           '</div>';
         });
-        html += '<button class="link" id="again">← Boshqa raqam</button>';
+        html += '<button class="link" id="again">â† Boshqa raqam</button>';
         show(html);
         Array.prototype.forEach.call(card.querySelectorAll(".ord"), function(el){
           el.addEventListener("click", function(){ confirmPay(el.dataset.id, el); });
@@ -128,17 +131,17 @@
         })
           .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
           .then(function(res){
-            if(!res.ok){ fail((res.j&&res.j.error)||"To'lovни tasdiqlab bo'lmadi"); return; }
+            if(!res.ok){ fail((res.j&&res.j.error)||"To'lovÐ½Ð¸ tasdiqlab bo'lmadi"); return; }
             var o = res.j.order || {};
             show('<div class="center">'+
-              '<div class="ok-ico">✅</div>'+
+              '<div class="ok-ico">âœ…</div>'+
               '<h1>To\'lov qabul qilindi!</h1>'+
               (o.item?'<p class="muted">'+esc(o.item)+'</p>':'')+
               (o.amount?'<div class="big-amt">'+money(o.amount)+" so'm"+'</div>':'')+
-              '<p class="muted">Rahmat! Yoqimli ishtaha 🎉</p>'+
+              '<p class="muted">Rahmat! Yoqimli ishtaha ðŸŽ‰</p>'+
               '</div>');
           })
-          .catch(function(){ fail("Serverга ulanib bo'lmadi"); });
+          .catch(function(){ fail("ServerÐ³Ð° ulanib bo'lmadi"); });
       }
 
       init();

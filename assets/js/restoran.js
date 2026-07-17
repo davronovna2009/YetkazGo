@@ -3,7 +3,9 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   const mln=n=>(n/1e6).toFixed(1).replace(".",",")+" mln";
-  const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+     qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+  const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
   const COMMISSION=0.18;
   const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
 
@@ -732,16 +734,28 @@
     return r;
   }
 
+  /* Sessiyadan panelni ochish (rol allaqachon tasdiqlangan bo'lishi kerak) */
+  async function enterFromSession(ses){
+    var rr=RESTS.find(x=>x.login===ses.login);
+    if(!rr){ try{ if(STORE.ready) await STORE.ready(); }catch(e){} rr=buildBackendRest(ses); }
+    enter(rr);
+  }
+
   document.addEventListener("DOMContentLoaded", async ()=>{
-    var ses=(typeof STORE!=="undefined")?STORE.session():null;
-    if(ses && ses.role==="restoran"){
-      var rr=RESTS.find(x=>x.login===ses.login);
-      if(!rr){ try{ if(STORE.ready) await STORE.ready(); }catch(e){} rr=buildBackendRest(ses); }
-      enter(rr);
-    } else {
-      /* Sessiya yo'q — saytga sakramasdan panelning O'Z login ekranini ko'rsatamiz
-         (app sifatida ochilganda to'g'ridan-to'g'ri login/parol so'raydi) */
-      $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    /* ===== Sessiya SERVERда tekshiriladi =====
+       localStorage'dagi yz_session ga ishonmaymiz — rol /api/auth/me dan keladi. */
+    $("#loginWrap").style.display="flex"; $("#app").classList.remove("show");
+    if(typeof STORE!=="undefined" && STORE.sessionExpired && STORE.sessionExpired()){
+      var le=$("#loginErr"); if(le) le.textContent="Sessiyangiz tugadi — qaytadan kiring.";
+    }
+    if(typeof STORE!=="undefined" && STORE.verifySession){
+      try{
+        var v=await STORE.verifySession();
+        if(v.ok && v.account.role==="restoran"){ await enterFromSession(v.account); }
+        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="restoran"){
+          await enterFromSession(v.session);   // tarmoq yo'q — keshdagi holat bilan
+        }
+      }catch(e){}
     }
     $("#loginBtn").addEventListener("click",login);
     $("#rlPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });
@@ -749,6 +763,15 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#rlPass").value=""; CUR=null; try{location.href="index.html";}catch(e){} });
     // menuToggle — HTML dagi script boshqaradi (ikki listener bo'lmasin)
     $("#addDishBtn").addEventListener("click",addDish);
+    /* Rasm tanlanganда fayl nomini ko'rsatish. Ilgari HTML da inline
+       onchange="..." edi — CSP inline hodisalarni bloklaydi. */
+    (function(){
+      var inp=$("#ndPhoto"), txt=$("#ndPhotoTxt");
+      if(!inp||!txt) return;
+      inp.addEventListener("change",function(){
+        txt.textContent=(this.files&&this.files[0])?this.files[0].name:"Rasm tanlash yoki suratga olish";
+      });
+    })();
     $("#annBtn").addEventListener("click",postAnnounce);
     /* Reklama rasmi tanlanganda — kichik ko'rinish (preview) */
     var annPhoto=$("#annPhoto");

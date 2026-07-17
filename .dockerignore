@@ -7,3 +7,6 @@ server/uploads
 *.log
 .DS_Store
 Thumbs.db
+
+# Ishlab chiqish namunasi — productionда kerak emas (COPY *.html uni olmaydi)
+hero-preview.html

@@ -3,7 +3,9 @@
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   const mln=n=>(n/1e6).toFixed(1).replace(".",",")+` mln`;
-  const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); // XSS himoyasi
+  /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+     qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+  const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
   /* ---- Kirish tekshiruvlari — soxta/chala ma'lumotni rad etadi ---- */
   const vName=s=>{ s=String(s||"").trim(); return s.length>=2 && /[A-Za-zА-Яа-яЎўҚқҒғҲҳ]/.test(s); };
   const vLogin=s=>/^[A-Za-z0-9_]{3,}$/.test(String(s||"").trim());
@@ -157,17 +159,18 @@
   /* =========================================================
      LOGIN / NAV
      ========================================================= */
+  /* Panelni ochish / login ekraniga qaytish — bitta joyda */
+  function enterAdmin(){ $("#loginWrap").style.display="none"; $("#app").classList.add("show"); renderAll(); }
+  function showLogin(){ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
+
   async function login(){
     const u=$("#alUser").value.trim(), p=$("#alPass").value.trim();
     $("#loginErr").textContent="";
     const acc=(typeof STORE!=="undefined")? await STORE.login(u,p):null;
     if(acc && acc.offline){ $("#loginErr").textContent="Serverga ulanib bo'lmadi. Saytni server orqali oching (masalan http://localhost:5050) va internetni tekshiring."; return; }
-    if(acc && acc.role==="admin"){
-      $("#loginWrap").style.display="none";
-      $("#app").classList.add("show");
-      renderAll();
-    } else if(acc && acc.target){ try{ location.href=acc.target; }catch(e){} }
-    else { $("#loginErr").textContent="Login yoki parol xato. (admin / admin123)"; }
+    if(acc && acc.role==="admin"){ enterAdmin(); }
+    else if(acc && acc.target){ try{ location.href=acc.target; }catch(e){} }
+    else { $("#loginErr").textContent="Login yoki parol xato."; }
   }
 
   function nav(view){
@@ -1148,10 +1151,25 @@
       setInterval(function(){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderCouriers(); renderDash(); }catch(e){} }); }, 12000);
     }
 
-    // Session
-    const ses=(typeof STORE!=="undefined")?STORE.session():null;
-    if(ses&&ses.role==="admin"){ $("#loginWrap").style.display="none"; $("#app").classList.add("show"); renderAll(); }
-    else { /* Sessiya yo'q — panelning O'Z login ekrani (app to'g'ridan-to'g'ri login/parol so'raydi) */ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
+    /* ===== Sessiya — SERVERда tekshiriladi =====
+       localStorage'dagi yz_session ga ishonmaymiz: uni brauzerда qo'lda yozib
+       panelni ochib bo'lmasin. Rol /api/auth/me javobidan olinadi. */
+    showLogin();
+    if(typeof STORE!=="undefined" && STORE.sessionExpired && STORE.sessionExpired()){
+      $("#loginErr").textContent="Sessiyangiz tugadi — qaytadan kiring.";
+    }
+    if(typeof STORE!=="undefined" && STORE.verifySession){
+      STORE.verifySession().then(v=>{
+        if(v.ok && v.account.role==="admin"){ enterAdmin(); }
+        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="admin"){
+          /* Tarmoq yo'q — keshdagi ma'lumot bilan ishlaymiz (yozuvlar baribir
+             serverга yetmaydi, shuning uchun ogohlantiramiz) */
+          enterAdmin();
+          toast("⚠️ Serverga ulanib bo'lmadi — ma'lumot eskirgan bo'lishi mumkin");
+        }
+        /* aks holda: login ekrani ochiq qoladi */
+      }).catch(()=>{});
+    }
 
     // Mobil header: admin / online — modallar + avtomatik holat
     const badgeEl=document.querySelector(".tb-badge");

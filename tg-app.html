@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#C8102E">
+<title>YetkazGo — Menyu</title>
+
+<!-- Telegram Mini App SDK (telegram.org'dan yuklanishi SHART) -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="assets/js/safe.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ===== YetkazGo mini sayt — sayt brendi bilan bir xil (assets/css/styles.css tokenlari) ===== */
+:root{
+  --red:#C8102E; --red-dark:#8C0A1F; --gold:#E8A33D;
+  --ink:#1A1A1A; --grey:#6B6B6B; --line:#ECE0E2;
+  --bg:#FFFBF7; --card:#fff; --green:#2E9E5B;
+  --radius:16px; --radius-sm:10px;
+  --shadow:0 8px 30px rgba(140,10,31,.10);
+}
+/* Telegram tungi rejimi */
+body.dark{
+  --ink:#F5F5F5; --grey:#A0A0A0; --line:#2A2A2E;
+  --bg:#17171B; --card:#1F1F24;
+  --shadow:0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Manrope',system-ui,-apple-system,sans-serif;
+  color:var(--ink);background:var(--bg);
+  overflow-x:hidden;padding-bottom:24px;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+img{display:block;max-width:100%}
+
+/* ===== Sarlavha (yopishqoq) ===== */
+.hdr{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(135deg,var(--red) 0%,#a50c22 55%,var(--red-dark) 100%);
+  color:#fff;padding:14px 16px 16px;
+  box-shadow:0 4px 18px rgba(140,10,31,.22);
+}
+.hdr-top{display:flex;align-items:center;gap:10px}
+.hdr-emoji{font-size:26px;line-height:1}
+.hdr-name{font-size:18px;font-weight:800;letter-spacing:-.2px}
+.hdr-sub{font-size:12px;font-weight:600;opacity:.85;margin-top:2px}
+.hdr-badges{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.badge{
+  background:rgba(255,255,255,.18);border-radius:999px;
+  padding:4px 10px;font-size:11px;font-weight:700;
+}
+.badge.shut{background:rgba(0,0,0,.3)}
+
+/* Yopiq restoran haqida ogohlantirish tasmasi */
+.closed-bar{
+  background:#3a2400;color:var(--gold);
+  padding:10px 14px;font-size:12px;font-weight:700;text-align:center;line-height:1.4;
+}
+
+/* ===== Ekranlar ===== */
+.screen{display:none;padding:14px 14px 0}
+.screen.show{display:block}
+
+/* ===== Taom kartochkalari ===== */
+.sec-title{font-size:13px;font-weight:800;color:var(--grey);text-transform:uppercase;letter-spacing:.6px;margin:6px 2px 10px}
+.dish{
+  display:flex;gap:12px;align-items:center;
+  background:var(--card);border-radius:var(--radius);
+  padding:10px;margin-bottom:10px;box-shadow:var(--shadow);
+}
+/* Tugagan taom — saytdagidek ko'rinadi, lekin xira va qo'shib bo'lmaydi */
+.dish.out{opacity:.55}
+.dish-photo{
+  width:84px;height:84px;flex-shrink:0;border-radius:12px;
+  object-fit:cover;background:var(--bg);
+}
+.dish-photo.ph{
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;background:linear-gradient(135deg,#FBEFF0,#FBF1DF);
+}
+.dish-info{flex:1;min-width:0}
+.dish-name{font-size:15px;font-weight:700;line-height:1.25;margin-bottom:3px}
+.dish-desc{
+  font-size:11px;color:var(--grey);line-height:1.35;margin-bottom:6px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.dish-price{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.price-now{font-size:15px;font-weight:800;color:var(--red)}
+.price-old{font-size:12px;color:var(--grey);text-decoration:line-through}
+.pct{background:var(--gold);color:#3a2400;font-size:10px;font-weight:800;border-radius:6px;padding:2px 5px}
+
+/* ===== Qo'shish tugmasi / stepper ===== */
+.dish-act{flex-shrink:0}
+.add-btn{
+  background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;
+  border-radius:12px;padding:9px 14px;font-size:13px;font-weight:800;
+  box-shadow:0 6px 16px rgba(200,16,46,.28);transition:.12s;
+}
+.add-btn:active{transform:translateY(1px);opacity:.92}
+/* Yopiq restoran — soat belgisi (saytdagi .add-closed kabi) */
+.add-btn.shut{background:var(--grey);box-shadow:none;padding:9px 12px}
+/* Tugagan yozuvi (saytdagi .pod-soldout kabi) */
+.out-lbl{
+  display:inline-block;background:var(--line);color:var(--grey);
+  border-radius:8px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap;
+}
+.stepper{
+  display:flex;align-items:center;gap:2px;
+  background:var(--bg);border:2px solid var(--red);border-radius:12px;padding:2px;
+}
+.stepper button{
+  width:30px;height:30px;border-radius:8px;
+  font-size:18px;font-weight:800;color:var(--red);
+  display:flex;align-items:center;justify-content:center;
+}
+.stepper button:active{background:rgba(200,16,46,.12)}
+.stepper .qty{min-width:24px;text-align:center;font-size:14px;font-weight:800}
+
+/* ===== Savat ===== */
+.cart-line{
+  display:flex;gap:10px;align-items:center;
+  background:var(--card);border-radius:var(--radius-sm);
+  padding:10px;margin-bottom:8px;box-shadow:var(--shadow);
+}
+.cart-emoji{font-size:22px;flex-shrink:0}
+.cart-mid{flex:1;min-width:0}
+.cart-name{font-size:14px;font-weight:700}
+.cart-each{font-size:11px;color:var(--grey);margin-top:2px}
+.totals{
+  background:var(--card);border-radius:var(--radius);
+  padding:14px;margin-top:12px;box-shadow:var(--shadow);
+}
+.trow{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;color:var(--grey);font-weight:600}
+.trow.grand{
+  font-size:17px;font-weight:800;color:var(--ink);
+  border-top:1px dashed var(--line);padding-top:10px;margin:10px 0 0;
+}
+.free{color:var(--green);font-weight:800}
+
+/* ===== Forma (rasmiylashtirish) ===== */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.field input{
+  width:100%;border:2px solid var(--line);border-radius:12px;
+  padding:13px 14px;font-size:16px;outline:none;
+  background:var(--card);color:var(--ink);transition:.15s;-webkit-appearance:none;
+}
+.field input:focus{border-color:var(--red);box-shadow:0 0 0 4px rgba(200,16,46,.10)}
+.field input.bad{border-color:var(--red);background:rgba(200,16,46,.06)}
+.hint{font-size:11px;color:var(--grey);margin-top:5px}
+.err{font-size:12px;color:var(--red);font-weight:700;margin-top:5px;min-height:15px}
+
+/* To'lov turi */
+.pays{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pay{
+  background:var(--card);border:2px solid var(--line);border-radius:12px;
+  padding:14px 10px;text-align:center;transition:.15s;
+}
+.pay .pi{font-size:24px;margin-bottom:5px}
+.pay .pt{font-size:13px;font-weight:700}
+.pay.on{border-color:var(--red);background:rgba(200,16,46,.06);box-shadow:0 0 0 4px rgba(200,16,46,.08)}
+
+/* Yakuniy xulosa */
+.review{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);margin-bottom:14px}
+.rrow{display:flex;gap:8px;font-size:13px;margin-bottom:7px;line-height:1.4}
+.rrow .rk{color:var(--grey);font-weight:600;flex-shrink:0}
+.rrow .rv{font-weight:700;word-break:break-word}
+
+/* ===== Holat ekranlari ===== */
+.state{text-align:center;padding:60px 24px;color:var(--grey)}
+.state .ico{font-size:52px;margin-bottom:12px}
+.state h2{font-size:17px;font-weight:800;color:var(--ink);margin-bottom:6px}
+.state p{font-size:13px;line-height:1.5}
+.retry{
+  margin-top:16px;background:var(--red);color:#fff;
+  border-radius:12px;padding:11px 22px;font-weight:700;font-size:14px;
+}
+
+/* Skeleton (yuklanayotganda) */
+.sk{background:var(--card);border-radius:var(--radius);height:104px;margin-bottom:10px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden}
+.sk::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(200,16,46,.06),transparent);
+  animation:sh 1.2s infinite;
+}
+@keyframes sh{to{transform:translateX(100%)}}
+
+/* Mini app ichida bo'lmasa */
+.nope{padding:40px 24px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-emoji" id="hEmoji">🏪</div>
+    <div>
+      <div class="hdr-name" id="hName">Yuklanmoqda…</div>
+      <div class="hdr-sub" id="hSub">Menyu tayyorlanmoqda</div>
+    </div>
+  </div>
+  <div class="hdr-badges">
+    <span class="badge" id="hOpen">🟢 Ochiq</span>
+    <span class="badge">🚚 Yetkazish BEPUL</span>
+    <span class="badge" id="hEta">⏱ ~20 daq</span>
+  </div>
+</div>
+<div class="closed-bar" id="closedBar" style="display:none"></div>
+
+<!-- 1) MENYU -->
+<div class="screen show" id="scMenu">
+  <div class="sec-title" id="menuTitle">Taomlar</div>
+  <div id="menuList">
+    <div class="sk"></div><div class="sk"></div><div class="sk"></div>
+  </div>
+</div>
+
+<!-- 2) SAVAT -->
+<div class="screen" id="scCart">
+  <div class="sec-title">Savatingiz</div>
+  <div id="cartList"></div>
+  <div class="totals">
+    <div class="trow"><span>Taomlar</span><span id="tItems">0 so'm</span></div>
+    <div class="trow"><span>Yetkazib berish</span><span class="free">BEPUL</span></div>
+    <div class="trow grand"><span>Jami</span><span id="tGrand">0 so'm</span></div>
+  </div>
+</div>
+
+<!-- 3) RASMIYLASHTIRISH -->
+<div class="screen" id="scForm">
+  <div class="sec-title">Yetkazish ma'lumotlari</div>
+
+  <div class="field">
+    <label for="fPhone">📞 Telefon raqamingiz</label>
+    <input id="fPhone" type="tel" inputmode="numeric" placeholder="+998 90 123 45 67" autocomplete="tel">
+    <div class="hint">Kuryer shu raqamga qo'ng'iroq qiladi</div>
+    <div class="err" id="ePhone"></div>
+  </div>
+
+  <div class="field">
+    <label for="fAddr">📍 Yetkazish manzili</label>
+    <input id="fAddr" type="text" placeholder="Chilonzor 5-kvartal, 12-uy, 34-xonadon" autocomplete="street-address">
+    <div class="err" id="eAddr"></div>
+  </div>
+
+  <div class="field">
+    <label>💳 To'lov turi</label>
+    <div class="pays">
+      <button class="pay on" data-pay="cash"><div class="pi">💵</div><div class="pt">Naqd</div></button>
+      <button class="pay" data-pay="card"><div class="pi">💳</div><div class="pt">Karta</div></button>
+    </div>
+  </div>
+</div>
+
+<!-- 4) TASDIQLASH -->
+<div class="screen" id="scDone">
+  <div class="sec-title">Buyurtmani tasdiqlang</div>
+  <div class="review" id="reviewBox"></div>
+  <div class="hint" style="text-align:center;padding:0 10px 10px">
+    Tasdiqlaganingizdan so'ng mini sayt yopiladi va botga xabar keladi.
+  </div>
+</div>
+
+<!-- Xato / bo'sh holat -->
+<div class="screen" id="scErr">
+  <div class="state">
+    <div class="ico" id="errIco">⚠️</div>
+    <h2 id="errTitle">Xatolik</h2>
+    <p id="errText"></p>
+    <button class="retry" id="errBtn">🔄 Qayta urinish</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   YetkazGo — Telegram Mini App
+   Botdagi reply-keyboard tugmasidan ochiladi: /tg-app.html?rest=<restoran>
+   Yakunda tg.sendData(JSON) orqali botga qaytaradi — bot buyurtmani yaratadi.
+   MUHIM: bu yerda narx faqat KO'RSATISH uchun. Haqiqiy summani backend
+   (server/src/pricing.js) dish id bo'yicha o'zi hisoblaydi.
+   ========================================================================= */
+
+const tg = window.Telegram && window.Telegram.WebApp;
+
+/* Backend bilan bir xil bo'lishi SHART bo'lgan qiymatlar (server/src/config.js) */
+const MIN_ORDER = 20000;
+const UZ_OPERATORS = ['20','33','50','55','77','88','90','91','93','94','95','97','98','99'];
+
+/* ===== Ish vaqti — QAT'IY Toshkent vaqti =====
+   Sayt brauzer vaqtini ishlatadi (app.js:567 `new Date().getHours()`), lekin bot
+   serverda (ko'pincha UTC) ishlaydi. Ikkalasi bir xil javob berishi uchun mini
+   sayt ham, bot ham vaqtni shu mintaqaga bog'lab hisoblaydi (server/src/hours.js). */
+const TZ = 'Asia/Tashkent';
+const HOUR_FMT = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' });
+const tashHour = () => Number(HOUR_FMT.format(new Date()));
+
+/* --- Holat --- */
+const REST = new URLSearchParams(location.search).get('rest') || '';
+let INFO = null;        // restoran qatori (openH/closeH/emoji/eta...)
+let MENU = [];          // [{id,name,emoji,price,eff,discount,photo,descr,soldout}]
+let CART = {};          // { [dishId]: qty }
+let PAY  = 'cash';
+let SCREEN = 'menu';    // menu | cart | form | done | err
+
+const CART_KEY = 'yz_tg_cart_' + REST;
+const $ = (id) => document.getElementById(id);
+const som = (n) => Number(n||0).toLocaleString('ru-RU') + " so'm";
+const pad2 = (n) => String(n).padStart(2,'0');
+/* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
+   qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
+const esc = YZ_SAFE.esc, html = YZ_SAFE.html, raw = YZ_SAFE.raw;
+const alertMsg = (m) => { try { tg ? tg.showAlert(m) : alert(m); } catch(e){ alert(m); } };
+
+/* Restoran hozir ochiqmi? Sayt bilan bir xil shart (app.js:563-570):
+   h >= openH && h < closeH. Ma'lumot bo'lmasa — ochiq deb hisoblanadi.
+   Eslatma: saytdagidek tungi smena (22->06) qo'llab-quvvatlanmaydi. */
+function isOpen(){
+  if (!INFO || INFO.openH == null || INFO.closeH == null) return true;
+  const h = tashHour();
+  return h >= INFO.openH && h < INFO.closeH;
+}
+/* Ish vaqti matni (app.js:571-579 kabi: erkin `hours` matni ustun) */
+function hoursText(){
+  if (INFO && INFO.hours) return String(INFO.hours);
+  const o = (INFO && INFO.openH != null) ? INFO.openH : 9;
+  const c = (INFO && INFO.closeH != null) ? INFO.closeH : 23;
+  return pad2(o) + ':00–' + pad2(c) + ':00';
+}
+
+/* =========================== Telegram sozlash =========================== */
+function initTg(){
+  if (!tg) return;
+  tg.ready();
+  tg.expand();
+  if (tg.colorScheme === 'dark') document.body.classList.add('dark');
+  try { tg.setHeaderColor('#C8102E'); tg.setBackgroundColor(tg.colorScheme==='dark' ? '#17171B' : '#FFFBF7'); } catch(e){}
+  tg.MainButton.setParams({ color:'#C8102E', text_color:'#ffffff' });
+  tg.MainButton.onClick(onMainButton);
+  tg.BackButton.onClick(goBack);
+  try { tg.enableClosingConfirmation(); } catch(e){}
+}
+const haptic = (t='light') => { try { tg && tg.HapticFeedback.impactOccurred(t); } catch(e){} };
+const notify = (t='success') => { try { tg && tg.HapticFeedback.notificationOccurred(t); } catch(e){} };
+
+/* ============================ Savat (localStorage) ====================== */
+function loadCart(){
+  try { CART = JSON.parse(localStorage.getItem(CART_KEY)) || {}; } catch(e){ CART = {}; }
+}
+function saveCart(){
+  try { localStorage.setItem(CART_KEY, JSON.stringify(CART)); } catch(e){}
+}
+const cartLines  = () => MENU.filter(d => CART[d.id] > 0).map(d => ({ ...d, qty: CART[d.id] }));
+const cartTotal  = () => cartLines().reduce((s,l) => s + l.eff * l.qty, 0);
+const cartCount  = () => cartLines().reduce((s,l) => s + l.qty, 0);
+
+/* ============================ Menyu yuklash ============================= */
+/* store.js:mergeDishes() bilan BIR XIL: removed chiqariladi, soldout FAQAT
+   belgilanadi (yashirilmaydi — saytda ham ko'rinadi), discounts qo'llanadi. */
+async function loadMenu(){
+  const r = await fetch('/api/bootstrap', { cache:'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+
+  const o = data.overrides || {};
+  const key = (rest,name) => rest + '|' + name;
+  const removed  = new Set(o.removed || []);
+  const soldout  = new Set(o.soldout || []);
+  const discounts = o.discounts || {};
+
+  MENU = (o.added || [])
+    .filter(d => d.rest === REST)
+    .filter(d => !removed.has(key(REST, d.name)))
+    .map(d => {
+      const pct = discounts[key(REST, d.name)] || 0;
+      const price = Number(d.price) || 0;
+      return {
+        id: Number(d.id),
+        name: d.name,
+        emoji: d.emoji || '🍽️',
+        price,
+        discount: pct,
+        eff: pct ? Math.round(price * (1 - pct/100)) : price,
+        photo: d.photo || '',
+        descr: d.descr || d.ingredients || '',
+        soldout: soldout.has(key(REST, d.name)),
+      };
+    });
+
+  INFO = (data.restaurants || []).find(x => x.name === REST) || null;
+}
+
+/* ============================== Chizish ================================ */
+function renderHeader(){
+  const open = isOpen();
+  $('hName').textContent = REST || 'Restoran';
+  $('hEmoji').textContent = (INFO && INFO.emoji) || '🏪';
+  $('hSub').textContent = MENU.length ? MENU.length + ' ta taom' : 'Menyu';
+  $('hEta').textContent = '⏱ ~' + ((INFO && INFO.eta) || 20) + ' daq';
+
+  const b = $('hOpen');
+  b.textContent = (open ? '🟢 Ochiq · ' : '🔴 Yopiq · ') + hoursText();
+  b.classList.toggle('shut', !open);
+
+  const bar = $('closedBar');
+  if (open) { bar.style.display = 'none'; }
+  else {
+    bar.style.display = '';
+    bar.textContent = '🔴 ' + REST + ' hozir yopiq (' + hoursText() +
+      '). Ish vaqtida buyurtma berishingiz mumkin.';
+  }
+}
+
+function dishPhoto(d){
+  if (!d.photo) return html`<div class="dish-photo ph">${d.emoji}</div>`;
+  /* photo: "/uploads/..." yoki to'liq URL — mini sayt backend bilan bir xil
+     originda turgani uchun nisbiy yo'l shundayligicha ishlaydi.
+     Rasm yuklanmasa — safe.js dagi global ishlovchi emoji bilan almashtiradi.
+     MUHIM: inline `onerror` ISHLATILMAYDI (CSP bloklaydi) — data-onerr orqali. */
+  return html`<img class="dish-photo" src="${d.photo}" alt="${d.name}" loading="lazy"
+       data-onerr="emoji" data-emoji="${d.emoji}" data-emoji-tag="div" data-emoji-class="dish-photo ph">`;
+}
+
+/* Taom qo'shish qismi — sayt bilan bir xil ustuvorlik (app.js:84-112):
+   1) tugagan -> "Tugagan"; 2) yopiq -> ⏱; 3) savatda bor -> stepper; 4) + Qo'shish */
+function dishAction(d){
+  if (d.soldout) return html`<span class="out-lbl">Tugagan</span>`;
+  const q = CART[d.id] || 0;
+  if (q > 0){
+    return html`<div class="stepper">
+        <button data-dec="${d.id}">−</button>
+        <span class="qty">${q}</span>
+        <button data-inc="${d.id}">+</button>
+      </div>`;
+  }
+  if (!isOpen()) return html`<button class="add-btn shut" data-shut="1" title="Restoran hozir yopiq">⏱</button>`;
+  return html`<button class="add-btn" data-add="${d.id}">+ Qo'shish</button>`;
+}
+
+function dishCard(d){
+  return html`<div class="dish ${d.soldout ? 'out' : ''}">
+      ${raw(dishPhoto(d))}
+      <div class="dish-info">
+        <div class="dish-name">${d.emoji} ${d.name}</div>
+        ${d.descr ? html`<div class="dish-desc">${d.descr}</div>` : ''}
+        <div class="dish-price">
+          <span class="price-now">${som(d.eff)}</span>
+          ${d.discount ? html`<span class="price-old">${som(d.price)}</span><span class="pct">−${d.discount}%</span>` : ''}
+        </div>
+      </div>
+      <div class="dish-act">${raw(dishAction(d))}</div>
+    </div>`;
+}
+
+function renderMenu(){
+  if (!MENU.length){
+    return showErr('😔','Menyu bo\'sh', `«${REST}» da hozircha taom yo'q.`, false);
+  }
+  const out = MENU.filter(d => d.soldout).length;
+  $('menuTitle').textContent = MENU.length + ' ta taom' + (out ? ' · ' + out + ' tasi tugagan' : '');
+  $('menuList').innerHTML = html`${MENU.map(d => raw(dishCard(d)))}`;
+}
+
+function renderCart(){
+  $('cartList').innerHTML = html`${cartLines().map(l => html`
+    <div class="cart-line">
+      <div class="cart-emoji">${l.emoji}</div>
+      <div class="cart-mid">
+        <div class="cart-name">${l.name}</div>
+        <div class="cart-each">${som(l.eff)} × ${l.qty} = ${raw('<b>'+som(l.eff*l.qty)+'</b>')}${l.discount ? ' · −'+l.discount+'%' : ''}</div>
+      </div>
+      <div class="stepper">
+        <button data-dec="${l.id}">−</button>
+        <span class="qty">${l.qty}</span>
+        <button data-inc="${l.id}">+</button>
+      </div>
+    </div>`)}`;
+  $('tItems').textContent = som(cartTotal());
+  $('tGrand').textContent = som(cartTotal());
+}
+
+function renderReview(){
+  const items = cartLines().map(l => html`${l.emoji} ${l.name} × ${l.qty} — ${raw('<b>'+som(l.eff*l.qty)+'</b>')}<br>`);
+  $('reviewBox').innerHTML = html`
+    <div class="rrow"><span class="rk">🏪 Restoran:</span><span class="rv">${REST}</span></div>
+    <div class="rrow"><span class="rk">🍽 Tarkibi:</span><span class="rv">${items}</span></div>
+    <div class="rrow"><span class="rk">💰 Jami:</span><span class="rv" style="color:var(--red)">${som(cartTotal())}</span></div>
+    <div class="rrow"><span class="rk">🚚 Yetkazish:</span><span class="rv free">BEPUL</span></div>
+    <div class="rrow"><span class="rk">📞 Telefon:</span><span class="rv">${prettyPhone($('fPhone').value)}</span></div>
+    <div class="rrow"><span class="rk">📍 Manzil:</span><span class="rv">${$('fAddr').value.trim()}</span></div>
+    <div class="rrow"><span class="rk">💳 To'lov:</span><span class="rv">${PAY==='cash'?'💵 Naqd':'💳 Karta'}</span></div>`;
+}
+
+/* ============================ Ekran boshqaruvi ========================== */
+function show(name){
+  SCREEN = name;
+  if (name === 'cart') renderCart();
+  ['Menu','Cart','Form','Done','Err'].forEach(s =>
+    $('sc'+s).classList.toggle('show', s.toLowerCase() === name));
+  window.scrollTo(0,0);
+  syncButtons();
+}
+
+function syncButtons(){
+  if (!tg) return;
+  const mb = tg.MainButton;
+  const grey = () => mb.setParams({ color:'#9E9E9E' });
+  const red  = () => mb.setParams({ color:'#C8102E' });
+
+  if (SCREEN === 'menu'){
+    tg.BackButton.hide();
+    const n = cartCount();
+    if (!n) return mb.hide();
+    /* Yopiq restoran — buyurtmani ham to'xtatamiz (sayt bunga ruxsat beradi,
+       biz bermaymiz: yopiq oshxonaga buyurtma tushib qolmasin). */
+    if (!isOpen()){
+      mb.setText('🔴 Restoran hozir yopiq'); grey(); mb.show(); mb.disable(); return;
+    }
+    const total = cartTotal();
+    if (total < MIN_ORDER){
+      mb.setText(`Yana ${som(MIN_ORDER-total)} qo'shing`); grey(); mb.show(); mb.disable(); return;
+    }
+    mb.setText(`🧺 Savat (${n}) · ${som(total)}`); red(); mb.show(); mb.enable();
+    return;
+  }
+
+  tg.BackButton.show();
+
+  if (SCREEN === 'cart'){
+    if (!isOpen()){ mb.setText('🔴 Restoran hozir yopiq'); grey(); mb.show(); mb.disable(); return; }
+    mb.setText(`✅ Rasmiylashtirish · ${som(cartTotal())}`);
+    red(); mb.show(); mb.enable();
+  } else if (SCREEN === 'form'){
+    mb.setText('Davom etish →');
+    mb.setParams({ color:'#C8102E' }); mb.show(); mb.enable();
+  } else if (SCREEN === 'done'){
+    mb.setText('✅ Buyurtmani tasdiqlash');
+    mb.setParams({ color:'#2E9E5B' }); mb.show(); mb.enable();
+  } else {
+    mb.hide();
+  }
+}
+
+function goBack(){
+  haptic();
+  if (SCREEN === 'cart') show('menu');
+  else if (SCREEN === 'form') show('cart');
+  else if (SCREEN === 'done') show('form');
+  else show('menu');
+}
+
+function onMainButton(){
+  haptic('medium');
+  if (SCREEN === 'menu') show('cart');
+  else if (SCREEN === 'cart') show('form');
+  else if (SCREEN === 'form'){ if (validateForm()) { renderReview(); show('done'); } }
+  else if (SCREEN === 'done') submit();
+}
+
+/* ============================== Telefon ================================= */
+function digits(raw){
+  let d = String(raw||'').replace(/\D/g,'');
+  if (d.startsWith('998')) d = d.slice(3);
+  if (d.length > 9) d = d.slice(-9);
+  return d;
+}
+function validPhone(raw){
+  const d = digits(raw);
+  return /^\d{9}$/.test(d) && UZ_OPERATORS.includes(d.slice(0,2));
+}
+function prettyPhone(raw){
+  const d = digits(raw);
+  if (!/^\d{9}$/.test(d)) return String(raw||'');
+  return `+998 ${d.slice(0,2)} ${d.slice(2,5)} ${d.slice(5,7)} ${d.slice(7,9)}`;
+}
+/* Yozayotganda jonli maska: +998 90 123 45 67 */
+function maskPhone(el){
+  const d = digits(el.value);
+  let out = '+998';
+  if (d.length) out += ' ' + d.slice(0,2);
+  if (d.length > 2) out += ' ' + d.slice(2,5);
+  if (d.length > 5) out += ' ' + d.slice(5,7);
+  if (d.length > 7) out += ' ' + d.slice(7,9);
+  el.value = out;
+}
+
+function validateForm(){
+  let ok = true;
+  const p = $('fPhone'), a = $('fAddr');
+
+  if (!validPhone(p.value)){
+    $('ePhone').textContent = 'Raqam noto\'g\'ri. Namuna: +998 90 123 45 67';
+    p.classList.add('bad'); ok = false;
+  } else { $('ePhone').textContent = ''; p.classList.remove('bad'); }
+
+  if (a.value.trim().length < 4){
+    $('eAddr').textContent = 'Manzilni to\'liqroq yozing';
+    a.classList.add('bad'); ok = false;
+  } else { $('eAddr').textContent = ''; a.classList.remove('bad'); }
+
+  if (!ok) notify('error');
+  return ok;
+}
+
+/* ============================== Yuborish =============================== */
+function submit(){
+  const lines = cartLines();
+  if (!lines.length) return show('menu');
+
+  /* Oxirgi tekshiruvlar — mini sayt uzoq ochiq turgan bo'lishi mumkin */
+  if (!isOpen()){
+    alertMsg(REST + ' hozir yopiq (' + hoursText() + '). Ish vaqtida qayta urinib ko\'ring.');
+    return show('menu');
+  }
+  if (lines.some(l => l.soldout)){
+    alertMsg('Savatdagi ba\'zi taomlar tugagan. Ularni olib tashlang.');
+    return show('menu');
+  }
+  if (cartTotal() < MIN_ORDER){
+    alertMsg(`Minimal buyurtma ${som(MIN_ORDER)}`);
+    return show('menu');
+  }
+
+  /* Botga faqat NIMA va NECHTA + kontakt ketadi.
+     Summani backend dish id bo'yicha o'zi hisoblaydi (ishonchli manba). */
+  const payload = {
+    v: 1,
+    rest: REST,
+    items: lines.map(l => ({ id: l.id, qty: l.qty })),
+    phone: '998' + digits($('fPhone').value),
+    addr: $('fAddr').value.trim(),
+    pay: PAY,
+  };
+
+  if (!tg){
+    alert('Bu sahifa Telegram ichida ochilishi kerak.');
+    return;
+  }
+  notify('success');
+  try { tg.disableClosingConfirmation(); } catch(e){}
+  localStorage.removeItem(CART_KEY);   // savat yuborildi — tozalaymiz
+  tg.sendData(JSON.stringify(payload)); // <- shu chaqiruv mini saytni O'ZI yopadi
+}
+
+/* =============================== Xatolar =============================== */
+function showErr(ico, title, text, retry){
+  $('errIco').textContent = ico;
+  $('errTitle').textContent = title;
+  $('errText').textContent = text;
+  $('errBtn').style.display = retry === false ? 'none' : '';
+  show('err');
+}
+
+/* =============================== Hodisalar ============================= */
+document.addEventListener('click', (e) => {
+  const add  = e.target.closest('[data-add]');
+  const inc  = e.target.closest('[data-inc]');
+  const dec  = e.target.closest('[data-dec]');
+  const pay  = e.target.closest('[data-pay]');
+  const shut = e.target.closest('[data-shut]');
+
+  if (shut){
+    /* Yopiq restoran — saytdagidek ogohlantiramiz (app.js:93) */
+    notify('error');
+    alertMsg(REST + ' hozir yopiq (' + hoursText() + ').');
+  } else if (add){
+    const id = Number(add.dataset.add);
+    CART[id] = (CART[id] || 0) + 1;
+    haptic(); saveCart(); renderMenu(); syncButtons();
+  } else if (inc){
+    const id = Number(inc.dataset.inc);
+    CART[id] = Math.min(50, (CART[id] || 0) + 1);   // backend: MAX_QTY = 50
+    haptic(); saveCart(); refresh();
+  } else if (dec){
+    const id = Number(dec.dataset.dec);
+    CART[id] = (CART[id] || 0) - 1;
+    if (CART[id] <= 0) delete CART[id];
+    haptic(); saveCart(); refresh();
+  } else if (pay){
+    PAY = pay.dataset.pay;
+    document.querySelectorAll('[data-pay]').forEach(b => b.classList.toggle('on', b === pay));
+    haptic();
+  }
+});
+
+function refresh(){
+  renderMenu();
+  if (SCREEN === 'cart'){
+    if (!cartCount()) return show('menu');   // savat bo'shadi — menyuga qaytamiz
+    renderCart();
+  }
+  syncButtons();
+}
+
+$('fPhone').addEventListener('input', (e) => { maskPhone(e.target); $('ePhone').textContent=''; e.target.classList.remove('bad'); });
+$('fPhone').addEventListener('focus', (e) => { if (!e.target.value) e.target.value = '+998 '; });
+$('fAddr').addEventListener('input', (e) => { $('eAddr').textContent=''; e.target.classList.remove('bad'); });
+$('errBtn').addEventListener('click', () => location.reload());
+
+/* ================================ Start ================================ */
+(async function main(){
+  initTg();
+
+  if (!tg){
+    document.body.innerHTML = html`<div class="nope"><div style="font-size:52px">🤖</div>
+      <h2 style="margin:10px 0 6px">Telegram orqali oching</h2>
+      <p style="color:#6B6B6B;font-size:13px">Bu sahifa YetkazGo botining mini ilovasi.
+      Botga kiring va restoranni tanlang.</p></div>`;
+    return;
+  }
+  if (!REST){
+    return showErr('🏪','Restoran tanlanmagan','Botga qaytib, restoranni tanlang.', false);
+  }
+
+  loadCart();
+  try {
+    await loadMenu();
+    if (!INFO){
+      /* Restoran o'chirilgan yoki nofaol qilingan — saytda ham (active=1 filtri) ko'rinmaydi */
+      return showErr('🏪','Restoran topilmadi',
+        '«' + REST + '» hozir buyurtma qabul qilmayapti. Botga qaytib, boshqasini tanlang.', false);
+    }
+    renderHeader();
+    renderMenu();
+    /* Menyudan chiqib ketgan taomlarni savatdan tozalaymiz */
+    const ids = new Set(MENU.map(d => d.id));
+    let changed = false;
+    for (const k of Object.keys(CART)) if (!ids.has(Number(k))) { delete CART[k]; changed = true; }
+    if (changed) { saveCart(); renderMenu(); }
+    show('menu');
+  } catch (e){
+    showErr('📡','Ulanib bo\'lmadi','Server bilan aloqa yo\'q. Internetni tekshirib, qayta urinib ko\'ring.');
+  }
+})();
+</script>
+</body>
+</html>

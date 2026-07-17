@@ -3,10 +3,14 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-const CACHE = 'yetkaz-v4';   // yangi logo + panel app tugmasi — eski kesh tozalanadi
+/* v6 — narx serverда hisoblanadi + CSP/nonce + safe.js (XSS himoyasi).
+   Eski keshdagi app.js/store.js yangi backend bilan ishlamaydi va safe.js siz
+   panellar yiqiladi, shuning uchun versiya oshirildi: eski kesh tozalanadi. */
+const CACHE = 'yetkaz-v6';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
+  '/assets/js/safe.js',
   '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
   '/assets/js/pwa-install.js',

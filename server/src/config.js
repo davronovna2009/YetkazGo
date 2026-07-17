@@ -27,6 +27,25 @@ export const UPLOAD_DIR = process.env.UPLOAD_DIR || resolve(SERVER_DIR, 'uploads
 
 export const BCRYPT_ROUNDS = 10;
 
+/* ===== Admin akkaunti =====
+   ADMIN_PASS — admin BIRINCHI marta yaratilganda ishlatiladi va bazada eski
+   standart parol qolgan bo'lsa, uni almashtirishда ishlatiladi.
+   Berilmasa — tasodifiy kuchli parol yaratilib, logga BIR MARTA chiqariladi.
+   Keyinchalik parolni admin panelida yoki `node scripts/set-admin-pass.mjs`
+   orqali o'zgartiring (ADMIN_PASS ni keyin o'zgartirish ta'sir qilmaydi —
+   panelда qo'yilgan parol bekor qilinmasligi uchun). */
+export const ADMIN_LOGIN = (process.env.ADMIN_LOGIN || 'admin').trim();
+export const ADMIN_PASS = process.env.ADMIN_PASS || '';
+
+/* Loyihaning eski standart paroli. Bazada AYNAN shu qolgan bo'lsa — har ishga
+   tushganda majburan almashtiriladi (seed eski bazada qayta ishlamaydi, shuning
+   uchun standart parol o'z-o'zidan yo'qolmaydi). */
+export const LEGACY_ADMIN_PASS = 'admin123';
+
+/* Minimal buyurtma summasi (so'm) — SERVERDA majburiy tekshiriladi.
+   Frontend (app.js MIN_ORDER) bilan bir xil bo'lishi kerak. */
+export const MIN_ORDER = Number(process.env.MIN_ORDER) || 20000;
+
 /* ===== Telegram xabarnoma sozlamalari =====
    Yangi buyurtma kelganda operator/kuryer guruhiga push yuborish uchun.
    .env faylida bering:

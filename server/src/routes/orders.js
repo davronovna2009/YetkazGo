@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
+import { priceOrder, PriceError } from '../pricing.js';
 import { TG_TOKEN, TG_CHAT_OPS } from '../config.js';
 
 const router = Router();
@@ -11,8 +12,22 @@ const router = Router();
    keyin ishlaydi. Bu yerda (import paytida) yozilsa, yangi bazada jadval hali yo'q
    bo'lib jim yiqilardi va ustun umuman qo'shilmasdi. */
 
-/* Eslatma: 'paid' bu ro'yxatда YO'Q — to'lov faqat QR endpointлари orqali (telefon tasdig'i bilan) o'rnatiladi */
-const ALLOWED = ['user', 'phone', 'rest', 'item', 'emoji', 'amount', 'addr', 'pay', 'courier', 'status', 'eta', 'time', 'reason', 'delivery'];
+/* PATCH bilan o'zgartirsa BO'LADIGAN maydonlar (xodimlar uchun).
+   Eslatma: 'paid' YO'Q — to'lov faqat QR endpointлари orqali (telefon tasdig'i bilan).
+   MUHIM: 'amount', 'item', 'rest', 'emoji', 'user', 'phone', 'delivery' ham YO'Q —
+   summa va tarkib buyurtma yaratilganда serverда hisoblanadi (pricing.js) va keyin
+   O'ZGARMAYDI. Aks holda xodim narxni qayta yozib, tekshiruvni chetlab o'tardi.
+   Panellar faqat status/reason yuboradi (kuryer.js:118, restoran.js:544,570). */
+const ALLOWED = ['status', 'reason', 'courier', 'eta', 'time'];
+
+/* Buyurtma bosqichlari — boshqa qiymat bazaga tushmasin */
+const STATUSES = ['new', 'accepted', 'ready', 'ontheway', 'arrived', 'done', 'cancelled'];
+
+/* Buyurtma tarkibi (server narxlagan qatorlar). Eski buyurtmalarда bo'sh bo'lishi mumkin. */
+function parseItems(s) {
+  if (!s) return [];
+  try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
 
 /* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga POST javobida beriladi */
 function rowToOrder(r) {
@@ -21,6 +36,7 @@ function rowToOrder(r) {
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
     status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
     paid: r.paid ? 1 : 0, paid_at: r.paid_at || '',
+    items: parseItems(r.items_json),
     created_at: r.created_at, done_at: r.done_at || '',
   };
 }
@@ -49,15 +65,22 @@ function mdEscape(s) {
 }
 
 /* --- Yangi buyurtma -> Telegram guruhiga chiroyli xabarnoma (fire-and-forget) --- */
-async function notifyTelegram(order) {
+async function notifyTelegram(order, lines) {
   if (!TG_TOKEN || !TG_CHAT_OPS) return;   // sozlanmagan bo'lsa — jim o'tamiz
   const e = mdEscape;
   const amount = e(Number(order.amount || 0).toLocaleString('ru-RU') + " so'm");
   const pay = order.pay === 'cash' ? '💵 Naqd' : '💳 Karta';
+  /* Tarkib — restoran AYNAN nima pishirishni bilishi uchun (yorliq o'zi yetarli emas) */
+  const items = (lines || []).length
+    ? (lines || []).map((l) => {
+        const disc = l.pct ? ` \\(\\-${e(l.pct)}%\\)` : '';
+        return `  • ${e(l.emoji)} ${e(l.name)} × ${e(l.qty)} — ${e(Number(l.sum).toLocaleString('ru-RU'))}${disc}`;
+      }).join('\n')
+    : `  • ${e(order.item) || '—'}`;
   const text =
     `🆕 *YANGI BUYURTMA* \\#${e(order.id)}\n\n` +
-    `🍽️ *Taom:* ${e(order.item) || '—'}\n` +
-    `💰 *Narxi:* ${amount}\n` +
+    `🍽️ *Tarkibi:*\n${items}\n` +
+    `💰 *Jami:* ${amount}\n` +
     `🏪 *Restoran:* ${e(order.rest) || '—'}\n` +
     `👤 *Mijoz:* ${e(order.user) || '—'}\n` +
     `📞 *Telefon:* ${e(order.phone) || '—'}\n` +
@@ -134,7 +157,12 @@ function assignCourier(rest) {
   return c ? c.name : '';
 }
 
-/* POST /api/orders — ochiq (mehmon checkout: bosh sahifadan ham buyurtma berish mumkin) */
+/* POST /api/orders — ochiq (mehmon checkout: bosh sahifadan ham buyurtma berish mumkin).
+
+   XAVFSIZLIK: narx MIJOZDAN OLINMAYDI. Mijoz faqat `items: [{id, qty}]` yuboradi,
+   summa server tomonда bazadagi haqiqiy narx/chegirma bo'yicha hisoblanadi
+   (pricing.js). Mijozning `amount`, `status`, `rest`, `item`, `emoji` maydonlari
+   ataylab E'TIBORSIZ qoldiriladi. */
 router.post('/', (req, res) => {
   const b = req.body || {};
 
@@ -144,26 +172,39 @@ router.post('/', (req, res) => {
   }
   const phone = prettyPhone(b.phone);
 
+  /* --- Narxni SERVER hisoblaydi (mijozning amount'iga ishonmaymiz) --- */
+  let priced;
+  try {
+    priced = priceOrder(b.items);
+  } catch (e) {
+    if (e instanceof PriceError) return res.status(e.status).json({ error: e.message });
+    console.error('Narxlash xatosi:', e);
+    return res.status(500).json({ error: 'Buyurtmani hisoblab bo`lmadi' });
+  }
+
   /* Sabotajga qarshi maxfiy "track token" — mehmon shu token bilan buyurtmasini
      bekor qila/qabul qila oladi. Token faqat shu javobda qaytadi. */
   const token = randomBytes(16).toString('hex');
 
   /* Kuryer backendda avtomatik biriktiriladi (hardcoded emas) */
-  const courier = assignCourier(b.rest) || String(b.courier || '');
+  const courier = assignCourier(priced.rest) || String(b.courier || '');
+
+  /* eta — mijoz beradi, lekin aqlli oraliqqa qisamiz (0 bo'lsa frontendда NaN chiqadi) */
+  const eta = Math.max(5, Math.min(120, Number(b.eta) || 15));
 
   const info = db.prepare(
-    `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
-    String(b.user || ''), phone, String(b.rest || ''), String(b.item || ''), String(b.emoji || ''),
-    Number(b.amount) || 0, String(b.addr || ''), String(b.pay || 'card'),
-    courier, String(b.status || 'new'), Number(b.eta) || 15, String(b.time || ''), token, Number(b.delivery) || 0
+    String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
+    priced.amount, String(b.addr || ''), String(b.pay || 'card'),
+    courier, 'new', eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines)
   );
 
   const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);
 
-  /* Telegram xabarnomasini bloklamasdan yuboramiz */
-  notifyTelegram(rowToOrder(row));
+  /* Telegram xabarnomasini bloklamasdan yuboramiz (tarkibi bilan) */
+  notifyTelegram(rowToOrder(row), priced.lines);
 
   /* Javobда token QAYTADI — frontend uni localStorage'da saqlab, keyin
      bekor qilish/qabul qilishda yuboradi. */
@@ -235,6 +276,9 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
     return res.status(403).json({ error: 'Ruxsat berilmagan' });
 
   const patch = req.body || {};
+  if ('status' in patch && !STATUSES.includes(String(patch.status))) {
+    return res.status(400).json({ error: 'Buyurtma holati noto`g`ri' });
+  }
   const sets = [], params = [];
   for (const k of ALLOWED) {
     if (k in patch) { sets.push(`${k} = ?`); params.push(patch[k]); }
