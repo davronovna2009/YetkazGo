@@ -55,10 +55,9 @@
 
     <!-- TOPBAR -->
     <div class="topbar">
-      <div class="topbar-left">
-        <button class="menu-toggle" id="menuToggle">☰</button>
-        <h2 id="tbTitle">Dashboard</h2>
-      </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+      <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
+      <h2 id="tbTitle">Dashboard</h2>
       <div class="tb-right">
         <span class="tb-badge">● Online</span>
         <span class="tb-user">Admin</span>
@@ -357,13 +356,13 @@
       <div class="add-field add-field-sm"><label>Emoji</label><input id="arEmoji" value="🏪" style="font-size:22px;text-align:center" /></div>
     </div>
     <div class="add-field"><label>Telefon raqami *</label><input id="arPhone" placeholder="+998 90 000 00 00" type="tel" /></div>
-    <div class="add-field"><label>Manzil *</label><input id="arAddr" placeholder="Toshkent, tuman, ko'cha" /></div>
+    <div class="add-field"><label>Manzil *</label><input id="arAddr" placeholder="Navoiy viloyati, Xatirchi tumani, ko'cha" /></div>
     <div class="add-row">
-      <div class="add-field"><label>Egasi (F.I.Sh.)</label><input id="arOwner" placeholder="Ism Familiya" /></div>
+      <div class="add-field"><label>Egasi (F.I.Sh.) *</label><input id="arOwner" placeholder="Ism Familiya" /></div>
       <div class="add-field"><label>Email</label><input id="arEmail" type="email" placeholder="rest@example.com" /></div>
     </div>
-    <div class="add-field"><label>Ish vaqti</label><input id="arHours" placeholder="08:00 - 23:00" /></div>
-    <div class="add-field"><label>Yetkazish hududi</label><input id="arArea" placeholder="Masalan: Chilonzor, Yunusobod" /></div>
+    <div class="add-field"><label>Ish vaqti</label><input id="arHours" data-hours placeholder="08:00 - 23:00" /></div>
+    <div class="add-field"><label>Yetkazish hududi</label><input id="arArea" placeholder="Masalan: Xatirchi, Yangirabod" /></div>
     <div class="add-field"><label>Tavsif</label><input id="arDescr" placeholder="Restoran haqida qisqacha" /></div>
 
     <div class="add-section-title" style="margin-top:16px">Shartnoma shartlari</div>
@@ -406,10 +405,7 @@
     <div class="add-section-title">Shaxsiy ma'lumotlar</div>
     <div class="add-field"><label>To'liq ism *</label><input id="acName" placeholder="Ism Familiya" /></div>
     <div class="add-field"><label>Telefon *</label><input id="acPhone" placeholder="+998 91 000 00 00" type="tel" /></div>
-    <div class="add-row">
-      <div class="add-field"><label>Transport turi</label><input id="acTransport" placeholder="Mototsikl / Velosiped / Avto" /></div>
-      <div class="add-field"><label>Davlat raqami</label><input id="acPlate" placeholder="01 A 123 BC" /></div>
-    </div>
+    <div class="add-field"><label>Transport turi</label><input id="acTransport" placeholder="Mototsikl / Velosiped / Avto" /></div>
     <div class="add-row">
       <div class="add-field"><label>Tug'ilgan sana</label><input id="acBirth" type="date" /></div>
       <div class="add-field"><label>Email</label><input id="acEmail" type="email" placeholder="kuryer@example.com" /></div>

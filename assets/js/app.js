@@ -758,7 +758,7 @@
       const name=$("#in-name").value.trim(), phone=$("#in-phone").value.trim(), addr=$("#in-addr").value.trim();
       let ok=true;
       const setErr=(id,bad)=>{ $(id).classList.toggle("invalid",bad); if(bad) ok=false; };
-      setErr("#f-name", name.length<2);
+      setErr("#f-name", name.length<4);   // ism kamida 4 harf
       const phoneOk = window.YZ_PHONE ? YZ_PHONE.valid(phone) : phone.replace(/\D/g,"").length>=9;
       setErr("#f-phone", !phoneOk);
       setErr("#f-addr", addr.length<4);
@@ -1130,12 +1130,17 @@
     const no=document.getElementById("cxNo"); if(no) no.addEventListener("click",closeModal);
     const yes=document.getElementById("cxYes"); if(yes) yes.addEventListener("click",()=>{ closeModal(); cancelActiveOrder(orderId); });
   }
-  function cancelActiveOrder(orderId){
+  async function cancelActiveOrder(orderId){
     const order = loadOrders().find(o=>o.id===orderId);
     if(!order){ return; }
     const be = findBackendOrder(order);
     const beId = order.backendId || (be && be.id);
-    if(beId && typeof STORE!=="undefined" && STORE.cancelOrder){ STORE.cancelOrder(beId); }
+    /* Server rad etsa (masalan kuryer allaqachon yo'lda) — mahalliy ro'yxatdan
+       O'CHIRMAYMIZ, aks holda mijozда yo'qoladi-yu, panellarда faol qolaveradi. */
+    if(beId && typeof STORE!=="undefined" && STORE.cancelOrder){
+      try{ await STORE.cancelOrder(beId); }
+      catch(e){ toast((e && e.data && e.data.error) || "Buyurtmani bekor qilib bo'lmadi","error"); return; }
+    }
     if(orderTimers[orderId]){ clearInterval(orderTimers[orderId]); delete orderTimers[orderId]; }
     saveOrders(loadOrders().filter(o=>o.id!==orderId));
     renderTrackerBanner(); renderCartOrders();
@@ -1229,8 +1234,19 @@
       renderCartOrders();
     };
     // "Rahmat, oldim" — mijoz qabul qilganini tasdiqlaydi (arrived -> done), kuryerда "Yetkazildi" bo'ladi
-    const confirmAndClose = ()=>{
-      if(order.backendId && typeof STORE!=="undefined" && STORE.confirmReceived){ STORE.confirmReceived(order.backendId); }
+    /* Server tasdiqlamasa oynani YOPMAYMIZ — aks holda mijoz "tasdiqladim" deb
+       o'ylaydi, lekin restoran/kuryer panelida buyurtma "arrived" bo'lib qolaveradi. */
+    const confirmAndClose = async ()=>{
+      const btn=document.getElementById("arrivedOk");
+      if(order.backendId && typeof STORE!=="undefined" && STORE.confirmReceived){
+        if(btn){ btn.disabled=true; btn.style.opacity=".6"; }
+        try{ await STORE.confirmReceived(order.backendId); }
+        catch(e){
+          if(btn){ btn.disabled=false; btn.style.opacity=""; }
+          toast("Tasdiqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.","error");
+          return;
+        }
+      }
       close();
       /* Qabul qilingach — taom va kuryerни baholashni so'raymiz */
       queueRating(order);
@@ -1255,7 +1271,9 @@
         o.connect(g); g.connect(ctx.destination);
         g.gain.setValueAtTime(0.0001,t+at); g.gain.exponentialRampToValueAtTime(v,t+at+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t+at+0.6);
         o.start(t+at); o.stop(t+at+0.65); };
-      ding(1046.5,0,0.38); ding(1568,0,0.16); ding(1046.5,0.26,0.34); ding(1568,0.26,0.14);
+      /* Qo'ng'iroqcha 3 MARTA chalinadi (notify.js bilan bir xil) */
+      for(let rep=0;rep<3;rep++){ const b=rep*0.75;
+        ding(1046.5,b+0,0.38); ding(1568,b+0,0.16); ding(1046.5,b+0.26,0.34); ding(1568,b+0.26,0.14); }
     }catch(e){}
   }
 
@@ -1276,6 +1294,31 @@
     list.push(entry); savePendingRatings(list);
   }
   function removePendingRating(id){ savePendingRatings(loadPendingRatings().filter(x=>String(x.id)!==String(id))); }
+
+  /* ============================================================
+     TASDIQLANMAGAN BUYURTMA — har safar saytga kirganda so'raymiz
+     Mijoz "Yetib keldi" oynasini tasdiqlamay yopgan/saytdan chiqib ketgan
+     bo'lsa, buyurtma serverда 'arrived' bo'lib qoladi. Keyingi kirishда
+     shu oynani qaytadan ko'rsatamiz. (30 daqiqadan keyin server o'zi
+     'done' qiladi — u holda bu yerда hech narsa chiqmaydi.)
+     ============================================================ */
+  function checkPendingConfirm(){
+    if(typeof STORE==="undefined" || !STORE.orders) return;
+    if(document.getElementById("arrivedOverlay")) return;          // allaqachon ochiq
+    let list=[]; try{ list=STORE.orders()||[]; }catch(e){ return; }
+    const be=list.find(o=>o && o.status==="arrived");
+    if(!be) return;
+    /* Mahalliy yozuvdan yorliq/emoji olamiz; bo'lmasa backenddagisini ishlatamiz */
+    const local=loadOrders().find(o=>String(o.backendId)===String(be.id)) || {};
+    showArrivedOverlay({
+      id: local.id || be.id,
+      backendId: be.id,
+      emoji: local.emoji || be.emoji || "🛵",
+      label: local.label || be.item || "Buyurtma",
+      courier: be.courier || local.courier || "",
+      items: local.items || be.items || [],
+    });
+  }
   function askRating(){
     if($("#modal").classList.contains("open")) return;   // boshqa modal ochiq bo'lsa keyinroq
     const list = loadPendingRatings(); if(!list.length) return;
@@ -1672,6 +1715,9 @@
     loadPromos();
     buildHero(); buildFilters(); renderDishes(); renderAdPromo(); renderRests(); renderReviews(); updateCart();
     resumeOrders(); // Sahifa yangilanganda faol buyurtmalarni tiklash
+    /* Backenddan ma'lumot kelgach — tasdiqlanmagan buyurtma bo'lsa so'raymiz */
+    if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(checkPendingConfirm).catch(()=>{});
+    setTimeout(checkPendingConfirm, 2500);   // kesh sekin kelsa — zaxira urinish
     setTimeout(askRating, 1800); // keyingi kirishda baholanmagan buyurtma bo'lsa so'raymiz
 
     $("#langToggle").addEventListener("click",()=>{ I18N.toggle(); I18N.apply(); reRender(); });
@@ -1708,11 +1754,19 @@
     $("#navBurger").addEventListener("click",()=>$("#mainNav").classList.toggle("open"));
     $$("#mainNav a").forEach(a=>a.addEventListener("click",()=>$("#mainNav").classList.remove("open")));
 
-    // onboarding (yangi foydalanuvchi yo'l ko'rsatkichi)
-    const onb=$("#onboard"); setTimeout(()=>onb.classList.add("show"),1200);
-    $("#onbSkip").addEventListener("click",()=>onb.classList.remove("show"));
-    $("#onbStart").addEventListener("click",()=>{ onb.classList.remove("show");
+    // onboarding (yangi foydalanuvchi yo'l ko'rsatkichi) — har QURILMADA faqat BIR MARTA
+    const onb=$("#onboard");
+    const ONB_SEEN="yz_onboard_seen";
+    const closeOnboard=()=>onb.classList.remove("show");
+    let onbSeen=false; try{ onbSeen=localStorage.getItem(ONB_SEEN)==="1"; }catch(e){}
+    if(!onbSeen){
+      setTimeout(()=>{ onb.classList.add("show"); try{ localStorage.setItem(ONB_SEEN,"1"); }catch(e){} },1200);
+    }
+    $("#onbSkip").addEventListener("click",closeOnboard);
+    $("#onbStart").addEventListener("click",()=>{ closeOnboard();
       document.getElementById("dishes").scrollIntoView({behavior:"smooth"}); setTimeout(startTour, 700); });
+    // Modal CHETINI (backdrop) bosганda ham yopilsin — karta ichi bosilsa yopilmaydi
+    onb.addEventListener("click",(e)=>{ if(e.target===onb) closeOnboard(); });
 
     // 4-qadam: animatsiya va skroll
     setupReveal();

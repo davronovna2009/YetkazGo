@@ -11,7 +11,7 @@ import { attachUser } from './auth.js';
 import { htmlWithCsp } from './security.js';
 
 import authRoutes from './routes/auth.js';
-import ordersRoutes from './routes/orders.js';
+import ordersRoutes, { startAutoConfirm } from './routes/orders.js';
 import reviewsRoutes from './routes/reviews.js';
 import dishesRoutes from './routes/dishes.js';
 import announcementsRoutes from './routes/announcements.js';
@@ -23,6 +23,8 @@ import resetRoutes from './routes/reset.js';
 seed();
 /* Eski bazada standart admin paroli qolgan bo'lsa — majburan almashtiramiz */
 ensureAdminSecure();
+/* "Yetkazildi" holatida osilib qolgan buyurtmalarni 30 daqiqadan keyin yopamiz */
+startAutoConfirm();
 
 const app = express();
 

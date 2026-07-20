@@ -51,11 +51,31 @@
     }
   }
 
+  /* ---- 2b) Ish vaqti maydonlari — FAQAT raqam va ikki nuqta ----
+     "08:00 - 23:00" ko'rinishidagi oraliq uchun chiziqcha va bo'sh joyga ham
+     ruxsat beramiz; harf/boshqa belgilar umuman kiritilmaydi. */
+  var HOURS_RE = /^([01]?\d|2[0-3]):[0-5]\d(\s*-\s*([01]?\d|2[0-3]):[0-5]\d)?$/;
+  function guardHours(inp) {
+    if (!inp || inp.__yzHours) return;
+    inp.__yzHours = true;
+    inp.setAttribute("inputmode", "numeric");
+    inp.addEventListener("input", function () {
+      var v = inp.value.replace(/[^0-9:\-\s]+/g, "");
+      if (v !== inp.value) inp.value = v;
+    });
+  }
+  /* Boshqa skriptlar tekshirishi uchun (masalan admin.js restoran qo'shishда) */
+  window.YZ_HOURS = {
+    valid: function (s) { return HOURS_RE.test(String(s == null ? "" : s).trim()); },
+    re: HOURS_RE,
+  };
+
   function scan(root) {
     var r = root || document;
     if (r.querySelectorAll) {
       r.querySelectorAll('input[type="password"]').forEach(addEye);
       r.querySelectorAll('input[type="number"], input[inputmode="numeric"], input[data-digits]').forEach(guardNumeric);
+      r.querySelectorAll('input[data-hours]').forEach(guardHours);
     }
   }
 
@@ -70,6 +90,7 @@
             if (n.matches) {
               if (n.matches('input[type="password"]')) addEye(n);
               if (n.matches('input[type="number"],input[inputmode="numeric"],input[data-digits]')) guardNumeric(n);
+              if (n.matches('input[data-hours]')) guardHours(n);
             }
             scan(n);
           });

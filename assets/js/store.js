@@ -280,19 +280,42 @@ const STORE = (function () {
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
 
-    /* Mijoz "qabul qildim" — arrived -> done (ochiq). Token keshda bo'lmasa saqlanganidan olamiz. */
-    confirmReceived(id) {
+    /* Mijoz "qabul qildim" — arrived -> done.
+       MUHIM: `auth: true` — tizimga kirgan mijoz O'Z buyurtmasini track-token'siz
+       ham tasdiqlay oladi (boshqa qurilma/brauzerда token saqlanmagan bo'lishi mumkin).
+       Mehmon uchun esa body'даги track token ishlaydi.
+       Server javobi 'done' bo'lmasa — optimistik yozuvni QAYTARAMIZ, aks holda panel
+       "yetkazildi" deb yolg'on ko'rsatib turadi va 5 soniyadan keyin orqaga sakraydi. */
+    async confirmReceived(id) {
       const o = cache.orders.find(x => String(x.id) === String(id));
+      const prev = o ? o.status : null;
       if (o) { o.status = "done"; lsWrite(K.orders, cache.orders); fire(); }
       const tok = (o && o.token) || readOrderToken(id);
-      return api("/orders/" + id + "/received", { method: "POST", body: { token: tok } }).catch(() => null);
+      try {
+        const r = await api("/orders/" + id + "/received", { method: "POST", body: { token: tok }, auth: true });
+        if (o && r && r.status) { o.status = r.status; lsWrite(K.orders, cache.orders); fire(); }
+        return r;
+      } catch (e) {
+        if (o && prev) { o.status = prev; lsWrite(K.orders, cache.orders); fire(); }
+        console.warn("[STORE] tasdiqlab bo`lmadi:", e.message);
+        throw e;
+      }
     },
-    /* Mijoz buyurtmani bekor qiladi — new/ontheway -> cancelled (ochiq) */
-    cancelOrder(id) {
+    /* Mijoz buyurtmani bekor qiladi — new/accepted/ready -> cancelled */
+    async cancelOrder(id) {
       const o = cache.orders.find(x => String(x.id) === String(id));
+      const prev = o ? o.status : null;
       if (o) { o.status = "cancelled"; lsWrite(K.orders, cache.orders); fire(); }
       const tok = (o && o.token) || readOrderToken(id);
-      return api("/orders/" + id + "/cancel", { method: "POST", body: { token: tok } }).catch(() => null);
+      try {
+        const r = await api("/orders/" + id + "/cancel", { method: "POST", body: { token: tok }, auth: true });
+        if (o && r && r.status) { o.status = r.status; lsWrite(K.orders, cache.orders); fire(); }
+        return r;
+      } catch (e) {
+        if (o && prev) { o.status = prev; lsWrite(K.orders, cache.orders); fire(); }
+        console.warn("[STORE] bekor qilib bo`lmadi:", e.message);
+        throw e;
+      }
     },
 
     /* ---- RASM YUKLASH (base64 -> server, qisqa URL qaytaradi) ---- */

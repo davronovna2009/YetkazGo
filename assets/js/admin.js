@@ -2,7 +2,12 @@
 (function(){
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
-  const mln=n=>(n/1e6).toFixed(1).replace(".",",")+` mln`;
+  /* Summa formati — KICHIK summa ham ko'rinsin (avval hammasi "0,0 mln" edi):
+       >= 1 mln -> "2,5 mln" | >= 1000 -> "8 ming" | aks holda -> "500 so'm" */
+  const mln=n=>{ n=Math.round(Number(n)||0);
+    if(n>=1e6) return (n/1e6).toFixed(1).replace(".",",")+" mln";
+    if(n>=1e3) return Math.round(n/1e3)+" ming";
+    return n+" so'm"; };
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
@@ -78,7 +83,7 @@
   /* =========================================================
      BACKEND SYNC — RESTS/COURIERS ni backenddan (manba) quramiz.
      Shunda admin panelida HAMMA restoran/kuryer va ularning TO'LIQ
-     ma'lumoti (telefon, email, manzil, ish vaqti, transport, pasport,
+     ma'lumoti (telefon, email, manzil, ish vaqti, transport,
      ishdan-javob holati va h.k.) ko'rinadi. Endigina qo'shilgan (backendda
      hali yo'q) yozuvlar ham saqlanadi — login bo'yicha birlashtiriladi. */
   function syncEntitiesFromBackend(){
@@ -192,7 +197,7 @@
     const o=(typeof STORE!=="undefined")?STORE.orders():[];
     // Desktop jadval
     const tb=$("#liveOrders"); if(tb){
-      tb.innerHTML=o.length?o.slice(0,12).map(function(x){
+      tb.innerHTML=o.length?o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
         return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
       }).join("") : `<tr><td colspan="6" style="color:var(--grey);padding:18px">Buyurtma yo'q.</td></tr>`;
@@ -201,7 +206,7 @@
     // Mobile kartalar
     const mc=$("#liveOrderCards"); if(mc){
       if(!o.length){ mc.innerHTML=`<div class="lo-empty">Hozircha buyurtma yo'q</div>`; return; }
-      mc.innerHTML=o.slice(0,8).map(function(x){
+      mc.innerHTML=o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
         return `<div class="lo-card" style="cursor:pointer" data-oid="${x.id}">
           <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji}</div><div><div class="lo-item">${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
@@ -308,15 +313,18 @@
       if(!map[key]) map[key]={name:o.user||"—", phone:o.phone||"—", addr:o.addr||"", rests:{}, count:0};
       map[key].count++; if(o.rest) map[key].rests[o.rest]=1;
     });
-    return Object.values(map).sort(function(a,b){return b.count-a.count;}).slice(0, n||6);
+    /* n berilmasa — HAMMASI qaytadi (ro'yxat scroll ichida ko'rsatiladi) */
+    var all=Object.values(map).sort(function(a,b){return b.count-a.count;});
+    return n?all.slice(0,n):all;
   }
   function renderAdminTopCustomers(live){
     var host=document.getElementById("view-dash"); if(!host) return;
-    var list=adminTopCustomers(live,6);
+    var list=adminTopCustomers(live);
     var box=document.getElementById("adminTopCust");
     if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminTopCust"; box.style.marginTop="16px"; host.appendChild(box); }
-    box.innerHTML='<div class="panel-head"><h3>👑 Eng ko\'p buyurtma bergan mijozlar</h3></div><div class="panel-body">'+
-      (list.length?list.map(function(c,i){ var rc=Object.keys(c.rests).length; return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+(rc?' · '+rc+' restoran':'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join(""):'<p style="color:var(--grey)">Hozircha buyurtma yo\'q.</p>')+
+    /* Mijozlar ko'payib ketsa ham panel cho'zilmaydi — ichida scroll bo'ladi */
+    box.innerHTML='<div class="panel-head"><h3>👑 Eng ko\'p buyurtma bergan mijozlar</h3><span style="color:var(--grey);font-size:13px">'+list.length+' ta</span></div><div class="panel-body">'+
+      (list.length?'<div style="max-height:500px;overflow-y:auto">'+list.map(function(c,i){ var rc=Object.keys(c.rests).length; return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+(rc?' · '+rc+' restoran':'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join("")+'</div>':'<p style="color:var(--grey)">Hozircha buyurtma yo\'q.</p>')+
       '</div>';
   }
   /* Reyting bo'yicha ENG PAST restoranlar — admin past reytinglilarni ham ko'radi */
@@ -691,11 +699,16 @@
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
     const name=f("arName"), emoji=f("arEmoji")||"🏪", phone=f("arPhone"), addr=f("arAddr");
     const login=f("arLogin"), pass=f("arPass"), commission=parseFloat(f("arComm"))||18;
+    const owner=f("arOwner"), hours=f("arHours");
 
     if(!vName(name)){ arErr("Restoran nomini to'g'ri kiriting (kamida 2 harf, raqam emas)"); return; }
+    /* Egasining F.I.Sh. — MAJBURIY (kim bilan shartnoma tuzilayotgani aniq bo'lsin) */
+    if(!vName(owner)){ arErr("Egasining F.I.Sh. ni to'g'ri kiriting (kamida 2 harf, raqam emas)"); return; }
     if(!(window.YZ_PHONE && YZ_PHONE.valid(phone))){ arErr("Telefon raqamini to'g'ri kiriting: +998 XX XXX XX XX"); return; }
     var arEmailV=f("arEmail"); if(arEmailV && window.YZ_EMAIL && !YZ_EMAIL.valid(arEmailV)){ arErr("Email noto'g'ri formatda"); return; }
     if(!addr || addr.length<3){  arErr("Manzilni to'liq kiriting"); return; }
+    /* Ish vaqti — faqat "08:00 - 23:00" ko'rinishida (raqam va ikki nuqta) */
+    if(hours && !window.YZ_HOURS.valid(hours)){ arErr("Ish vaqtini faqat raqam va ikki nuqta bilan kiriting: 08:00 - 23:00"); return; }
     if(!vLogin(login)){ arErr("Login kamida 3 belgi — faqat harf, raqam yoki _"); return; }
     if(!vPass(pass)){  arErr("Parol kamida 4 belgi bo'lsin"); return; }
     var arAgree=document.getElementById("arAgree");
@@ -714,7 +727,7 @@
     recompute();
     save(SK.rests, RESTS);
     /* Backendga: akkaunt + katalog restoran yaratish (login va katalogda ko'rinishi uchun) */
-    if(typeof STORE!=="undefined" && STORE.addRestaurant){ STORE.addRestaurant({name,emoji,phone,addr,login,pass,commission, owner:f("arOwner"), email:f("arEmail"), hours:f("arHours"), area:f("arArea"), descr:f("arDescr")}); }
+    if(typeof STORE!=="undefined" && STORE.addRestaurant){ STORE.addRestaurant({name,emoji,phone,addr,login,pass,commission, owner, email:f("arEmail"), hours, area:f("arArea"), descr:f("arDescr")}); }
     closeAddRest();
     renderAll();
     toast(`✅ ${name} muvaffaqiyatli qo'shildi!`);
@@ -775,7 +788,6 @@
       <div class="dd-sec"><h4>Qo'shimcha ma'lumot</h4>
         <div class="kv">
           <div class="k"><span>Transport</span><b>${esc((beC&&beC.transport)||'—')}</b></div>
-          <div class="k"><span>Davlat raqami</span><b>${esc((beC&&beC.plate)||'—')}</b></div>
           <div class="k"><span>Manzil</span><b>${esc((beC&&beC.address)||'—')}</b></div>
           <div class="k"><span>Email</span><b>${esc((beC&&beC.email)||'—')}</b></div>
           <div class="k"><span>Tug'ilgan</span><b>${esc((beC&&beC.birthdate)||'—')}</b></div>
@@ -790,7 +802,6 @@
           <div class="add-field" style="flex:1"><label>Ish oxiri (soat)</label><input id="edcCloseH" type="number" min="1" max="24" value="${c.closeH!=null?c.closeH:22}"></div>
         </div>
         <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
-        <div class="add-field"><label>Davlat raqami</label><input id="edcPlate" value="${esc((beC&&beC.plate)||'')}" placeholder="01A123BC"></div>
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
         <div class="add-field"><label>Email</label><input id="edcEmail" type="email" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
         <div class="add-field"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
@@ -846,7 +857,7 @@
       recompute(); save(SK.couriers,COURIERS);
       if(typeof STORE!=="undefined" && STORE.editCourier){
         const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,openH:openH,closeH:closeH,
-          transport:val("edcTransport"), plate:val("edcPlate"), address:val("edcAddress"),
+          transport:val("edcTransport"), address:val("edcAddress"),
           email:emailV, birthdate:val("edcBirth")};
         if(pass) body.pass=pass;
         STORE.editCourier(body);
@@ -927,7 +938,7 @@
     recompute();
     save(SK.couriers, COURIERS);
     /* Backendga: kuryer akkaunti + yozuvi (login + fee uchun) */
-    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), plate:f("acPlate"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail")}); }
+    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail")}); }
     closeAddCourier();
     renderAll();
     toast(`✅ ${name} kuryerlar ro'yxatiga qo'shildi!`);

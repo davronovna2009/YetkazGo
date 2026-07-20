@@ -77,7 +77,9 @@
     $("#loginWrap").style.display="none"; $("#app").classList.add("show");
     $("#sbName").textContent=USER.name; renderAll();
     if(typeof STORE!=="undefined" && STORE.onChange && !window.__kabSub){ window.__kabSub=true;
-      STORE.onChange(function(){ hydrateOrders(); try{ renderProfil(); }catch(e){} }); }
+      STORE.onChange(function(){ hydrateOrders(); try{ renderProfil(); }catch(e){} try{ askPendingConfirmKab(); }catch(e){} }); }
+    /* Kirganда tasdiqlanmagan buyurtma bo'lsa — darrov so'raymiz */
+    if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(function(){ try{ askPendingConfirmKab(); }catch(e){} }).catch(function(){});
   }
   /* Foydalanuvchining sevimli/avvalgi restorani (eng so'nggi buyurtma bo'yicha) */
   function preferredRest(){
@@ -120,7 +122,7 @@
     const close=()=>el.remove();
     el.addEventListener("click",e=>{ if(e.target===el) close(); });
     document.getElementById("kcNo").addEventListener("click",close);
-    document.getElementById("kcYes").addEventListener("click",()=>{
+    document.getElementById("kcYes").addEventListener("click",async ()=>{
       const o=USER.orders.find(x=>String(x.id)===String(oid));
       /* Lokal id != backend id — backend buyurtmani id yoki imzo (mijoz+taom+summa) bo'yicha topamiz */
       let beId=null;
@@ -131,7 +133,11 @@
           beId = be ? be.id : null;
         }
       }catch(e){}
-      try{ if(beId && STORE.cancelOrder) STORE.cancelOrder(beId); }catch(e){}
+      /* Server rad etsa (kuryer yo'lda va h.k.) — mahalliy holatni O'ZGARTIRMAYMIZ */
+      if(beId && STORE.cancelOrder){
+        try{ await STORE.cancelOrder(beId); }
+        catch(e){ toast((e && e.data && e.data.error) || "Buyurtmani bekor qilib bo'lmadi","error"); return; }
+      }
       if(o) o.status="cancelled";
       close(); renderProfil(); toast("Buyurtma bekor qilindi","success");
     });
@@ -512,6 +518,7 @@
       <div class="set-field" style="margin-bottom:10px">
         <label>${kt3('ism')||'Ismingiz'}</label>
         <input id="koName" placeholder="Ism Familiya" value="${USER.name||''}" autocomplete="name" />
+        <div class="ko-err" id="koNameErr" style="display:none;color:var(--red);font-size:12px;margin-top:3px">Ism kamida 4 harf bo'lsin</div>
       </div>
       <div class="set-field" style="margin-bottom:10px">
         <label>${kt3('tel')||'Telefon raqam'}</label>
@@ -545,9 +552,12 @@
   }
 
   function confirmOrder(){
-    const nameVal=$("#koName") ? $("#koName").value.trim() : USER.name;
+    const nameVal=$("#koName") ? $("#koName").value.trim() : (USER.name||"");
     const phoneVal=$("#koPhone") ? $("#koPhone").value.trim() : USER.phone;
     const addr=$("#koAddr").value.trim();
+    // Ism kamida 4 harf bo'lishi shart — aks holda buyurtma qabul qilinmaydi
+    if(nameVal.length<4){ if($("#koNameErr")) $("#koNameErr").style.display="block"; return; }
+    if($("#koNameErr")) $("#koNameErr").style.display="none";
     const phoneOk = window.YZ_PHONE ? YZ_PHONE.valid(phoneVal) : (phoneVal||"").replace(/\D/g,"").length>=9;
     if(!phoneOk){ if($("#koPhoneErr")) $("#koPhoneErr").style.display="block"; return; }
     if($("#koPhoneErr")) $("#koPhoneErr").style.display="none";
@@ -623,7 +633,17 @@
       if(s==="arrived" && act && !act.dataset.on){
         act.dataset.on="1";
         act.innerHTML='<button class="set-save" id="koGotIt" style="width:100%;background:#16a34a">✅ '+((kt4('yetib_keldi')||'Qabul qildim').replace(' 🎉',''))+'</button>';
-        const gi=$("#koGotIt"); if(gi) gi.addEventListener("click",()=>{ try{ if(o&&o.id&&STORE.confirmReceived) STORE.confirmReceived(o.id); }catch(e){} });
+        const gi=$("#koGotIt");
+        if(gi) gi.addEventListener("click",async ()=>{
+          if(!(o&&o.id&&STORE.confirmReceived)) return;
+          gi.disabled=true; gi.textContent="Tasdiqlanmoqda…";
+          try{ await STORE.confirmReceived(o.id); }
+          catch(e){
+            /* Tasdiq o'tmadi — tugmani qaytaramiz, mijoz qayta urinib ko'radi */
+            act.dataset.on=""; gi.disabled=false;
+            toast("Tasdiqlab bo'lmadi. Qayta urinib ko'ring.","error");
+          }
+        });
       }
       if(s==="done" && !finished){ finished=true; clearInterval(poll); setTimeout(()=>showKabArrived(emoji,label),300); }
     }
@@ -658,6 +678,37 @@
     ov.querySelector("#kabArrivedOk").addEventListener("click",close);
     ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
     try{ navigator.vibrate&&navigator.vibrate([200,100,200]); }catch(e){}
+  }
+
+  /* ============================================================
+     TASDIQLANMAGAN BUYURTMA — kabinetga har kirganda so'raymiz
+     Kuryer "Yetkazdim" bosgan (arrived), lekin mijoz tasdiqlamagan bo'lsa —
+     shu oyna chiqadi. 30 daqiqadan keyin server o'zi 'done' qiladi.
+     ============================================================ */
+  function askPendingConfirmKab(){
+    if(typeof STORE==="undefined" || !STORE.orders) return;
+    if(document.getElementById("kabConfirmOverlay")) return;      // allaqachon ochiq
+    let list=[]; try{ list=STORE.orders()||[]; }catch(e){ return; }
+    const be=list.find(o=>o && o.status==="arrived" && o.user===USER.name);
+    if(!be) return;
+    const ov=document.createElement("div");
+    ov.id="kabConfirmOverlay"; ov.className="arrived-overlay";
+    ov.innerHTML='<div class="arrived-card">'+
+      '<div class="arrived-emoji">'+(be.emoji||"🛵")+'</div>'+
+      '<div class="arrived-title">Yetib keldi! 🎉</div>'+
+      '<div class="arrived-name">'+esc(be.item||"Buyurtma")+'</div>'+
+      '<div class="arrived-msg">Buyurtmangizni qabul qildingizmi?<br>Tasdiqlansangiz kuryer ishini yakunlaydi.</div>'+
+      '<button class="btn btn-primary" id="kabPcYes">✅ Ha, qabul qildim</button>'+
+      '<button class="btn btn-outline" id="kabPcLater" style="margin-top:8px">Keyinroq</button>'+
+      '</div>';
+    document.body.appendChild(ov);
+    const close=()=>{ ov.classList.add("arrived-hide"); setTimeout(()=>ov.remove(),400); };
+    ov.querySelector("#kabPcLater").addEventListener("click",close);
+    ov.querySelector("#kabPcYes").addEventListener("click",async ()=>{
+      const b=ov.querySelector("#kabPcYes"); b.disabled=true; b.textContent="Tasdiqlanmoqda…";
+      try{ await STORE.confirmReceived(be.id); close(); toast("Rahmat! Buyurtma tasdiqlandi","success"); }
+      catch(e){ b.disabled=false; b.textContent="✅ Ha, qabul qildim"; toast("Tasdiqlab bo'lmadi. Qayta urinib ko'ring.","error"); }
+    });
   }
 
   /* Yopish — joyida qoladi, profil ga o'tMaydi */

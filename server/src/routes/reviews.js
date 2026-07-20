@@ -7,7 +7,7 @@ const router = Router();
 
 function rowToReview(r) {
   return {
-    id: r.id, name: r.name, ava: r.ava, rating: r.rating, dish: r.dish,
+    id: r.id, name: r.name, ava: r.ava, rating: r.rating, dish: r.dish, rest: r.rest || '',
     text: r.text, textCyr: r.text_cyr || '', flagged: !!r.flagged, date: r.date,
   };
 }

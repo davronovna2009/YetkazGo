@@ -162,9 +162,14 @@ export function initSchema() {
   try { db.exec("ALTER TABLE orders ADD COLUMN reason TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   try { db.exec('ALTER TABLE orders ADD COLUMN delivery INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
   try { db.exec("ALTER TABLE orders ADD COLUMN done_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  /* Kuryer "Yetkazdim" bosgan payt — 30 daqiqadan keyin avtomatik tasdiqlash uchun */
+  try { db.exec("ALTER TABLE orders ADD COLUMN arrived_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   // Buyurtma tarkibi (server narxlagan qatorlar JSON): [{id,name,emoji,qty,price,pct,eff,sum}]
   // Nizo/tekshiruv uchun — summa shu qatorlardan kelib chiqqan (pricing.js).
   try { db.exec("ALTER TABLE orders ADD COLUMN items_json TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  // Izoh qaysi RESTORANга tegishli — restoran o'z izohlarini aniq ko'rishi uchun
+  // (avval faqat dish nomi bor edi, "Osh +2 ta" kabi buyurtma nomi mos kelmasdi).
+  try { db.exec("ALTER TABLE reviews ADD COLUMN rest TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   // Yetkazishда to'lov (QR orqali tasdiqlanadi): paid + vaqti
   try { db.exec('ALTER TABLE orders ADD COLUMN paid INTEGER DEFAULT 0'); } catch (e) { /* bor */ }
   try { db.exec("ALTER TABLE orders ADD COLUMN paid_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }

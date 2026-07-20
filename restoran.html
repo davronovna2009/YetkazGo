@@ -52,10 +52,9 @@
 
     <div class="main">
       <div class="topbar">
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="menu-toggle" id="menuToggle">☰</button>
-          <h2 id="tbTitle">Mening panelim</h2>
-        </div>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+        <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
+        <h2 id="tbTitle">Mening panelim</h2>
         <div class="tb-right"><span class="tb-badge">● Online</span></div>
       </div>
 
@@ -63,15 +62,17 @@
         <!-- DASHBOARD -->
         <section class="view show" id="view-dash">
           <div class="stat-grid" id="statCards"></div>
-          <div class="row2">
-            <div class="panel">
-              <div class="panel-head"><h3>Daromad (oylik, mln so'm)</h3><span style="color:var(--grey);font-size:13px">So'nggi 6 oy</span></div>
-              <div class="panel-body"><div class="chart" id="revChart"></div></div>
+          <!-- Jonli buyurtmalar — dashboardда darrov ko'rinadi (buyurtmalar bo'limidagi kabi) -->
+          <div class="panel">
+            <div class="panel-head"><h3>🔔 Yangi buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi</span></div>
+            <div class="panel-body tbl-wrap" style="max-height:520px;overflow-y:auto">
+              <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Holat</th></tr></thead>
+              <tbody id="dashOrdersBody"></tbody></table>
             </div>
-            <div class="panel">
-              <div class="panel-head"><h3>Eng ko'p sotilgan taomlar</h3></div>
-              <div class="panel-body"><div class="toplist" id="topDishes"></div></div>
-            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Eng ko'p sotilgan taomlar</h3></div>
+            <div class="panel-body"><div class="toplist" id="topDishes"></div></div>
           </div>
           <div class="panel">
             <div class="panel-head"><h3>Talab (qaysi mahsulotga talab yuqori)</h3></div>
@@ -91,6 +92,11 @@
               <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Holat</th></tr></thead>
               <tbody id="rOrdersBody"></tbody></table>
             </div>
+          </div>
+          <!-- Daromad grafigi shu bo'limga ko'chdi (dashboardда endi buyurtmalar turadi) -->
+          <div class="panel">
+            <div class="panel-head"><h3>Daromad (oylik, mln so'm)</h3><span style="color:var(--grey);font-size:13px">So'nggi 6 oy</span></div>
+            <div class="panel-body"><div class="chart" id="revChart"></div></div>
           </div>
         </section>
 
@@ -237,14 +243,14 @@
                 <span class="setting-name">Manzil</span>
                 <span class="setting-desc">Restoran joylashgan manzil</span>
               </div>
-              <input id="setAddr" class="set-input" placeholder="Toshkent sh., Chilonzor 12" />
+              <input id="setAddr" class="set-input" placeholder="Navoiy vil., Xatirchi tumani, 12-uy" />
             </div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Yetkazish hududi</span>
                 <span class="setting-desc">Qaysi hududlarga yetkazasiz</span>
               </div>
-              <input id="setArea" class="set-input" placeholder="Chilonzor, Yunusobod, Yakkasaroy" />
+              <input id="setArea" class="set-input" placeholder="Xatirchi, Yangirabod, Chuqurko'l" />
             </div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">

@@ -180,6 +180,7 @@
       showTopDishModal(d, findRestDish(nm));
     }); });
     renderRestPhotoCard();
+    renderDashOrders();     // dashboard'даги jonli buyurtmalar
     renderTopCustomers();
   }
   /* Bir xillik: telefon (yoki ism+manzil) bo'yicha guruhlab, eng ko'p buyurtma bergan mijoz */
@@ -192,16 +193,19 @@
       if(!map[key]) map[key]={name:o.user||"—", phone:o.phone||"—", addr:o.addr||"", count:0};
       map[key].count++;
     });
-    return Object.values(map).sort(function(a,b){return b.count-a.count;}).slice(0, n||5);
+    /* n berilmasa — HAMMASI qaytadi (ro'yxat scroll ichida ko'rsatiladi) */
+    var all=Object.values(map).sort(function(a,b){return b.count-a.count;});
+    return n?all.slice(0,n):all;
   }
   function renderTopCustomers(){
     var host=document.getElementById("view-dash"); if(!host) return;
     var orders=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(CUR.name):[];
-    var list=topCustomers(orders.filter(function(o){return o.status!=="cancelled";}),5);
+    var list=topCustomers(orders.filter(function(o){return o.status!=="cancelled";}));
     var box=document.getElementById("topCustPanel");
     if(!box){ box=document.createElement("div"); box.id="topCustPanel"; box.className="panel"; box.style.marginTop="16px"; host.appendChild(box); }
-    box.innerHTML='<div class="panel-head"><h3>👑 Doimiy mijozlar (eng ko\'p buyurtma bergan)</h3></div><div class="panel-body">'+
-      (list.length?list.map(function(c,i){ return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join(""):'<p style="color:var(--grey)">Hozircha doimiy mijoz yo\'q.</p>')+
+    /* Mijozlar ko'payib ketsa ham panel cho'zilmaydi — ichida scroll bo'ladi */
+    box.innerHTML='<div class="panel-head"><h3>👑 Doimiy mijozlar (eng ko\'p buyurtma bergan)</h3><span style="color:var(--grey);font-size:13px">'+list.length+' ta</span></div><div class="panel-body">'+
+      (list.length?'<div style="max-height:500px;overflow-y:auto">'+list.map(function(c,i){ return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join("")+'</div>':'<p style="color:var(--grey)">Hozircha doimiy mijoz yo\'q.</p>')+
       '</div>';
   }
   /* Buyurtma nomi (masalan "Shashlik +2 ta") bo'yicha restoran taomini topish */
@@ -530,17 +534,22 @@
     if(canReject(x)) return "<span style=\"color:var(--grey);font-size:12px;margin-right:6px\">Rad etishga: "+rejectLeftText(x)+"</span>"+b("cancelled","✕ Rad etish","#C8102E");
     return "";
   }
-  function renderOrdersView(){
+  /* Buyurtmalar jadvalini KO'RSATILGAN tbody ga render qiladi (bir nechta joy uchun:
+     buyurtmalar bo'limi + dashboard). Logika bitta — takrorlanmaydi. */
+  function renderOrdersInto(tbId){
     const o=(typeof STORE!=="undefined")?STORE.ordersFor(CUR.name):[];
-    const tb=$("#rOrdersBody"); if(!tb) return;
+    const tb=$("#"+tbId); if(!tb) return;
     tb.innerHTML=o.length?o.map(function(x){ const s=RSM[x.status]||["?","warn"];
       var ph=orderPhoto(x);
       var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+(x.emoji||"🍽️")+"</span>";
       return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
       :"<tr><td colspan=5 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
-    $$("#rOrdersBody .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
-    $$("#rOrdersBody [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
+    $$("#"+tbId+" .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
+    $$("#"+tbId+" [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
   }
+  function renderOrdersView(){ renderOrdersInto("rOrdersBody"); }
+  /* Dashboard'даги jonli buyurtmalar (restoran kirgan joyда darrov ko'radi) */
+  function renderDashOrders(){ renderOrdersInto("dashOrdersBody"); }
   function rAdvance(id, status){
     if(status==="cancelled"){ askCancelReason(id); return; }
     if(typeof STORE!=="undefined" && STORE.updateOrder) STORE.updateOrder(id,{status:status});

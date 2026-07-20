@@ -39,9 +39,13 @@
         g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.6);
         o.start(t + at); o.stop(t + at + 0.65);
       }
-      /* Ikki tomchi "ding-ding" + yuqori harmonik (jarangli qo'ng'iroqcha) */
-      ding(1046.5, 0.00, 0.38); ding(1568.0, 0.00, 0.16);
-      ding(1046.5, 0.26, 0.34); ding(1568.0, 0.26, 0.14);
+      /* Qo'ng'iroqcha 3 MARTA chalinadi (har biri "ding-ding" + yuqori harmonik).
+         Web Audio scheduling — barcha ovozlar oldindan aniq vaqtga rejalanadi. */
+      for (var rep = 0; rep < 3; rep++) {
+        var base = rep * 0.75;
+        ding(1046.5, base + 0.00, 0.38); ding(1568.0, base + 0.00, 0.16);
+        ding(1046.5, base + 0.26, 0.34); ding(1568.0, base + 0.26, 0.14);
+      }
     } catch (e) {}
   }
 

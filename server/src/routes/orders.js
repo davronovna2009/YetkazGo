@@ -287,11 +287,45 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
   if (patch.status === 'done' && existing.status !== 'done') {
     sets.push("done_at = datetime('now')");
   }
+  /* Kuryer "Yetkazdim" bosgan payt — AUTO_CONFIRM_MIN dan keyin avtomatik tasdiq uchun */
+  if (patch.status === 'arrived' && existing.status !== 'arrived') {
+    sets.push("arrived_at = datetime('now')");
+  }
   if (sets.length) {
     params.push(id);
     db.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).run(...params);
   }
   res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 });
+
+/* ===== 30 daqiqalik AVTOMATIK TASDIQ =====
+   Mijoz "Qabul qildim" bosmasa ham, kuryer "Yetkazdim" bosgandan 30 daqiqa
+   o'tgach buyurtma o'zi 'done' bo'ladi. Aks holda buyurtma abadiy 'arrived'
+   holatida osilib qolardi va kuryer daromadi (done bo'yicha hisoblanadi)
+   hech qachon yozilmasdi.
+   Eski (arrived_at yozilmagan) buyurtmalar uchun created_at ga tayanamiz. */
+const AUTO_CONFIRM_MIN = 30;
+
+export function autoConfirmArrived() {
+  try {
+    const r = db.prepare(
+      `UPDATE orders
+          SET status = 'done', done_at = datetime('now')
+        WHERE status = 'arrived'
+          AND datetime(COALESCE(NULLIF(arrived_at, ''), created_at), '+${AUTO_CONFIRM_MIN} minutes') <= datetime('now')`
+    ).run();
+    if (r.changes) console.log(`[AUTO] ${r.changes} ta buyurtma ${AUTO_CONFIRM_MIN} daqiqadan keyin avtomatik tasdiqlandi`);
+  } catch (e) {
+    console.warn('[AUTO] avtomatik tasdiq xatosi:', e.message);
+  }
+}
+
+/* Har daqiqada tekshiramiz (server ishga tushganда app.js chaqiradi) */
+export function startAutoConfirm() {
+  autoConfirmArrived();                       // qayta ishga tushganда qolib ketganlarini darrov yopamiz
+  const t = setInterval(autoConfirmArrived, 60 * 1000);
+  if (t.unref) t.unref();                     // test/skript rejimida process'ni ushlab turmasin
+  return t;
+}
 
 export default router;

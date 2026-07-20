@@ -48,7 +48,7 @@
              accepted:{t:"Olib keting",p:"blue",next:"ontheway",btn:"Yo'lga chiqdim"},
              ready:{t:"Tayyor — olib keting",p:"blue",next:"ontheway",btn:"Yo'lga chiqdim"},
              ontheway:{t:"Yo'lda",p:"red",next:"arrived",btn:"Yetkazdim ✓"},
-             arrived:{t:"Mijoz tasdig'i kutilmoqda",p:"blue",next:null,btn:null},
+             arrived:{t:"Yetkazildi (mijoz tasdig'i kutilmoqda)",p:"blue",next:null,btn:null},
              done:{t:"Yetkazildi",p:"ok",next:null,btn:null},
              cancelled:{t:"Bekor qilingan",p:"red",next:null,btn:null}};
 
@@ -93,9 +93,12 @@
     }
   }
 
-  function renderOrders(){
+  /* Buyurtmalar ro'yxatini KO'RSATILGAN konteynerga chizadi (bir nechta joy uchun:
+     "Faol buyurtmalar" bo'limi + dashboard). Logika bitta — takrorlanmaydi. */
+  function renderOrdersInto(hostId){
     const list=ORDERS;
-    $("#ordersBody").innerHTML=list.length? list.map(o=>{
+    const host=document.getElementById(hostId); if(!host) return;
+    host.innerHTML=list.length? list.map(o=>{
       const s=STT[o.status]||{t:o.status,p:"warn"};
       const right = s.btn
         ? `<button class="set-save" data-adv="${o.id}" style="padding:11px 18px">${s.btn}</button>`
@@ -110,9 +113,11 @@
         ${right}
       </div></div>`;
     }).join("") : '<div style="color:var(--grey);padding:20px">Hozircha buyurtma yo\'q.</div>';
-    $$("#ordersBody button[data-adv]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); advance(+b.dataset.adv); }));
-    $$("#ordersBody [data-oid]").forEach(row=>row.addEventListener("click",()=>{ const o=ORDERS.find(x=>x.id==row.dataset.oid); openOrderModal(o); }));
+    $$("#"+hostId+" button[data-adv]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); advance(+b.dataset.adv); }));
+    $$("#"+hostId+" [data-oid]").forEach(row=>row.addEventListener("click",()=>{ const o=ORDERS.find(x=>x.id==row.dataset.oid); openOrderModal(o); }));
   }
+  /* Ikkala joy ham bir vaqtda yangilanadi — panellar bir-biriga mos turadi */
+  function renderOrders(){ renderOrdersInto("ordersBody"); renderOrdersInto("dashOrdersBody"); }
 
   function advance(id){
     const o=ORDERS.find(x=>x.id==id); if(!o) return;
@@ -244,14 +249,14 @@
     try{
       var me=(typeof STORE!=="undefined"&&STORE.fetchCourierMe)? await STORE.fetchCourierMe():null;
       if(me){ var set=function(id,v){ var el=$(id); if(el && !el.value) el.value=v||""; };
-        set("#kProfTransport",me.transport); set("#kProfPlate",me.plate); set("#kProfAddress",me.address);
+        set("#kProfTransport",me.transport); set("#kProfAddress",me.address);
         set("#kProfEmail",me.email); set("#kProfBirth",me.birthdate); }
     }catch(e){}
   }
   async function saveCourierProfile(){
     var v=function(id){ var el=$(id); return el?el.value.trim():""; };
     var em=v("#kProfEmail"); if(em && window.YZ_EMAIL && !YZ_EMAIL.valid(em)){ toast("Email noto'g'ri formatда"); return; }
-    var data={ transport:v("#kProfTransport"), plate:v("#kProfPlate"), address:v("#kProfAddress"), email:em, birthdate:v("#kProfBirth") };
+    var data={ transport:v("#kProfTransport"), address:v("#kProfAddress"), email:em, birthdate:v("#kProfBirth") };
     var r=(typeof STORE!=="undefined"&&STORE.updateCourierInfo)? await STORE.updateCourierInfo(data):null;
     if(r && !r.error) toast("Profil tahrirlandi — adminда ham ko'rinadi ✓");
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
