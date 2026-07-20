@@ -1,10 +1,12 @@
 /* ===== /api/orders — buyurtmalar ===== */
 import { Router } from 'express';
-import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
-import { priceOrder, PriceError } from '../pricing.js';
 import { TG_TOKEN, TG_CHAT_OPS } from '../config.js';
+/* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone } from '../orders-core.js';
+/* Mijozga Telegramда holat xabarini yuborish (bot o'chiq bo'lsa — jim o'tadi) */
+import { notifyCustomerStatus } from '../bot.js';
 
 const router = Router();
 
@@ -22,42 +24,6 @@ const ALLOWED = ['status', 'reason', 'courier', 'eta', 'time'];
 
 /* Buyurtma bosqichlari — boshqa qiymat bazaga tushmasin */
 const STATUSES = ['new', 'accepted', 'ready', 'ontheway', 'arrived', 'done', 'cancelled'];
-
-/* Buyurtma tarkibi (server narxlagan qatorlar). Eski buyurtmalarда bo'sh bo'lishi mumkin. */
-function parseItems(s) {
-  if (!s) return [];
-  try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch (e) { return []; }
-}
-
-/* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga POST javobida beriladi */
-function rowToOrder(r) {
-  return {
-    id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
-    amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
-    status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
-    paid: r.paid ? 1 : 0, paid_at: r.paid_at || '',
-    items: parseItems(r.items_json),
-    created_at: r.created_at, done_at: r.done_at || '',
-  };
-}
-
-/* --- Telefon raqami validatsiyasi: O'zbekiston (+998 va 9 ta raqam) --- */
-function normalizePhone(p) {
-  const digits = String(p == null ? '' : p).replace(/\D/g, '');
-  return digits;
-}
-// O'zbekiston mobil operatorlari rasmiy kodlari
-const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
-function validPhone(p) {
-  const d = normalizePhone(p);              // 998 + 9 raqam = 12 raqam
-  if (!/^998\d{9}$/.test(d)) return false;   // umumiy uzunlik/format
-  return UZ_OPERATORS.includes(d.slice(3, 5)); // operator kodi rasmiy bo'lishi shart
-}
-function prettyPhone(p) {
-  const d = normalizePhone(p);            // 998901234567
-  if (!/^998\d{9}$/.test(d)) return String(p || '');
-  return `+998 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8, 10)} ${d.slice(10, 12)}`;
-}
 
 /* --- MarkdownV2 maxsus belgilarini ekranlash (Telegram crash bo'lmasligi uchun) --- */
 function mdEscape(s) {
@@ -137,78 +103,24 @@ router.get('/', authRequired, (req, res) => {
   res.json(db.prepare(sql).all(...params).map(rowToOrder));
 });
 
-/* Restoranga eng mos (eng kam yuklangan) faol kuryerni tanlash */
-function assignCourier(rest) {
-  const pick = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch (e) { return null; } };
-  // Faol (hali yetkazilmagan) buyurtmalar — buyurtma tasdiqsiz to'g'ridan kuryerga
-  // borgani uchun 'new'/'accepted' ham yukni hisoblashda inobatga olinadi.
-  const ACTIVE = "('new','accepted','ready','ontheway')";
-  // 1) shu restoranga biriktirilgan kuryerlar ichidan eng kam faol buyurtmali (javobda bo'lmagan)
-  let c = pick(
-    `SELECT c.name FROM couriers c WHERE c.rest = ? AND c.active = 1 AND c.on_leave = 0
-     ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`,
-    String(rest || '')
-  );
-  // 2) bo'lmasa — har qanday faol kuryer (eng kam yuklangan, javobda bo'lmagan)
-  if (!c) c = pick(
-    `SELECT c.name FROM couriers c WHERE c.active = 1 AND c.on_leave = 0
-     ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`
-  );
-  return c ? c.name : '';
-}
-
 /* POST /api/orders — ochiq (mehmon checkout: bosh sahifadan ham buyurtma berish mumkin).
-
-   XAVFSIZLIK: narx MIJOZDAN OLINMAYDI. Mijoz faqat `items: [{id, qty}]` yuboradi,
-   summa server tomonда bazadagi haqiqiy narx/chegirma bo'yicha hisoblanadi
-   (pricing.js). Mijozning `amount`, `status`, `rest`, `item`, `emoji` maydonlari
-   ataylab E'TIBORSIZ qoldiriladi. */
+   Butun logika orders-core.js da — bot ham AYNAN shuni chaqiradi. */
 router.post('/', (req, res) => {
-  const b = req.body || {};
-
-  /* Telefon raqami majburiy va to'g'ri formatda bo'lishi shart */
-  if (!validPhone(b.phone)) {
-    return res.status(400).json({ error: 'Telefon raqamini to`g`ri kiriting: +998 XX XXX XX XX' });
-  }
-  const phone = prettyPhone(b.phone);
-
-  /* --- Narxni SERVER hisoblaydi (mijozning amount'iga ishonmaymiz) --- */
-  let priced;
+  let created;
   try {
-    priced = priceOrder(b.items);
+    created = createOrder(req.body || {});
   } catch (e) {
-    if (e instanceof PriceError) return res.status(e.status).json({ error: e.message });
-    console.error('Narxlash xatosi:', e);
-    return res.status(500).json({ error: 'Buyurtmani hisoblab bo`lmadi' });
+    if (e instanceof OrderError) return res.status(e.status).json({ error: e.message });
+    console.error('Buyurtma yaratish xatosi:', e);
+    return res.status(500).json({ error: 'Buyurtmani yaratib bo`lmadi' });
   }
-
-  /* Sabotajga qarshi maxfiy "track token" — mehmon shu token bilan buyurtmasini
-     bekor qila/qabul qila oladi. Token faqat shu javobda qaytadi. */
-  const token = randomBytes(16).toString('hex');
-
-  /* Kuryer backendda avtomatik biriktiriladi (hardcoded emas) */
-  const courier = assignCourier(priced.rest) || String(b.courier || '');
-
-  /* eta — mijoz beradi, lekin aqlli oraliqqa qisamiz (0 bo'lsa frontendда NaN chiqadi) */
-  const eta = Math.max(5, Math.min(120, Number(b.eta) || 15));
-
-  const info = db.prepare(
-    `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-  ).run(
-    String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
-    priced.amount, String(b.addr || ''), String(b.pay || 'card'),
-    courier, 'new', eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines)
-  );
-
-  const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);
 
   /* Telegram xabarnomasini bloklamasdan yuboramiz (tarkibi bilan) */
-  notifyTelegram(rowToOrder(row), priced.lines);
+  notifyTelegram(created.order, created.lines);
 
   /* Javobда token QAYTADI — frontend uni localStorage'da saqlab, keyin
      bekor qilish/qabul qilishda yuboradi. */
-  res.status(201).json({ ...rowToOrder(row), token });
+  res.status(201).json({ ...created.order, token: created.token });
 });
 
 /* GET /api/orders/:id — ochiq: mehmon o'z buyurtmasi holatini kuzatishi uchun (faqat id+status) */
@@ -295,7 +207,13 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
     params.push(id);
     db.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).run(...params);
   }
-  res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  /* Telegram botdan buyurtma bergan mijozga holat o'zgarganini bildiramiz.
+     Bloklamaydi — bot o'chiq yoki xato bo'lsa jim o'tadi. */
+  if ('status' in patch && patch.status !== existing.status) {
+    notifyCustomerStatus(updated, existing.status);
+  }
+  res.json(rowToOrder(updated));
 });
 
 /* ===== 30 daqiqalik AVTOMATIK TASDIQ =====
@@ -308,13 +226,14 @@ const AUTO_CONFIRM_MIN = 30;
 
 export function autoConfirmArrived() {
   try {
-    const r = db.prepare(
-      `UPDATE orders
-          SET status = 'done', done_at = datetime('now')
-        WHERE status = 'arrived'
-          AND datetime(COALESCE(NULLIF(arrived_at, ''), created_at), '+${AUTO_CONFIRM_MIN} minutes') <= datetime('now')`
-    ).run();
-    if (r.changes) console.log(`[AUTO] ${r.changes} ta buyurtma ${AUTO_CONFIRM_MIN} daqiqadan keyin avtomatik tasdiqlandi`);
+    const WHERE = `status = 'arrived'
+       AND datetime(COALESCE(NULLIF(arrived_at, ''), created_at), '+${AUTO_CONFIRM_MIN} minutes') <= datetime('now')`;
+    /* Kimlar yopilishini OLDIN olamiz — keyin ularga Telegramда xabar beramiz */
+    const due = db.prepare(`SELECT * FROM orders WHERE ${WHERE}`).all();
+    if (!due.length) return;
+    db.prepare(`UPDATE orders SET status = 'done', done_at = datetime('now') WHERE ${WHERE}`).run();
+    console.log(`[AUTO] ${due.length} ta buyurtma ${AUTO_CONFIRM_MIN} daqiqadan keyin avtomatik tasdiqlandi`);
+    for (const o of due) notifyCustomerStatus({ ...o, status: 'done', auto: true }, 'arrived');
   } catch (e) {
     console.warn('[AUTO] avtomatik tasdiq xatosi:', e.message);
   }

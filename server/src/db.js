@@ -164,6 +164,8 @@ export function initSchema() {
   try { db.exec("ALTER TABLE orders ADD COLUMN done_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   /* Kuryer "Yetkazdim" bosgan payt — 30 daqiqadan keyin avtomatik tasdiqlash uchun */
   try { db.exec("ALTER TABLE orders ADD COLUMN arrived_at TEXT DEFAULT ''"); } catch (e) { /* bor */ }
+  /* Telegram botdan kelgan buyurtmада mijozning chat_id'si — holat xabarlari uchun */
+  try { db.exec("ALTER TABLE orders ADD COLUMN tg_chat_id TEXT DEFAULT ''"); } catch (e) { /* bor */ }
   // Buyurtma tarkibi (server narxlagan qatorlar JSON): [{id,name,emoji,qty,price,pct,eff,sum}]
   // Nizo/tekshiruv uchun — summa shu qatorlardan kelib chiqqan (pricing.js).
   try { db.exec("ALTER TABLE orders ADD COLUMN items_json TEXT DEFAULT ''"); } catch (e) { /* bor */ }

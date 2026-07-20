@@ -18,6 +18,7 @@ import announcementsRoutes from './routes/announcements.js';
 import miscRoutes from './routes/misc.js';
 import uploadRoutes from './routes/upload.js';
 import resetRoutes from './routes/reset.js';
+import { botRouter, startBot } from './bot.js';
 
 /* Birinchi ishga tushganda bazani seed qilamiz */
 seed();
@@ -81,6 +82,9 @@ app.use('/api', (req, _res, next) => {
 
 /* API yo'llari */
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+/* Telegram webhook — rate-limit va boshqa cheklovlardan OLDIN turishi kerak,
+   aks holda Telegram yangilanishlari 429 olib, xabarlar yo'qoladi. */
+app.use(botRouter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/orders', orderLimiter, ordersRoutes);   // <-- spam himoyasi qo'shildi
 app.use('/api/reviews', reviewsRoutes);
@@ -120,4 +124,7 @@ app.listen(PORT, () => {
   if (JWT_SECRET.includes('CHANGE')) {
     console.warn('⚠️  DIQQAT: JWT_SECRET standart qiymatda. Productionda .env orqali o`zgartiring!\n');
   }
+  /* Bot server tinglay boshlagandan KEYIN ishga tushadi — webhook manzili
+     o'rnatilgan zahoti Telegram unga so'rov yubora olsin. */
+  startBot().catch((e) => console.warn('[BOT] ishga tushmadi:', e.message));
 });

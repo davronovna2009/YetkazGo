@@ -54,3 +54,15 @@ export const MIN_ORDER = Number(process.env.MIN_ORDER) || 20000;
    Ikkalasi ham bo'sh bo'lsa — xabarnoma jim o'chadi (server xato bermaydi). */
 export const TG_TOKEN = process.env.TG_TOKEN || '';
 export const TG_CHAT_OPS = process.env.TG_CHAT_OPS || '';
+
+/* ===== Telegram BOT sozlamalari =====
+   PUBLIC_URL        — saytning tashqi HTTPS manzili (Mini App va webhook uchun).
+                       Masalan: https://yetkaz-uhzv.onrender.com
+                       Render'да RENDER_EXTERNAL_URL o'zi beriladi.
+   TG_WEBHOOK_SECRET — webhook'ni soxta so'rovlardan himoya qiladi. Berilmasa
+                       JWT_SECRET dan hosil qilinadi.
+   TG_TOKEN bo'lmasa — bot butunlay o'chadi va sayt normal ishlayveradi. */
+export const PUBLIC_URL = String(
+  process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || ''
+).replace(/\/+$/, '');
+export const TG_WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || '';
