@@ -1,5 +1,9 @@
-# Render.com uchun blueprint — Yetkaz.uz (Node + Express + SQLite)
+# Render.com uchun blueprint — Yetkaz.uz (Node + Express + Turso/libSQL)
 # Render hisobingizда: New + → Blueprint → shu repozitoriyni tanlang.
+#
+# `sync: false` bo'lgan kalitlarni Render Blueprint yaratayotganда SO'RAYDI —
+# shu yerда to'ldirasiz. TURSO_* ni to'ldirmasangiz baza HAR DEPLOY'DA O'CHADI
+# (bepul planда doimiy disk yo'q), shuning uchun ular ham ro'yxatда.
 services:
   - type: web
     name: yetkaz
@@ -11,21 +15,31 @@ services:
     autoDeploy: true
     envVars:
       - key: JWT_SECRET
-        generateValue: true   # Render avtomatik xavfsiz kalit yaratadi
+        generateValue: true   # Render avtomatik xavfsiz kalit yaratadi — tegmang
+
       - key: ADMIN_PASS
-        sync: false           # Render Dashboard'да O'ZINGIZ kiritasiz (maxfiy).
+        sync: false           # Admin panel paroli. Kuchli qiling.
                               # Kiritmasangiz — server tasodifiy parol yaratib,
                               # Logs'ga bir marta chiqaradi (o'sha yerdan oling).
+
+      # ===== BAZA (MAJBURIY) =====
+      # turso.tech dan olinadi. Ikkalasi ham bo'sh bo'lsa — server lokal SQLite
+      # bilan ishlaydi va har deploy'да butun baza yo'qoladi.
+      - key: TURSO_DATABASE_URL
+        sync: false           # libsql://....turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false           # Turso "Create Token" bergan uzun matn
+
+      # ===== TELEGRAM BOT (ixtiyoriy) =====
+      # Bo'sh qoldirsangiz bot o'chadi, sayt normal ishlayveradi.
+      - key: TG_TOKEN
+        sync: false           # @BotFather bergan bot tokeni
+      - key: TG_CHAT_OPS
+        sync: false           # Operatorlar guruhi chat_id (-100... bilan boshlanadi)
+
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
         value: "22"
-    # DIQQAT: bepul planда doimiy disk YO'Q — har deploy'да SQLite bazasi
-    # o'chadi (buyurtmalar, restoranlar, admin paroli ham). Haqiqiy ish uchun
-    # Turso ulang (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) yoki to'lovli plan +
-    # disk qo'shing:
-    # disk:
-    #   name: yetkaz-data
-    #   mountPath: /opt/render/project/src/server/data
-    #   sizeGB: 1
-
+    # Eslatma: PUBLIC_URL kerak emas — Render RENDER_EXTERNAL_URL ni o'zi beradi
+    # va bot Mini App manzilini shundan oladi (config.js).
