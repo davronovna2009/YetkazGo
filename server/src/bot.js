@@ -12,6 +12,7 @@ import { Router } from 'express';
 import { db } from './db.js';
 import { createOrder, OrderError } from './orders-core.js';
 import { TG_TOKEN, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
+import { restIsOpen, restHoursText } from './hours.js';
 import { createHash } from 'node:crypto';
 
 const API = TG_TOKEN ? `https://api.telegram.org/bot${TG_TOKEN}` : '';
@@ -56,19 +57,65 @@ function send(chatId, text, extra) {
   });
 }
 
-/* ---------- Mini App tugmasi ---------- */
-function miniAppUrl() {
-  return PUBLIC_URL ? `${PUBLIC_URL}/tg-app.html` : '';
+/* ---------- Mini App tugmasi ----------
+   Mini ilova (tg-app.html) HAR DOIM bitta restoran menyusini ochadi va
+   `?rest=<nom>` parametrini kutadi — `rest` bo'lmasa "Restoran tanlanmagan"
+   xatosini ko'rsatadi. Shuning uchun bot avval restoran ro'yxatini beradi,
+   mijoz tanlagan tugma esa o'sha restoran menyusini ochadi. */
+function miniAppUrl(rest) {
+  if (!PUBLIC_URL) return '';
+  return `${PUBLIC_URL}/tg-app.html?rest=${encodeURIComponent(rest)}`;
 }
+
+/* Faol restoranlar — saytdagi /api/bootstrap bilan bir xil filtr (active = 1) */
+function activeRestaurants() {
+  try {
+    return db.prepare('SELECT * FROM restaurants WHERE active = 1 ORDER BY id').all();
+  } catch (e) {
+    console.warn('[BOT] restoranlarni o`qib bo`lmadi:', e.message);
+    return [];
+  }
+}
+
+/* Restoran tugmalari — har biri o'z menyusini Mini App'da ochadi.
+   web_app tugmasi inline klaviaturaда faqat SHAXSIY chatда ishlaydi; bot
+   aynan shaxsiy chatда ishlatiladi. Telegram bitta klaviaturaда 100 tagacha
+   tugmaga ruxsat beradi — ehtiyot uchun 40 ta bilan cheklaymiz. */
+const REST_LIMIT = 40;
+function restaurantKeyboard(rows) {
+  const buttons = rows.slice(0, REST_LIMIT).map((r) => {
+    const open = restIsOpen(r);
+    const label = `${r.emoji || '🍽'} ${r.name} · ${open ? '🟢' : '🔴 ' + restHoursText(r)}`;
+    return [{ text: label, web_app: { url: miniAppUrl(r.name) } }];
+  });
+  return { inline_keyboard: buttons };
+}
+
+/* Pastdagi doimiy klaviatura. Bu yerда web_app tugmasi YO'Q — chunki restoran
+   tanlanmasdan mini ilovani ochish mantiqsiz (u xato ko'rsatardi). */
 function mainKeyboard() {
-  const url = miniAppUrl();
-  /* PUBLIC_URL sozlanmagan bo'lsa web_app tugmasi Telegramда xato beradi —
-     u holda tugmasiz, oddiy matn bilan ishlaymiz. */
-  if (!url) return undefined;
   return {
-    keyboard: [[{ text: '🍽 Buyurtma berish', web_app: { url } }], [{ text: '📦 Buyurtmalarim' }, { text: 'ℹ️ Yordam' }]],
+    keyboard: [[{ text: '🏪 Restoran tanlash' }], [{ text: '📦 Buyurtmalarim' }, { text: 'ℹ️ Yordam' }]],
     resize_keyboard: true,
   };
+}
+
+/* ---------- "🏪 Restoran tanlash" ---------- */
+async function onChooseRest(chatId) {
+  if (!PUBLIC_URL) {
+    return send(chatId, '⚠️ Bot hali to`liq sozlanmagan (sayt manzili berilmagan). Administratorga murojaat qiling.');
+  }
+  const rows = activeRestaurants();
+  if (!rows.length) {
+    return send(chatId, '😔 Hozircha faol restoran yo`q. Birozdan keyin qayta urinib ko`ring.', { reply_markup: mainKeyboard() });
+  }
+  const ochiq = rows.filter(restIsOpen).length;
+  const extra = rows.length > REST_LIMIT ? `\n<i>(${REST_LIMIT} tasi ko'rsatildi)</i>` : '';
+  await send(chatId,
+    `🏪 <b>Restoranni tanlang</b>\n\n` +
+    `Jami ${rows.length} ta · hozir ochiq: <b>${ochiq}</b> ta 🟢\n` +
+    `Tugmani bosing — o'sha restoran menyusi ochiladi.${extra}`,
+    { reply_markup: restaurantKeyboard(rows) });
 }
 
 /* ---------- Holat matnlari (sayt paneli bilan bir xil) ---------- */
@@ -121,16 +168,18 @@ export function notifyCustomerStatus(order, prevStatus) {
   }
 }
 
-/* ---------- /start ---------- */
+/* ---------- /start ----------
+   Xush kelibsizdan keyin DARROV restoran ro'yxati chiqadi — mijoz bitta
+   tugma bosib o'sha restoran menyusiga tushadi. */
 async function onStart(chatId, name) {
-  const url = miniAppUrl();
   const text =
     `Assalomu alaykum, <b>${esc(name || 'mehmon')}</b>! 👋\n\n` +
     'Men <b>Yetkaz.uz</b> botiman — Xatirchi tumani bo\'ylab taom yetkazib beramiz. 🛵\n\n' +
-    (url
-      ? 'Buyurtma berish uchun pastdagi <b>🍽 Buyurtma berish</b> tugmasini bosing.'
+    (PUBLIC_URL
+      ? 'Avval <b>restoranni tanlang</b> — so\'ng uning menyusi ochiladi.'
       : '⚠️ Bot hali to`liq sozlanmagan (sayt manzili berilmagan). Administratorga murojaat qiling.');
   await send(chatId, text, { reply_markup: mainKeyboard() });
+  if (PUBLIC_URL) await onChooseRest(chatId);
 }
 
 /* ---------- Mini App'dan kelgan buyurtma ---------- */
@@ -193,7 +242,7 @@ async function onMyOrders(chatId) {
   } catch (e) { /* baza xatosi — bo'sh ro'yxat */ }
 
   if (!rows.length) {
-    return send(chatId, 'Sizда hali buyurtma yo`q. 🍽 <b>Buyurtma berish</b> tugmasini bosing.', { reply_markup: mainKeyboard() });
+    return send(chatId, 'Sizда hali buyurtma yo`q. 🏪 <b>Restoran tanlash</b> tugmasini bosing.', { reply_markup: mainKeyboard() });
   }
   const list = rows.map((r) => {
     const st = STATUS_TEXT[r.status] || { ico: '•', t: r.status };
@@ -252,18 +301,20 @@ async function handleUpdate(u) {
     if (!text) return;
 
     if (text === '/start' || text.startsWith('/start')) return await onStart(chatId, msg.from && msg.from.first_name);
+    if (text === '🏪 Restoran tanlash' || text === '/restoranlar') return await onChooseRest(chatId);
     if (text === '📦 Buyurtmalarim' || text === '/buyurtmalarim') return await onMyOrders(chatId);
     if (text === 'ℹ️ Yordam' || text === '/yordam' || text === '/help') {
       return await send(chatId,
         'ℹ️ <b>Yordam</b>\n\n' +
-        '🍽 <b>Buyurtma berish</b> — taom tanlash va buyurtma rasmiylashtirish\n' +
+        '🏪 <b>Restoran tanlash</b> — restoranlar ro`yxati. Tugmani bossangiz o`sha restoran menyusi ochiladi va shu yerдан buyurtma berasiz\n' +
         '📦 <b>Buyurtmalarim</b> — so`nggi buyurtmalar va ularning holati\n\n' +
+        '🟢 — restoran hozir ochiq, 🔴 — yopiq (yonida ish vaqti yozilgan)\n\n' +
         'Buyurtma yetib kelganда shu yerда <b>✅ Qabul qildim</b> tugmasi chiqadi — bosishni unutmang.\n' +
         (PUBLIC_URL ? `\n🌐 Sayt: ${PUBLIC_URL}` : ''),
         { reply_markup: mainKeyboard() });
     }
-    /* Boshqa har qanday matn — asosiy menyuga qaytaramiz */
-    return await send(chatId, 'Quyidagi tugmalardan foydalaning 👇', { reply_markup: mainKeyboard() });
+    /* Boshqa har qanday matn — restoran ro'yxatini ko'rsatamiz */
+    return await onChooseRest(chatId);
   } catch (e) {
     console.warn('[BOT] update xatosi:', e.message);
   }
@@ -312,6 +363,7 @@ export async function startBot() {
   await tg('setMyCommands', {
     commands: [
       { command: 'start', description: 'Botni ishga tushirish' },
+      { command: 'restoranlar', description: 'Restoran tanlash' },
       { command: 'buyurtmalarim', description: "So'nggi buyurtmalar" },
       { command: 'yordam', description: 'Yordam' },
     ],
