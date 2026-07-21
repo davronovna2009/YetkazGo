@@ -19,13 +19,13 @@
   <div class="login-wrap" id="loginWrap">
     <div class="login-card">
       <img src="assets/logo.png" alt="Yetkaz.uz" />
-      <h1>Mening kabinetim</h1>
-      <p>Foydalanuvchi uchun shaxsiy kabinet</p>
-      <div class="field"><label>Login</label><input id="ulUser" placeholder="Foydalanuvchi logini" /></div>
-      <div class="field"><label>Parol</label><input id="ulPass" type="password" placeholder="••••••" /></div>
-      <button class="login-btn" id="loginBtn">Kirish</button>
+      <h1 data-kt="profil">Mening kabinetim</h1>
+      <p data-kt="login_sub_kab">Foydalanuvchi uchun shaxsiy kabinet</p>
+      <div class="field"><label data-kt="login_l">Login</label><input id="ulUser" data-kt-ph="ph_userlogin" placeholder="Foydalanuvchi logini" /></div>
+      <div class="field"><label data-kt="parol_l">Parol</label><input id="ulPass" type="password" placeholder="••••••" /></div>
+      <button class="login-btn" id="loginBtn" data-kt="kirish_btn">Kirish</button>
       <div class="login-err" id="loginErr"></div>
-      <div class="login-hint">Hisobingiz yo'qmi? Ro'yxatdan o'ting.</div>
+      <div class="login-hint" data-kt="login_hint">Hisobingiz yo'qmi? Ro'yxatdan o'ting.</div>
     </div>
   </div>
 
@@ -33,11 +33,11 @@
     <aside class="sidebar" id="sidebar">
       <div class="sb-logo"><span style="font-size:26px">👤</span> <span id="sbName">Foydalanuvchi</span></div>
       <nav class="sb-nav">
-        <a class="sb-link active" data-view="taomlar"><span class="ic">🍽️</span> Taomlar</a>
-        <a class="sb-link" data-view="profil"><span class="ic">🧾</span> Mening kabinetim</a>
-        <a class="sb-link" data-view="review"><span class="ic">⭐</span> Izoh qoldirish</a>
-        <a class="sb-link" data-view="help"><span class="ic">❓</span> Qanday buyurtma berish</a>
-        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
+        <a class="sb-link active" data-view="taomlar"><span class="ic">🍽️</span><span class="ic-label">Taomlar</span></a>
+        <a class="sb-link" data-view="profil"><span class="ic">🧾</span><span class="ic-label">Mening kabinetim</span></a>
+        <a class="sb-link" data-view="review"><span class="ic">⭐</span><span class="ic-label">Izoh qoldirish</span></a>
+        <a class="sb-link" data-view="help"><span class="ic">❓</span><span class="ic-label">Qanday buyurtma berish</span></a>
+        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
       </nav>
       <div class="sb-foot"><div>yetkaz.uz</div><button id="logoutBtn">← Chiqish</button></div>
     </aside>
@@ -47,7 +47,7 @@
         <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
         <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
         <h2 id="tbTitle">Mening kabinetim</h2>
-        <div class="tb-right"><button id="kabTopCart" style="background:#C8102E;color:#fff;border:none;border-radius:999px;padding:8px 15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px">🛒 Savat <span id="kabTopCartCount" style="background:#fff;color:#C8102E;border-radius:999px;min-width:19px;text-align:center;font-size:12px;padding:1px 5px;font-weight:800">0</span></button></div>
+        <div class="tb-right"><button id="kabTopCart" style="background:#C8102E;color:#fff;border:none;border-radius:999px;padding:8px 15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px">🛒 <span data-kt="savat">Savat</span> <span id="kabTopCartCount" style="background:#fff;color:#C8102E;border-radius:999px;min-width:19px;text-align:center;font-size:12px;padding:1px 5px;font-weight:800">0</span></button></div>
       </div>
       <div class="content">
 
@@ -66,7 +66,7 @@
         <!-- RESTORANLAR -->
         <section class="view" id="view-rests">
           <div class="krest-search" style="margin-bottom:12px">
-            <input id="kRestSearch" placeholder="🔍 Restoran qidirish..." class="krest-search-input" />
+            <input id="kRestSearch" data-kt-ph="qidirish" placeholder="🔍 Restoran qidirish..." class="krest-search-input" />
           </div>
           <div class="krest-grid" id="kRestGrid"></div>
         </section>
@@ -75,15 +75,15 @@
         <section class="view" id="view-profil">
           <div class="stat-grid" id="statCards"></div>
           <div class="panel">
-            <div class="panel-head"><h3>Buyurtmalar tarixi</h3></div>
+            <div class="panel-head"><h3 data-kt="buyurtmalar_tarixi">Buyurtmalar tarixi</h3></div>
             <div class="panel-body" style="overflow-x:auto;padding:0">
               <table class="tbl">
-                <thead><tr><th>Taom</th><th>Restoran</th><th>Sana</th><th>Summa</th><th>Yetkazildi</th><th>Holat</th></tr></thead>
+                <thead><tr><th data-kt="th_taom">Taom</th><th data-kt="th_restoran">Restoran</th><th data-kt="th_sana">Sana</th><th data-kt="th_summa">Summa</th><th data-kt="th_yetkazildi">Yetkazildi</th><th data-kt="th_holat">Holat</th></tr></thead>
                 <tbody id="orderTbody"></tbody>
               </table>
             </div>
           </div>
-          <div class="panel"><div class="panel-head"><h3>Mening izohlarim</h3></div>
+          <div class="panel"><div class="panel-head"><h3 data-kt="izohlarim">Mening izohlarim</h3></div>
             <div class="panel-body" id="myReviews"></div>
           </div>
         </section>
@@ -91,29 +91,29 @@
         <!-- REVIEW -->
         <section class="view" id="view-review">
           <div class="panel">
-            <div class="panel-head"><h3>Izoh qoldirish</h3></div>
+            <div class="panel-head"><h3 data-kt="review">Izoh qoldirish</h3></div>
             <div class="panel-body" style="max-width:620px">
-              <div class="set-field"><label>Buyurtma</label><select id="revOrder"></select></div>
-              <div class="set-field"><label>Bahoyingiz</label><div class="stars" id="revStars"></div></div>
-              <div class="set-field"><label>Izoh</label><textarea id="revText" rows="3" placeholder="Fikringizni yozing..."></textarea></div>
+              <div class="set-field"><label data-kt="f_buyurtma">Buyurtma</label><select id="revOrder"></select></div>
+              <div class="set-field"><label data-kt="f_baho">Bahoyingiz</label><div class="stars" id="revStars"></div></div>
+              <div class="set-field"><label data-kt="f_izoh">Izoh</label><textarea id="revText" rows="3" data-kt-ph="ph_izoh" placeholder="Fikringizni yozing..."></textarea></div>
               <div id="revReasonWrap" style="display:none">
-                <div class="set-field"><label>Past bahoga sabab</label>
+                <div class="set-field"><label data-kt="f_sabab">Past bahoga sabab</label>
                   <select id="revReason">
-                    <option value="">— sababni tanlang —</option>
-                    <option value="late">Kechikdi</option>
-                    <option value="quality">Sifat yomon</option>
-                    <option value="wrong">Noto'g'ri taom keldi</option>
-                    <option value="other">Boshqa</option>
+                    <option value="" data-kt="opt_choose">— sababni tanlang —</option>
+                    <option value="late" data-kt="opt_late">Kechikdi</option>
+                    <option value="quality" data-kt="opt_quality">Sifat yomon</option>
+                    <option value="wrong" data-kt="opt_wrong">Noto'g'ri taom keldi</option>
+                    <option value="other" data-kt="opt_other">Boshqa</option>
                   </select>
                 </div>
                 <div class="set-field" id="revPhotoWrap" style="display:none">
-                  <label>Taom rasmi (AI tahlil qiladi)</label>
+                  <label data-kt="f_photo">Taom rasmi (AI tahlil qiladi)</label>
                   <input type="file" id="revPhoto" accept="image/*" />
                 </div>
               </div>
-              <button class="set-save" id="revSubmit">Izohni yuborish</button>
+              <button class="set-save" id="revSubmit" data-kt="izoh_qoldirish_btn">Izohni yuborish</button>
               <div id="revResult" class="rev-result"></div>
-              <p style="color:var(--grey);font-size:13px;margin-top:14px">Eslatma: asossiz salbiy izohlar avtomatik tekshiriladi. "Kechikdi" shikoyati kuryer yetkazish vaqti bilan, "sifat yomon" esa AI rasm tahlili bilan solishtiriladi.</p>
+              <p style="color:var(--grey);font-size:13px;margin-top:14px" data-kt="rev_note">Eslatma: asossiz salbiy izohlar avtomatik tekshiriladi. "Kechikdi" shikoyati kuryer yetkazish vaqti bilan, "sifat yomon" esa AI rasm tahlili bilan solishtiriladi.</p>
             </div>
           </div>
         </section>
@@ -121,15 +121,15 @@
         <!-- HELP / ONBOARDING -->
         <section class="view" id="view-help">
           <div class="panel">
-            <div class="panel-head"><h3>Qanday buyurtma beraman? (4 qadam)</h3></div>
+            <div class="panel-head"><h3 data-kt="help_title">Qanday buyurtma beraman? (4 qadam)</h3></div>
             <div class="panel-body">
               <div class="steps-u">
-                <div class="step-u"><div class="n">1</div><div><h4>Taom tanlang</h4><p>Restoran yoki taomni tanlab savatga qo'shing.</p></div></div>
-                <div class="step-u"><div class="n">2</div><div><h4>Ro'yxatdan o'ting</h4><p>Ism, telefon va manzilingizni kiriting.</p></div></div>
-                <div class="step-u"><div class="n">3</div><div><h4>Buyurtma bering</h4><p>To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).</p></div></div>
-                <div class="step-u"><div class="n">4</div><div><h4>Kuzating</h4><p>Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.</p></div></div>
+                <div class="step-u"><div class="n">1</div><div><h4 data-kt="hs1_t">Taom tanlang</h4><p data-kt="hs1_d">Restoran yoki taomni tanlab savatga qo'shing.</p></div></div>
+                <div class="step-u"><div class="n">2</div><div><h4 data-kt="hs2_t">Ro'yxatdan o'ting</h4><p data-kt="hs2_d">Ism, telefon va manzilingizni kiriting.</p></div></div>
+                <div class="step-u"><div class="n">3</div><div><h4 data-kt="hs3_t">Buyurtma bering</h4><p data-kt="hs3_d">To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).</p></div></div>
+                <div class="step-u"><div class="n">4</div><div><h4 data-kt="hs4_t">Kuzating</h4><p data-kt="hs4_d">Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.</p></div></div>
               </div>
-              <div class="video-ph"><div class="pl">▶️</div><p style="margin-top:8px">Video qo'llanma tez orada qo'shiladi</p></div>
+              <div class="video-ph"><div class="pl">▶️</div><p style="margin-top:8px" data-kt="video_soon">Video qo'llanma tez orada qo'shiladi</p></div>
             </div>
           </div>
         </section>
@@ -137,39 +137,40 @@
         <!-- SOZLAMALAR -->
         <section class="view" id="view-settings">
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>👤 Profil ma'lumotlari</h3></div>
+            <div class="panel-head"><h3 data-kt="set_profile">👤 Profil ma'lumotlari</h3></div>
             <div class="panel-body" style="max-width:560px">
-              <div class="set-field"><label>Ism</label><input id="stName" placeholder="Ism familiya" /></div>
-              <div class="set-field"><label>Telefon</label><input id="stPhone" type="tel" placeholder="+998 XX XXX XX XX" /></div>
-              <div class="set-field"><label>Email (ixtiyoriy)</label><input id="stEmail" type="email" placeholder="email@example.com" /></div>
-              <div class="set-field"><label>Standart yetkazish manzili</label><input id="stAddr" placeholder="Buyurtma berishda avtomatik to'ladi" /></div>
-              <button class="set-save" id="stSaveProfile">💾 Saqlash</button>
+              <div class="set-field"><label data-kt="f_ism">Ism</label><input id="stName" data-kt-ph="ph_ism" placeholder="Ism familiya" /></div>
+              <div class="set-field"><label data-kt="f_tel">Telefon</label><input id="stPhone" type="tel" placeholder="+998 XX XXX XX XX" /></div>
+              <div class="set-field"><label data-kt="f_email">Email (ixtiyoriy)</label><input id="stEmail" type="email" placeholder="email@example.com" /></div>
+              <div class="set-field"><label data-kt="f_addr">Standart yetkazish manzili</label><input id="stAddr" data-kt-ph="ph_addr" placeholder="Buyurtma berishda avtomatik to'ladi" /></div>
+              <button class="set-save" id="stSaveProfile" data-kt="saqlash">💾 Saqlash</button>
               <div id="stMsg" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🔒 Login va parol</h3></div>
+            <div class="panel-head"><h3 data-kt="set_login">🔒 Login va parol</h3></div>
             <div class="panel-body" style="max-width:560px">
-              <div class="set-field"><label>Login</label><input id="stLogin" placeholder="Login" /></div>
-              <div class="set-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="stPass" type="password" placeholder="••••••" autocomplete="new-password" /></div>
-              <button class="set-save" id="stSaveLogin">💾 Saqlash</button>
+              <div class="set-field"><label data-kt="login_l">Login</label><input id="stLogin" data-kt-ph="login_l" placeholder="Login" /></div>
+              <div class="set-field"><label data-kt="f_newpass">Yangi parol (bo'sh = o'zgarmaydi)</label><input id="stPass" type="password" placeholder="••••••" autocomplete="new-password" /></div>
+              <button class="set-save" id="stSaveLogin" data-kt="saqlash">💾 Saqlash</button>
               <div id="stMsg2" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🌐 Til</h3></div>
+            <div class="panel-head"><h3 data-kt="set_lang">🌐 Til</h3></div>
             <div class="panel-body">
               <div style="display:flex;gap:8px">
                 <button id="stLatin" class="set-save" style="flex:0 0 auto;background:#f1eef0;color:#555">Lotin</button>
                 <button id="stCyr" class="set-save" style="flex:0 0 auto;background:#f1eef0;color:#555">Кирилл</button>
               </div>
+              <p style="margin-top:10px;font-size:13px;color:#777" data-kt="set_lang_hint">Tanlangan til butun sayt uchun saqlanadi.</p>
             </div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>🔔 Bildirishnomalar</h3></div>
+            <div class="panel-head"><h3 data-kt="set_notif">🔔 Bildirishnomalar</h3></div>
             <div class="panel-body">
               <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
-                <input type="checkbox" id="stSound" style="width:18px;height:18px" /> Buyurtma holati o'zgarsa ovozli bildirishnoma
+                <input type="checkbox" id="stSound" style="width:18px;height:18px" /> <span data-kt="notif_sound">Buyurtma holati o'zgarsa ovozli bildirishnoma</span>
               </label>
             </div>
           </div>
@@ -184,7 +185,7 @@
   <div class="kab-cart-bd" id="kabCartBd"></div>
   <div class="kab-cart-drawer" id="kabCartDrawer">
     <div class="kab-dr-head">
-      <h3>🛒 Savatingiz</h3>
+      <h3 data-kt="savat_head">🛒 Savatingiz</h3>
       <button class="kab-dr-close" id="kabDrClose">✕</button>
     </div>
     <div class="kab-dr-body" id="kabCartBody"></div>
@@ -213,21 +214,21 @@
     </a>
     <button class="kab-bar-item" id="kbbMenu">
       <span class="kbb-icon" id="kbbMenuIcon">☰</span>
-      <span class="kbb-label">Menyu</span>
+      <span class="kbb-label" data-kt="menyu">Menyu</span>
     </button>
     <button class="kab-bar-cart" id="kbbCart">
       <span class="kbb-cart-icon">🛒</span>
-      <span class="kbb-cart-label">Savat</span>
+      <span class="kbb-cart-label" data-kt="savat">Savat</span>
       <span class="kbb-cart-badge" id="kabCartBadge">0</span>
       <span class="kbb-cart-pulse" id="kabCartPulse"></span>
     </button>
     <button class="kab-bar-item" id="kbbProfil">
       <span class="kbb-icon">🧾</span>
-      <span class="kbb-label">Profil</span>
+      <span class="kbb-label" data-kt="profil_short">Profil</span>
     </button>
     <button class="kab-bar-item" id="kbbExit">
       <span class="kbb-icon">↩</span>
-      <span class="kbb-label">Chiqish</span>
+      <span class="kbb-label" data-kt="chiqish_short">Chiqish</span>
     </button>
   </nav>
 
@@ -235,12 +236,12 @@
   <div class="kab-nav-backdrop" id="kabNavBackdrop"></div>
   <nav class="kab-nav-sheet" id="kabNavSheet">
     <div class="kns-handle"></div>
-    <a class="kns-link" data-view="taomlar">🍽️ Taomlar</a>
-    <a class="kns-link" data-view="profil">🧾 Mening kabinetim</a>
-    <a class="kns-link" data-view="rests">🏪 Restoranlar</a>
-    <a class="kns-link" data-view="review">⭐ Izoh qoldirish</a>
-    <a class="kns-link" data-view="help">❓ Yordam</a>
-    <a class="kns-link" data-view="settings">⚙️ Sozlamalar</a>
+    <a class="kns-link" data-view="taomlar">🍽️ <span data-kt="taomlar">Taomlar</span></a>
+    <a class="kns-link" data-view="profil">🧾 <span data-kt="profil">Mening kabinetim</span></a>
+    <a class="kns-link" data-view="rests">🏪 <span data-kt="rests">Restoranlar</span></a>
+    <a class="kns-link" data-view="review">⭐ <span data-kt="review">Izoh qoldirish</span></a>
+    <a class="kns-link" data-view="help">❓ <span data-kt="yordam">Yordam</span></a>
+    <a class="kns-link" data-view="settings">⚙️ <span data-kt="settings">Sozlamalar</span></a>
     <div class="kns-divider"></div>
     <div class="kns-lang">
       <span class="kns-lang-label">Til / Язык</span>
@@ -371,23 +372,29 @@
       if(btn) btn.click();
     });
 
-    /* Lang toggle */
-    var curLang = localStorage.getItem('yz_lang') || 'lat';
+    /* Lang toggle — asosiy mantiq kabinet.js dagi applyKabLang da.
+       Standart til i18n.js bilan bir xil ("cyr") bo'lishi shart, aks holda
+       ikkalasi turli tilni ko'rsatib qoladi. */
+    var curLang = localStorage.getItem('yz_lang') || 'cyr';
     function applyLang(lang){
       curLang = lang;
+      if(typeof window._yzApplyKabLang === 'function'){ window._yzApplyKabLang(lang); return; }
+      /* Zaxira yo'l — kabinet.js hali yuklanmagan bo'lsa */
       localStorage.setItem('yz_lang', lang);
       if(knsLatin)    knsLatin.classList.toggle('active', lang==='lat');
       if(knsCyrillic) knsCyrillic.classList.toggle('active', lang==='cyr');
-      /* i18n mavjud bo'lsa */
       if(typeof I18N !== 'undefined'){
-        if(lang==='cyr') I18N.setLang && I18N.setLang('cyr');
-        else             I18N.setLang && I18N.setLang('lat');
-        I18N.apply && I18N.apply();
+        I18N.setLang && I18N.setLang(lang);
+        I18N.apply   && I18N.apply();
       }
     }
-    knsLatin    && knsLatin.addEventListener('click',    function(){ applyLang('lat'); });
-    knsCyrillic && knsCyrillic.addEventListener('click', function(){ applyLang('cyr'); });
-    applyLang(curLang);
+    /* kabinet.js allaqachon shu tugmalarga ulangan bo'lsa — takror ulamaymiz
+       (aks holda har bosishda sahifa ikki marta qayta render bo'ladi) */
+    if(typeof window._yzApplyKabLang !== 'function'){
+      knsLatin    && knsLatin.addEventListener('click',    function(){ applyLang('lat'); });
+      knsCyrillic && knsCyrillic.addEventListener('click', function(){ applyLang('cyr'); });
+      applyLang(curLang);
+    }
 
     /* Badge MutationObserver */
     var cartPanel = document.getElementById('cartPanel');

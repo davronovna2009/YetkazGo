@@ -1069,9 +1069,20 @@
           if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Login/parol saqlandi ✓","success"); }
         else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
       });
+      /* Sozlamalar > Til. Ilgari bu tugmalar burger varaqdagi tugmani
+         "click" qilardi va I18N.setLang yo'qligi sabab til almashmasdi.
+         Endi to'g'ridan-to'g'ri umumiy applyKabLang chaqiriladi. */
       var stL=document.getElementById("stLatin"), stC=document.getElementById("stCyr");
-      if(stL) stL.addEventListener("click",function(){ var b=document.getElementById("knsLatin"); if(b) b.click(); toast("Til: Lotin","success"); });
-      if(stC) stC.addEventListener("click",function(){ var b=document.getElementById("knsCyrillic"); if(b) b.click(); toast("Til: Кирилл","success"); });
+      function setLangFromSettings(lang){
+        if(typeof window._yzApplyKabLang==="function"){ window._yzApplyKabLang(lang); }
+        else{
+          try{ localStorage.setItem("yz_lang", lang); }catch(e){}
+          if(typeof I18N!=="undefined" && I18N.setLang){ I18N.setLang(lang); I18N.apply(); }
+          if(typeof KT_APPLY==="function") KT_APPLY();
+        }
+      }
+      if(stL) stL.addEventListener("click",function(){ setLangFromSettings("lat"); toast("Til: Lotin","success"); });
+      if(stC) stC.addEventListener("click",function(){ setLangFromSettings("cyr"); toast("Тил: Кирилл","success"); });
       var snd=document.getElementById("stSound");
       if(snd) snd.addEventListener("change",function(){ try{ localStorage.setItem("yz_sound", snd.checked?"1":"0"); }catch(e){} toast(snd.checked?"Ovoz yoqildi":"Ovoz o'chirildi","success"); });
     })();
@@ -1101,10 +1112,24 @@
     /* Lang — I18N ga bog'lash */
     const knsLat=document.getElementById("knsLatin");
     const knsCyr=document.getElementById("knsCyrillic");
+    /* Sozlamalardagi til tugmalari */
+    const stLatBtn=document.getElementById("stLatin");
+    const stCyrBtn=document.getElementById("stCyr");
+    function markLangBtn(btn,on){
+      if(!btn) return;
+      btn.classList.toggle("is-active", on);
+      btn.style.background = on ? "var(--red,#C8102E)" : "#f1eef0";
+      btn.style.color      = on ? "#fff" : "#555";
+    }
     function applyKabLang(lang){
       localStorage.setItem("yz_lang", lang);
+      /* MUHIM: I18N ichidagi joriy tilni ham o'zgartiramiz, aks holda
+         I18N.t()/I18N.apply() eski tilda qolib ketadi va til almashmaydi */
+      if(typeof I18N!=="undefined" && I18N.setLang) I18N.setLang(lang);
       if(knsLat) knsLat.classList.toggle("active", lang==="lat");
       if(knsCyr) knsCyr.classList.toggle("active", lang==="cyr");
+      markLangBtn(stLatBtn, lang==="lat");
+      markLangBtn(stCyrBtn, lang==="cyr");
       /* Sahifani qayta render qilamiz — tarjima bilan */
       renderFilters();
       renderMenu();
@@ -1114,6 +1139,7 @@
       /* index.html i18n ham */
       if(typeof I18N!=="undefined") I18N.apply();
     }
+    window._yzApplyKabLang = applyKabLang;
     const savedLang=localStorage.getItem("yz_lang")||"cyr";
     applyKabLang(savedLang);
     knsLat && knsLat.addEventListener("click",()=>applyKabLang("lat"));

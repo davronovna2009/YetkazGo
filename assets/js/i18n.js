@@ -117,10 +117,25 @@ const I18N = (function(){
     document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
     document.documentElement.setAttribute("lang", lang==="lat"?"uz":"uz-Cyrl");
+    /* Kabinet matnlari ham shu tilga o'tsin (i18n.js pastida e'lon qilinadi) */
+    if(typeof window.KT_APPLY === "function") window.KT_APPLY();
   }
-  function toggle(){ lang = (lang==="lat")?"cyr":"lat"; try{ localStorage.setItem('yz_lang',lang); }catch(e){} apply(); return lang; }
+  /* Tilni to'g'ridan-to'g'ri o'rnatish. Kabinet sozlamalari shuni chaqiradi —
+     ilgari bu funksiya yo'q edi, shuning uchun til almashmasdi. */
+  function setLang(l){
+    lang = (l==="cyr") ? "cyr" : "lat";
+    try{ localStorage.setItem('yz_lang',lang); }catch(e){}
+    return lang;
+  }
+  /* localStorage boshqa sahifada/tabda o'zgargan bo'lsa — sinxronlash */
+  function sync(){
+    let saved; try{ saved = localStorage.getItem('yz_lang'); }catch(e){}
+    if(saved && saved!==lang) lang = saved;
+    return lang;
+  }
+  function toggle(){ return setLang(lang==="lat" ? "cyr" : "lat"); }
   function current(){ return lang; }
-  return { t, apply, toggle, current };
+  return { t, apply, toggle, current, setLang, sync };
 })();
 
 /* ===== Kabinet uchun kengaytirilgan tarjima ===== */
@@ -160,6 +175,37 @@ const I18N = (function(){
       onl:"● Online", chiqish:"← Chiqish",
       qidirish:"🔍 Restoran qidirish...",
       daq:"daq", yulduz:"★",
+      /* --- kabinet.html statik matnlari --- */
+      settings:"Sozlamalar", yordam:"Yordam", savat:"Savat",
+      menyu:"Menyu", profil_short:"Profil", chiqish_short:"Chiqish",
+      savat_head:"🛒 Savatingiz",
+      login_sub_kab:"Foydalanuvchi uchun shaxsiy kabinet",
+      login_l:"Login", parol_l:"Parol", kirish_btn:"Kirish",
+      ph_userlogin:"Foydalanuvchi logini",
+      login_hint:"Hisobingiz yo'qmi? Ro'yxatdan o'ting.",
+      th_taom:"Taom", th_restoran:"Restoran", th_sana:"Sana",
+      th_summa:"Summa", th_yetkazildi:"Yetkazildi", th_holat:"Holat",
+      f_buyurtma:"Buyurtma", f_baho:"Bahoyingiz", f_izoh:"Izoh",
+      ph_izoh:"Fikringizni yozing...", f_sabab:"Past bahoga sabab",
+      opt_choose:"— sababni tanlang —", opt_late:"Kechikdi",
+      opt_quality:"Sifat yomon", opt_wrong:"Noto'g'ri taom keldi", opt_other:"Boshqa",
+      f_photo:"Taom rasmi (AI tahlil qiladi)",
+      rev_note:"Eslatma: asossiz salbiy izohlar avtomatik tekshiriladi. \"Kechikdi\" shikoyati kuryer yetkazish vaqti bilan, \"sifat yomon\" esa AI rasm tahlili bilan solishtiriladi.",
+      help_title:"Qanday buyurtma beraman? (4 qadam)",
+      hs1_t:"Taom tanlang", hs1_d:"Restoran yoki taomni tanlab savatga qo'shing.",
+      hs2_t:"Ro'yxatdan o'ting", hs2_d:"Ism, telefon va manzilingizni kiriting.",
+      hs3_t:"Buyurtma bering", hs3_d:"To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).",
+      hs4_t:"Kuzating", hs4_d:"Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.",
+      video_soon:"Video qo'llanma tez orada qo'shiladi",
+      set_profile:"👤 Profil ma'lumotlari",
+      f_ism:"Ism", ph_ism:"Ism familiya", f_tel:"Telefon",
+      f_email:"Email (ixtiyoriy)", f_addr:"Standart yetkazish manzili",
+      ph_addr:"Buyurtma berishda avtomatik to'ladi",
+      saqlash:"💾 Saqlash", set_login:"🔒 Login va parol",
+      f_newpass:"Yangi parol (bo'sh = o'zgarmaydi)",
+      set_lang:"🌐 Til", set_lang_hint:"Tanlangan til butun sayt uchun saqlanadi.",
+      set_notif:"🔔 Bildirishnomalar",
+      notif_sound:"Buyurtma holati o'zgarsa ovozli bildirishnoma",
     },
     cyr:{
       taomlar:"Таомлар", profil:"Менинг кабинетим", rests:"Ресторанлар",
@@ -194,6 +240,37 @@ const I18N = (function(){
       onl:"● Онлайн", chiqish:"← Чиқиш",
       qidirish:"🔍 Ресторан қидириш...",
       daq:"дақ", yulduz:"★",
+      /* --- kabinet.html статик матнлари --- */
+      settings:"Созламалар", yordam:"Ёрдам", savat:"Сават",
+      menyu:"Меню", profil_short:"Профил", chiqish_short:"Чиқиш",
+      savat_head:"🛒 Саватингиз",
+      login_sub_kab:"Фойдаланувчи учун шахсий кабинет",
+      login_l:"Логин", parol_l:"Парол", kirish_btn:"Кириш",
+      ph_userlogin:"Фойдаланувчи логини",
+      login_hint:"Ҳисобингиз йўқми? Рўйхатдан ўтинг.",
+      th_taom:"Таом", th_restoran:"Ресторан", th_sana:"Сана",
+      th_summa:"Сумма", th_yetkazildi:"Етказилди", th_holat:"Ҳолат",
+      f_buyurtma:"Буюртма", f_baho:"Баҳоингиз", f_izoh:"Изоҳ",
+      ph_izoh:"Фикрингизни ёзинг...", f_sabab:"Паст баҳога сабаб",
+      opt_choose:"— сабабни танланг —", opt_late:"Кечикди",
+      opt_quality:"Сифат ёмон", opt_wrong:"Нотўғри таом келди", opt_other:"Бошқа",
+      f_photo:"Таом расми (AI таҳлил қилади)",
+      rev_note:"Эслатма: асоссиз салбий изоҳлар автоматик текширилади. \"Кечикди\" шикояти курьер етказиш вақти билан, \"сифат ёмон\" эса AI расм таҳлили билан солиштирилади.",
+      help_title:"Қандай буюртма бераман? (4 қадам)",
+      hs1_t:"Таом танланг", hs1_d:"Ресторан ёки таомни танлаб саватга қўшинг.",
+      hs2_t:"Рўйхатдан ўтинг", hs2_d:"Исм, телефон ва манзилингизни киритинг.",
+      hs3_t:"Буюртма беринг", hs3_d:"Тўлов усулини танланг (минимал 20 000 сўм, етказиш бепул).",
+      hs4_t:"Кузатинг", hs4_d:"Таймер ва статус орқали буюртмани кузатинг — етиб келганда яшил бўлади.",
+      video_soon:"Видео қўлланма тез орада қўшилади",
+      set_profile:"👤 Профил маълумотлари",
+      f_ism:"Исм", ph_ism:"Исм фамилия", f_tel:"Телефон",
+      f_email:"Email (ихтиёрий)", f_addr:"Стандарт етказиш манзили",
+      ph_addr:"Буюртма беришда автоматик тўлади",
+      saqlash:"💾 Сақлаш", set_login:"🔒 Логин ва парол",
+      f_newpass:"Янги парол (бўш = ўзгармайди)",
+      set_lang:"🌐 Тил", set_lang_hint:"Танланган тил бутун сайт учун сақланади.",
+      set_notif:"🔔 Билдиришномалар",
+      notif_sound:"Буюртма ҳолати ўзгарса овозли билдиришнома",
     }
   };
 
@@ -222,7 +299,7 @@ const I18N = (function(){
     });
 
     /* Sidebar links */
-    const links={taomlar:'taomlar',profil:'profil',rests:'rests',review:'review',help:'help'};
+    const links={taomlar:'taomlar',profil:'profil',rests:'rests',review:'review',help:'help',settings:'settings'};
     Object.keys(links).forEach(view=>{
       const el=document.querySelector('.sb-link[data-view="'+view+'"] .ic-label');
       if(el && dict[view]) el.textContent=dict[view];

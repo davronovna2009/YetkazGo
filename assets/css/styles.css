@@ -311,7 +311,9 @@ a {
     position: sticky;
     top: 0;
     z-index: 60;
-    border-bottom: 1px solid var(--line);
+    /* Pastki chegara — to'lqin chizig'ining o'zi (border chizmaymiz, aks holda
+       to'lqin ustida ortiqcha to'g'ri chiziq ko'rinadi) */
+    border-bottom: 0;
   }
 
   .header-inner {
@@ -352,9 +354,10 @@ a {
     display: none !important
   }
 
-  /* Headerning to'lqinsimon pastki chegarasi mobilda ortiqcha joy egallaydi */
+  /* Headerning to'lqinsimon pastki chegarasi mobilda ham ko'rinadi.
+     O'lchamlari pastdagi "HEADER / FOOTER TO'LQINSIMON CHEGARA" bo'limida. */
   .header-wave {
-    display: none
+    display: block
   }
 
   /* ===== BOTTOM BAR ===== */
@@ -369,12 +372,42 @@ a {
     background: rgba(255, 255, 255, .97);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--line);
-    box-shadow: 0 -2px 20px rgba(0, 0, 0, .10);
+    /* Yuqori chegara — to'lqinning o'zi (.mbb-wave). To'g'ri chiziq va
+       to'rtburchak soya bo'lmasin, aks holda to'lqin ustida chiziq ko'rinadi */
+    border-top: 0;
+    box-shadow: none;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     height: calc(60px + env(safe-area-inset-bottom, 0px));
     /* Barcha elementlar teng joy — savat aniq o'rtada */
     justify-content: space-around;
+  }
+
+  /* Pastki barning to'lqinsimon yuqori chegarasi — headerdagi to'lqinning
+     ko'zgu aksi. Bar ustiga "osilib" turadi, savat tugmasining ORQASIDA. */
+  .mbb-wave {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* 1px ustma-ust — bar bilan orasida chiziq qolmasligi uchun */
+    bottom: calc(100% - 1px);
+    height: 26px;
+    line-height: 0;
+    pointer-events: none;
+    z-index: 0;
+    filter: drop-shadow(0 -3px 8px rgba(0, 0, 0, .10));
+  }
+
+  .mbb-wave svg {
+    display: block;
+    width: 100%;
+    height: 100%
+  }
+
+  /* Bar ichidagi elementlar to'lqindan ustunroq turadi */
+  .mbb-item,
+  .mbb-cart-btn {
+    position: relative;
+    z-index: 2
   }
 
   /* Har bir element */
@@ -544,9 +577,10 @@ a {
     }
   }
 
-  /* Sayt kontenti pastki bar uchun joy */
+  /* Sayt kontenti pastki bar uchun joy.
+     60px bar + 26px to'lqin (.mbb-wave) + 8px nafas */
   body {
-    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px))
+    padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px))
   }
 
   /* Nav bottom sheet — burger bosganda */
@@ -3526,12 +3560,6 @@ body.ropen #about {
   height: 100%
 }
 
-@media(max-width:768px) {
-  .header-wave {
-    display: none
-  }
-}
-
 /* Footer: yuqori cheti to'lqin — ustidagi seksiya rangida (bg-soft) */
 .footer-wave {
   position: absolute;
@@ -3553,6 +3581,33 @@ body.ropen #about {
 .site-footer .container {
   position: relative;
   z-index: 2
+}
+
+/* Mobil/planshet — header ham, footer ham to'lqinsimon bo'lib qoladi
+   (desktopdagi bilan bir xil shakl), faqat balandligi ekranga moslanadi */
+@media(max-width:768px) {
+  .header-wave {
+    display: block;
+    height: 26px
+  }
+
+  .footer-wave {
+    height: 26px
+  }
+}
+
+@media(max-width:480px) {
+  .header-wave {
+    height: 22px
+  }
+
+  .footer-wave {
+    height: 22px
+  }
+
+  .mbb-wave {
+    height: 22px
+  }
 }
 
 /* ===================================================
