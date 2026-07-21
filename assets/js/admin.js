@@ -558,6 +558,51 @@
   function closeDrawer(){ $("#ddrawer").classList.remove("open"); $("#dbackdrop").classList.remove("open"); }
 
   /* =========================================================
+     PAROL: ko'zcha (ko'rsatish/yashirish) + yangi parolni bir marta ko'rsatish
+     ---------------------------------------------------------
+     MUHIM: parollar bazada faqat bcrypt xeshi sifatida turadi (accounts.pass_hash),
+     shuning uchun MAVJUD parolni qaytarib olib ko'rsatishning imkoni yo'q.
+     Ko'zcha — admin HOZIR yozayotgan yangi parolni ko'rish uchun; saqlangach
+     yangi parol bir marta katta qilib chiqadi, nusxa olib egasiga beriladi.
+     ========================================================= */
+
+  /* Parol maydoni HTML'i. `type="password"` MUHIM — ux-inputs.js aynan shu
+     turdagi input'larni topib, yoniga 👁 ko'zcha qo'yadi (drawer dinamik
+     ochilsa ham, MutationObserver orqali ishlaydi). */
+  function passFieldHtml(id, label, ph){
+    return '<div class="add-field"><label>'+esc(label)+'</label>'+
+      '<input id="'+id+'" type="password" placeholder="'+esc(ph||"••••••")+'" autocomplete="new-password">'+
+      '</div>';
+  }
+
+  /* Yangi parolni BIR MARTA ko'rsatish (nusxa olish tugmasi bilan) */
+  function showNewPassOnce(who, pass){
+    infoModal("🔑 Yangi parol",
+      '<p style="font-size:13px;color:var(--grey);line-height:1.55;margin:0 0 12px">'+
+        '<b>'+esc(who)+'</b> uchun yangi parol o\'rnatildi. Bu parol <b>faqat hozir</b> ko\'rinadi — '+
+        'bazaga xeshlangan holda yoziladi va boshqa qayta ko\'rsatib bo\'lmaydi. Nusxa olib egasiga yetkazing.'+
+      '</p>'+
+      '<div class="np-box">'+
+        '<div class="np-val" id="npVal">'+esc(pass)+'</div>'+
+        '<button type="button" class="np-copy" id="npCopy">📋 Nusxa</button>'+
+      '</div>');
+    const btn=document.getElementById("npCopy");
+    if(btn) btn.addEventListener("click",async()=>{
+      let ok=false;
+      try{ await navigator.clipboard.writeText(pass); ok=true; }catch(e){}
+      if(!ok){
+        /* Zaxira: matnni belgilab qo'yamiz, foydalanuvchi qo'lda nusxa oladi */
+        try{
+          const r=document.createRange(); r.selectNodeContents(document.getElementById("npVal"));
+          const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        }catch(e){}
+      }
+      btn.textContent = ok ? "✅ Olindi" : "Belgilandi — Ctrl+C";
+      setTimeout(()=>{ btn.textContent="📋 Nusxa"; }, 2200);
+    });
+  }
+
+  /* =========================================================
      RESTORAN DRAWER
      ========================================================= */
   /* ===== Hamkorlik shartnomasi (restoran) ===== */
@@ -643,7 +688,8 @@
         <div class="kv">
           <div class="k"><span>Login</span><b class="mono">${r.login}</b></div>
           <div class="k"><span>Parol</span><b class="mono">••••••</b></div>
-        </div></div>
+        </div>
+        <p style="color:var(--grey);font-size:12px;margin-top:6px">Parol xavfsizlik uchun xeshlangan holda saqlanadi — uni ko'rib bo'lmaydi. Kerak bo'lsa quyida yangisini o'rnating.</p></div>
       <div class="dd-sec"><h4>Qo'shimcha ma'lumot</h4>
         <div class="kv">
           <div class="k"><span>Egasi</span><b>${esc((beR&&beR.owner)||'—')}</b></div>
@@ -668,7 +714,7 @@
         <div class="add-field"><label>Manzil</label><input id="edrAddr" value="${esc((beR&&beR.addr)||r.addr||'')}"></div>
         <div class="add-field"><label>Yetkazish hududi</label><input id="edrArea" value="${esc((beR&&beR.area)||'')}"></div>
         <div class="add-field"><label>Tavsif</label><input id="edrDescr" value="${esc((beR&&beR.descr)||'')}"></div>
-        <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="edrPass" placeholder="••••••" autocomplete="new-password"></div>
+        ${passFieldHtml("edrPass","Yangi parol (bo'sh = o'zgarmaydi)")}
         <button class="dd-action-btn" id="edrSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>
       <div class="dd-sec">
@@ -718,6 +764,7 @@
       }
       closeDrawer(); renderAll();
       toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+      if(pass) showNewPassOnce(name, pass);
       if(name!==oldName) COURIERS.forEach(c=>{ if(c.rest===oldName) c.rest=name; });
     });
   }
@@ -849,7 +896,8 @@
         <div class="kv">
           <div class="k"><span>Login</span><b class="mono">${c.login}</b></div>
           <div class="k"><span>Parol</span><b class="mono">••••••</b></div>
-        </div></div>
+        </div>
+        <p style="color:var(--grey);font-size:12px;margin-top:6px">Parol xavfsizlik uchun xeshlangan holda saqlanadi — uni ko'rib bo'lmaydi. Kerak bo'lsa quyida yangisini o'rnating.</p></div>
       <div class="dd-sec"><h4>Qo'shimcha ma'lumot</h4>
         <div class="kv">
           <div class="k"><span>Transport</span><b>${esc((beC&&beC.transport)||'—')}</b></div>
@@ -871,7 +919,7 @@
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
         <div class="add-field"><label>Email</label><input id="edcEmail" type="email" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
         <div class="add-field"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
-        <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="edcPass" placeholder="••••••" autocomplete="new-password"></div>
+        ${passFieldHtml("edcPass","Yangi parol (bo'sh = o'zgarmaydi)")}
         <button class="dd-action-btn" id="edcSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>
       <div class="dd-sec">
@@ -932,6 +980,7 @@
       }
       closeDrawer(); renderAll();
       toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+      if(pass) showNewPassOnce(name, pass);
     });
   }
 
@@ -1091,7 +1140,8 @@
         <div class="kv">
           <div class="k"><span>Login</span><b class="mono">${esc(u.login||"—")}</b></div>
           <div class="k"><span>Parol</span><b class="mono">••••••</b></div>
-        </div></div>
+        </div>
+        <p style="color:var(--grey);font-size:12px;margin-top:6px">Parol xavfsizlik uchun xeshlangan holda saqlanadi — uni ko'rib bo'lmaydi. Kerak bo'lsa quyida yangisini o'rnating.</p></div>
       <div class="dd-sec"><h4>Qo'shimcha ma'lumot</h4>
         <div class="kv">
           <div class="k"><span>Telefon</span><b>${esc(u.phone)||"—"}</b></div>
@@ -1107,7 +1157,7 @@
         <div class="add-field"><label>Telefon</label><input id="eduPhone" type="tel" value="${esc(u.phone)}"></div>
         <div class="add-field"><label>Email</label><input id="eduEmail" type="email" value="${esc(u.email)}" placeholder="email@example.com"></div>
         <div class="add-field"><label>Login</label><input id="eduLogin" value="${esc(u.login)}"></div>
-        <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="eduPass" placeholder="••••••" autocomplete="new-password"></div>
+        ${passFieldHtml("eduPass","Yangi parol (bo'sh = o'zgarmaydi)")}
         <button class="dd-action-btn" id="eduSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
       </div>`:`
       <div class="dd-sec"><p style="color:var(--grey);font-size:13px">Bu yozuv namuna ma'lumot — tahrirlab bo'lmaydi.</p></div>`}
@@ -1131,6 +1181,7 @@
       if(r && !r.error){
         closeDrawer(); loadLiveUsers();
         toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+        if(pass) showNewPassOnce(name, pass);
       } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
     });
   }
