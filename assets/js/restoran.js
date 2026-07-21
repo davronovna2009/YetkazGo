@@ -67,9 +67,12 @@
     syncFromBackend(); loadDishes();
     $("#loginWrap").style.display="none"; $("#app").classList.add("show");
     $("#sbName").textContent=CUR.name; $("#sbEmoji").textContent=CUR.emoji||"🏪"; renderAll();
+    /* Ish vaqti nishoni DARHOL to'g'ri chiqsin: DOMContentLoaded da CUR hali
+       yo'q edi va nishon standart 09:00–23:00 ni ko'rsatardi. */
+    try{ yzUpdateOnline(); }catch(e){}
     /* Realtime: backend o'zgarishi (yangi buyurtma, nom, taom) darhol ko'rinadi */
     if(typeof STORE!=="undefined" && STORE.onChange && !window.__restSub){ window.__restSub=true;
-      STORE.onChange(()=>{ if(CUR){ syncFromBackend(); loadDishes(); $("#sbName").textContent=CUR.name; renderAll(); } }); }
+      STORE.onChange(()=>{ if(CUR){ syncFromBackend(); loadDishes(); $("#sbName").textContent=CUR.name; renderAll(); try{ yzUpdateOnline(); }catch(e){} } }); }
   }
 
   function nav(view){
@@ -84,7 +87,7 @@
   /* ===== Restoran o'z rasmini yuklaydi (kameradan olib ham) ===== */
   function curRestPhoto(){
     try{ const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===CUR.name):null;
-      const p=(be&&be.photo)||CUR.photo||""; return /^\/uploads\/|^data:/.test(p)?p:""; }catch(e){ return CUR.photo||""; }
+      const p=(be&&be.photo)||CUR.photo||""; return /^\/(?:uploads|img)\/|^data:/.test(p)?p:""; }catch(e){ return CUR.photo||""; }
   }
   async function uploadRestPhoto(file){
     if(!file) return; toast("Rasm yuklanmoqda...");
@@ -114,14 +117,12 @@
   }
   /* Sof daromad davri: 'kunlik' | 'haftalik' | 'oylik' (restoran o'zi almashtiradi) */
   let incomePeriod="oylik";
-  function orderTimeMs(o){
-    var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
-    return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)) : 0;
-  }
+  function orderTimeMs(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
   function inIncomePeriod(o, period){
     var t=orderTimeMs(o); if(!t) return period==="oylik";  // sanasi yo'q bo'lsa oylikka kirsin
+    /* "Kunlik" — AYNAN bugungi kun (Toshkent), oxirgi 24 soat emas */
+    if(period==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
     var days=(Date.now()-t)/86400000;
-    if(period==="kunlik") return days<1;
     if(period==="haftalik") return days<7;
     if(period==="yillik") return days<366;
     return days<31;  // oylik
@@ -221,7 +222,7 @@
     var el=document.getElementById("topDishModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="topDishModal";
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
-    var hasImg=dish&&dish.photo&&/^\/uploads\/|^data:|^https?:/.test(String(dish.photo));
+    var hasImg=dish&&dish.photo&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(String(dish.photo));
     var img=hasImg
       ? '<div style="position:relative;height:190px;border-radius:14px;overflow:hidden;margin-bottom:12px;background:#f3eef0">'+
           '<img src="'+dish.photo+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(16px) brightness(.85);transform:scale(1.2)">'+
@@ -313,7 +314,7 @@
   }
 
   /* ===== Rasm yordamchilari va taom tanlash modali ===== */
-  function isRealPhoto(p){ return p && /^\/uploads\/|^data:|^https?:/.test(String(p)); }
+  function isRealPhoto(p){ return p && /^\/(?:uploads|img)\/|^data:|^https?:/.test(String(p)); }
   function dishImg(d){ return (d && isRealPhoto(d.photo)) ? d.photo : ""; }
   function findDishByItem(item){
     if(!item || !CUR || !CUR.dishes) return null;
@@ -585,29 +586,19 @@
     });
   }
 
-  /* Buyurtma to'liq ma'lumot modali (mobil + desktop) */
+  /* Buyurtma to'liq ma'lumot modali (mobil + desktop).
+     MUHIM: `created_at`/`done_at` bazaga UTC yoziladi. Ilgari ular satrdan
+     to'g'ridan-to'g'ri o'qilardi va restoran soat 14:30 da tushgan buyurtmani
+     "09:30" deb ko'rardi. Endi hammasi Toshkent vaqtiga o'giriladi (hours.js). */
   function fmtDateTime(o){
     var raw=(o&&o.created_at)||"";
-    var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    if(m) return m[3]+"."+m[2]+"."+m[1]+" · "+m[4]+":"+m[5];
-    if(raw) return raw.slice(0,10).split("-").reverse().join(".");
-    return (o&&o.time)||"—";
+    return YZ_TIME.fmtDateTime(raw) || (o&&o.time) || "—";
   }
-  /* Aniq yetkazilgan vaqt — mijoz tasdiqlaganda backend yozgan done_at (UTC) */
-  function orderDelivered(o){
-    var raw=(o&&o.done_at)||"";
-    var m=String(raw).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    return m ? (m[3]+"."+m[2]+"."+m[1]+" · "+m[4]+":"+m[5]) : "";
-  }
-  /* Taxminiy yetib borish vaqti = berilgan vaqt + eta (daqiqa). created_at UTC — mos ravishda UTC ko'rsatamiz */
+  /* Aniq yetkazilgan vaqt — mijoz tasdiqlaganda backend yozgan done_at */
+  function orderDelivered(o){ return YZ_TIME.fmtDateTime((o&&o.done_at)||""); }
+  /* Taxminiy yetib borish vaqti = buyurtma vaqti + eta (daqiqa) */
   function orderArrival(o){
-    try{
-      var raw=(o&&o.created_at)||""; var m=String(raw).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/);
-      if(!m) return "—";
-      var pad=function(n){return String(n).padStart(2,"0");};
-      var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)) + (Number(o.eta)||15)*60000);
-      return pad(d.getUTCDate())+"."+pad(d.getUTCMonth()+1)+"."+d.getUTCFullYear()+" · "+pad(d.getUTCHours())+":"+pad(d.getUTCMinutes());
-    }catch(e){ return "—"; }
+    return YZ_TIME.fmtPlus((o&&o.created_at)||"", (o&&Number(o.eta))||15) || "—";
   }
   function openOrderModal(o){
     if(!o) return;
@@ -674,6 +665,19 @@
     set("#setEmail", be.email);
     set("#setOpenH", be.openH!=null?be.openH:9);
     set("#setCloseH", be.closeH!=null?be.closeH:23);
+    renderHoursPreview();
+  }
+  /* Sozlamalarda ish vaqtining JONLI ko'rinishi — restoran egasi o'zgartirgan
+     zahoti "hozir ochiq/yopiq" ni ko'radi (mijoz aynan shuni ko'radi). */
+  function renderHoursPreview(){
+    var box=$("#setHoursNow"); if(!box) return;
+    var oh=parseInt(($("#setOpenH")||{}).value,10), ch=parseInt(($("#setCloseH")||{}).value,10);
+    var open, hrs;
+    try{ open=YZ_TIME.isOpen(oh,ch,9,23); hrs=YZ_TIME.text(oh,ch,9,23); }
+    catch(e){ return; }
+    var nowTxt=""; try{ nowTxt=YZ_TIME.nowClock(); }catch(e){}
+    box.innerHTML='<span class="yz-openbadge '+(open?'is-open':'is-closed')+'">'+(open?'🟢 Hozir ochiq':'🔴 Hozir yopiq')+'</span>'+
+      '<span style="color:var(--grey);font-size:12.5px;margin-left:8px">'+esc(hrs)+' · Toshkent vaqti '+esc(nowTxt)+'</span>';
   }
   async function saveRestInfo(){
     var val=function(id){ var el=$(id); return el?el.value:undefined; };
@@ -687,11 +691,21 @@
     };
     if(isNaN(data.openH)) delete data.openH;
     if(isNaN(data.closeH)) delete data.closeH;
-    if(data.openH!=null && data.closeH!=null && data.closeH<=data.openH){ toast("Yopilish vaqti ochilishdan katta bo'lsin"); return; }
+    /* Ish vaqti oraliqlari (hours.js bilan bir xil):
+         09 → 23  oddiy kun
+         20 → 02  tungi smena (yarim tundan oshadi) — RUXSAT ETILADI
+         09 → 09  24 soat
+       Ilgari "yopilish ochilishdan katta bo'lsin" deb tungi smena taqiqlangan edi. */
+    if(data.openH!=null && (data.openH<0 || data.openH>23)){ toast("Ochilish soati 0–23 oralig'ida bo'lsin"); return; }
+    if(data.closeH!=null && (data.closeH<0 || data.closeH>24)){ toast("Yopilish soati 0–24 oralig'ida bo'lsin"); return; }
     var btn=$("#setInfoBtn"); if(btn) btn.disabled=true;
     try{
       var r=(typeof STORE!=="undefined"&&STORE.updateRestaurantInfo)? await STORE.updateRestaurantInfo(data) : null;
-      if(r && !r.error){ toast("Ma'lumot saqlandi — saytda ko'rinadi ✓"); }
+      if(r && !r.error){
+        toast("Ma'lumot saqlandi — saytda ko'rinadi ✓");
+        /* Yangi ish vaqti darrov panelda ham aks etsin (mijoz ko'radiganidek) */
+        try{ renderHoursPreview(); yzUpdateOnline(); }catch(e){}
+      }
       else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
     }catch(e){ toast("Xatolik — qayta urinib ko'ring"); }
     if(btn) btn.disabled=false;
@@ -797,7 +811,13 @@
     var spb=$("#setPassBtn");  if(spb) spb.addEventListener("click",savePass);
     var sps=$("#setPassShow");  if(sps) sps.addEventListener("change",togglePassShow);
     var sib=$("#setInfoBtn");  if(sib) sib.addEventListener("click",saveRestInfo);
+    /* Ish vaqti maydonlari o'zgarganda "hozir ochiq/yopiq" darrov ko'rinsin */
+    ["#setOpenH","#setCloseH"].forEach(function(id){
+      var el=$(id); if(el) el.addEventListener("input",renderHoursPreview);
+    });
     fillSettings();
+    /* Soat o'tishi bilan holat o'zgarsin (sahifa ochiq turganda ham) */
+    setInterval(function(){ try{ renderHoursPreview(); }catch(e){} }, 30000);
     /* 5-daqiqalik rad etish oynasi hisoblagichi jonli yangilanadi */
     setInterval(function(){
       try{
@@ -809,28 +829,46 @@
     }, 1000);
   });
 
-  /* ===== Online holati: tepadagi "● Online" bosilsa modal chiqadi ===== */
-  var WORK_START=8, WORK_END=22;
-  function yzIsWork(){ var h=new Date().getHours(); return h>=WORK_START && h<WORK_END; }
-  function yzUpdateOnline(){ var b=document.querySelector(".tb-badge"); if(!b) return; if(yzIsWork()){ b.textContent="🟢 Online"; b.style.background="#16a34a"; b.style.color="#fff"; } else { b.textContent="🔴 Offline"; b.style.background="#9ca3af"; b.style.color="#fff"; } }
+  /* ===== Online holati: tepadagi "● Online" bosilsa modal chiqadi =====
+     MUHIM: ish vaqti — RESTORANNING O'ZINIKI (sozlamalarda belgilaydi, admin
+     ham o'zgartira oladi). Ilgari bu yerda 08:00–22:00 qotirib yozilgan edi va
+     restoran soat 23 gacha ishlasa ham panelda "Offline" ko'rinardi, saytda esa
+     boshqacha — endi ikkalasi ham hours.js (Asia/Tashkent) ga tayanadi. */
+  function yzRestRow(){ return curRestBackend(); }
+  function yzIsWork(){ try{ return YZ_TIME.restOpen(yzRestRow()); }catch(e){ return true; } }
+  function yzHoursText(){ try{ return YZ_TIME.restHours(yzRestRow()); }catch(e){ return "09:00–23:00"; } }
+  function yzUpdateOnline(){
+    var b=document.querySelector(".tb-badge"); if(!b) return;
+    var work=yzIsWork();
+    b.textContent=work?"🟢 Ochiq":"🔴 Yopiq";
+    b.title="Ish vaqti: "+yzHoursText();
+    b.style.background=work?"#16a34a":"#9ca3af"; b.style.color="#fff";
+  }
   function yzOnlineModal(){
-    var work=yzIsWork(), pad=function(n){return String(n).padStart(2,"0");};
+    var work=yzIsWork(), hrs=yzHoursText();
+    var next=""; try{ next=YZ_TIME.restNext(yzRestRow()); }catch(e){}
     var el=document.getElementById("yzOnlineModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="yzOnlineModal";
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     var row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:400px;width:100%;padding:22px;position:relative">'+
       '<button id="yzOnClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
-      '<h3 style="margin:0 0 14px">🟢 Holat va ish vaqti</h3>'+
+      '<h3 style="margin:0 0 14px">🕒 Holat va ish vaqti</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px;font-size:14px">'+
-      row("Hozirgi holat",'<span style="color:'+(work?"#16a34a":"#9ca3af")+'">'+(work?"● Online":"● Offline")+'</span>')+
-      row("Ish vaqti",pad(WORK_START)+":00 – "+pad(WORK_END)+":00")+
-      row("Hozir soat",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}))+
-      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqti tugagach (soat '+pad(WORK_END)+':00) tizim avtomatik <b>Offline</b> bo\'ladi, ertalab '+pad(WORK_START)+':00 da yana <b>Online</b>.</p></div>';
+      row("Hozirgi holat",'<span style="color:'+(work?"#16a34a":"#9ca3af")+'">'+(work?"🟢 Ochiq":"🔴 Yopiq")+'</span>')+
+      row("Ish vaqti",esc(hrs))+
+      row("Hozir soat (Toshkent)",YZ_TIME.nowClock())+
+      (next?row("Keyingi o'zgarish",esc(next)):"")+
+      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqti tashqarisida restoraningiz saytda va Telegram ilovasida <b>yopiq</b> ko\'rinadi — mijozlar buyurtma bera olmaydi. Vaqtni <b>Sozlamalar → Ish vaqti</b> bo\'limida o\'zgartirasiz.</p></div>';
     document.body.appendChild(el);
     el.querySelector("#yzOnClose").addEventListener("click",function(){ el.remove(); });
     el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
   }
-  document.addEventListener("DOMContentLoaded",function(){ var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); } yzUpdateOnline(); setInterval(yzUpdateOnline,60000); });
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); }
+    yzUpdateOnline(); setInterval(yzUpdateOnline,30000);
+    /* Backenddan ma'lumot kelgach (yoki admin vaqtni o'zgartirgach) — yangilaymiz */
+    if(typeof STORE!=="undefined" && STORE.onChange) STORE.onChange(function(){ try{ yzUpdateOnline(); fillSettings(); }catch(e){} });
+  });
 
 })();

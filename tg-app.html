@@ -9,6 +9,7 @@
 <!-- Telegram Mini App SDK (telegram.org'dan yuklanishi SHART) -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="assets/js/safe.js"></script>
+<script src="assets/js/hours.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -295,12 +296,9 @@ const MIN_ORDER = 20000;
 const UZ_OPERATORS = ['20','33','50','55','77','88','90','91','93','94','95','97','98','99'];
 
 /* ===== Ish vaqti — QAT'IY Toshkent vaqti =====
-   Sayt brauzer vaqtini ishlatadi (app.js:567 `new Date().getHours()`), lekin bot
-   serverda (ko'pincha UTC) ishlaydi. Ikkalasi bir xil javob berishi uchun mini
-   sayt ham, bot ham vaqtni shu mintaqaga bog'lab hisoblaydi (server/src/hours.js). */
-const TZ = 'Asia/Tashkent';
-const HOUR_FMT = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' });
-const tashHour = () => Number(HOUR_FMT.format(new Date()));
+   Sayt (app.js), kabinet, admin/restoran panellari va bu mini ilova — hammasi
+   `assets/js/hours.js` dagi BITTA mantiqni ishlatadi. Serverda aynan shu qoida
+   `server/src/hours.js` da takrorlangan va buyurtmani u yerda rad etadi. */
 
 /* --- Holat --- */
 const REST = new URLSearchParams(location.search).get('rest') || '';
@@ -313,27 +311,16 @@ let SCREEN = 'menu';    // menu | cart | form | done | err
 const CART_KEY = 'yz_tg_cart_' + REST;
 const $ = (id) => document.getElementById(id);
 const som = (n) => Number(n||0).toLocaleString('ru-RU') + " so'm";
-const pad2 = (n) => String(n).padStart(2,'0');
 /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
    qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
 const esc = YZ_SAFE.esc, html = YZ_SAFE.html, raw = YZ_SAFE.raw;
 const alertMsg = (m) => { try { tg ? tg.showAlert(m) : alert(m); } catch(e){ alert(m); } };
 
-/* Restoran hozir ochiqmi? Sayt bilan bir xil shart (app.js:563-570):
-   h >= openH && h < closeH. Ma'lumot bo'lmasa — ochiq deb hisoblanadi.
-   Eslatma: saytdagidek tungi smena (22->06) qo'llab-quvvatlanmaydi. */
-function isOpen(){
-  if (!INFO || INFO.openH == null || INFO.closeH == null) return true;
-  const h = tashHour();
-  return h >= INFO.openH && h < INFO.closeH;
-}
-/* Ish vaqti matni (app.js:571-579 kabi: erkin `hours` matni ustun) */
-function hoursText(){
-  if (INFO && INFO.hours) return String(INFO.hours);
-  const o = (INFO && INFO.openH != null) ? INFO.openH : 9;
-  const c = (INFO && INFO.closeH != null) ? INFO.closeH : 23;
-  return pad2(o) + ':00–' + pad2(c) + ':00';
-}
+/* Restoran hozir ochiqmi? Ma'lumot bo'lmasa — ochiq deb hisoblanadi.
+   Tungi smena (20→02) va 24 soat (9→9) ham qo'llab-quvvatlanadi. */
+function isOpen(){ return INFO ? YZ_TIME.restOpen(INFO) : true; }
+/* Ish vaqti matni — "09:00–23:00" yoki "24 soat" */
+function hoursText(){ return YZ_TIME.restHours(INFO); }
 
 /* =========================== Telegram sozlash =========================== */
 function initTg(){
@@ -420,7 +407,8 @@ function renderHeader(){
 
 function dishPhoto(d){
   if (!d.photo) return html`<div class="dish-photo ph">${d.emoji}</div>`;
-  /* photo: "/uploads/..." yoki to'liq URL — mini sayt backend bilan bir xil
+  /* photo: "/img/..." (bazadagi rasm), eski "/uploads/..." yoki to'liq URL —
+     mini sayt backend bilan bir xil
      originda turgani uchun nisbiy yo'l shundayligicha ishlaydi.
      Rasm yuklanmasa — safe.js dagi global ishlovchi emoji bilan almashtiradi.
      MUHIM: inline `onerror` ISHLATILMAYDI (CSP bloklaydi) — data-onerr orqali. */
@@ -735,6 +723,17 @@ $('errBtn').addEventListener('click', () => location.reload());
     for (const k of Object.keys(CART)) if (!ids.has(Number(k))) { delete CART[k]; changed = true; }
     if (changed) { saveCart(); renderMenu(); }
     show('menu');
+
+    /* Ish vaqti chegarasidan o'tganda (masalan soat 23:00) mini ilova ochiq
+       turgan bo'lsa ham holat O'ZI yangilanadi: sarlavha, ⏱ tugmalari va
+       MainButton bloklanadi. */
+    let wasOpen = isOpen();
+    setInterval(() => {
+      const now = isOpen();
+      if (now === wasOpen) return;
+      wasOpen = now;
+      renderHeader(); renderMenu(); syncButtons();
+    }, 30000);
   } catch (e){
     showErr('📡','Ulanib bo\'lmadi','Server bilan aloqa yo\'q. Internetni tekshirib, qayta urinib ko\'ring.');
   }

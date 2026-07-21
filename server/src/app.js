@@ -16,7 +16,8 @@ import reviewsRoutes from './routes/reviews.js';
 import dishesRoutes from './routes/dishes.js';
 import announcementsRoutes from './routes/announcements.js';
 import miscRoutes from './routes/misc.js';
-import uploadRoutes from './routes/upload.js';
+import uploadRoutes, { imageRouter } from './routes/upload.js';
+import { migrateUploadsToDb } from './migrate-images.js';
 import resetRoutes from './routes/reset.js';
 import { botRouter, startBot } from './bot.js';
 
@@ -26,6 +27,8 @@ seed();
 ensureAdminSecure();
 /* "Yetkazildi" holatida osilib qolgan buyurtmalarni 30 daqiqadan keyin yopamiz */
 startAutoConfirm();
+/* Diskda qolgan eski rasmlarni bazaga ko'chiramiz (bir martalik, xavfsiz) */
+migrateUploadsToDb();
 
 const app = express();
 
@@ -42,7 +45,9 @@ app.use(compression());
 app.use(cors());
 app.use(attachUser);  // sarlavhadan foydalanuvchini ajratadi (body kerak emas)
 
-/* Yuklangan rasmlar (statik) */
+/* Rasmlar BAZADAN (asosiy yo'l — deploy'dan keyin ham yo'qolmaydi) */
+app.use(imageRouter);
+/* Eski `/uploads/...` yo'llari — fayli saqlanib qolgan muhitlarda ishlayversin */
 app.use('/uploads', express.static(UPLOAD_DIR));
 /* Rasm yuklash — kattaroq body (8MB), global 1mb parserdan OLDIN */
 app.use('/api/upload', express.json({ limit: '8mb' }), uploadRoutes);

@@ -8,6 +8,7 @@
    saqlanadi (store.js:mergeDishes va bot menu.js bilan bir xil mantiq). */
 import { db } from './db.js';
 import { MIN_ORDER } from './config.js';
+import { restIsOpen, restHoursText } from './hours.js';
 
 const MAX_LINES = 30;   // savatdagi turli taomlar soni
 const MAX_QTY = 50;     // bitta taomdan maksimal dona
@@ -57,7 +58,7 @@ export function priceOrder(rawItems) {
   const selRemoved = db.prepare('SELECT 1 AS x FROM removed_dishes WHERE rest = ? AND name = ?');
   const selSoldout = db.prepare('SELECT 1 AS x FROM soldout_dishes WHERE rest = ? AND name = ?');
   const selDiscount = db.prepare('SELECT pct FROM discounts WHERE rest = ? AND name = ?');
-  const selRest = db.prepare('SELECT active FROM restaurants WHERE name = ?');
+  const selRest = db.prepare('SELECT active, open_h, close_h FROM restaurants WHERE name = ?');
 
   const lines = [];
   let amount = 0;
@@ -94,6 +95,14 @@ export function priceOrder(rawItems) {
   const r = selRest.get(rest);
   if (r && !r.active) {
     throw new PriceError(409, 'Bu restoran hozir buyurtma qabul qilmayapti');
+  }
+
+  /* ISH VAQTI — YAKUNIY to'siq. Sayt/kabinet/mini-app tugmalarni bekitadi,
+     lekin haqiqiy rad etish SHU YERDA bo'ladi: eski sahifa, to'g'ridan-to'g'ri
+     API so'rovi yoki bot orqali ham yopiq restorandan buyurtma o'tmaydi.
+     Vaqt Asia/Tashkent bo'yicha (hours.js) — serverning UTC soati emas. */
+  if (r && !restIsOpen(r)) {
+    throw new PriceError(409, `«${rest}» hozir yopiq. Ish vaqti: ${restHoursText(r)}. Shu vaqtda buyurtma bering.`);
   }
 
   if (amount < MIN_ORDER) {

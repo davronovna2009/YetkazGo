@@ -262,12 +262,20 @@
             <div class="setting-item" style="padding:13px 16px">
               <div class="setting-label">
                 <span class="setting-name">Ish vaqti</span>
-                <span class="setting-desc">Ochilish va yopilish soati (0–24)</span>
+                <span class="setting-desc">Ochilish va yopilish soati. Tungi smena ham mumkin (masalan 20 → 02), bir xil son = 24 soat.</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <input id="setOpenH" type="number" min="0" max="23" class="set-input" style="width:70px;text-align:center" placeholder="9" />
                 <span style="color:var(--grey)">–</span>
-                <input id="setCloseH" type="number" min="1" max="24" class="set-input" style="width:70px;text-align:center" placeholder="23" />
+                <input id="setCloseH" type="number" min="0" max="24" class="set-input" style="width:70px;text-align:center" placeholder="23" />
+              </div>
+            </div>
+            <div class="setting-item column" style="padding:10px 16px">
+              <div id="setHoursNow" style="display:flex;align-items:center;flex-wrap:wrap"></div>
+              <div style="color:var(--grey);font-size:12.5px;margin-top:6px;line-height:1.5">
+                Ish vaqtidan tashqarida restoraningiz saytda, kabinetda va Telegram ilovasida
+                <b>🔴 Yopiq</b> ko'rinadi — mijozlar taom buyurtma qila olmaydi. Vaqt
+                <b>Toshkent (UTC+5)</b> bo'yicha hisoblanadi.
               </div>
             </div>
             <div class="settings-footer">
@@ -333,6 +341,7 @@
 
   <div class="toast2" id="toast2"></div>
   <script src="assets/js/safe.js"></script>
+<script src="assets/js/hours.js"></script>
 <script src="assets/js/lottie.min.js"></script>
   <script src="assets/js/courier-anim.js"></script>
   <script src="assets/js/store.js"></script>

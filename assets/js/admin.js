@@ -254,8 +254,15 @@
 
   /* Admin daromad davri: kunlik/haftalik/oylik/yillik */
   let aIncomePeriod="oylik";
-  function aOrderTime(o){ var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)):0; }
-  function aInPeriod(o,p){ var t=aOrderTime(o); if(!t) return p==="oylik"; var d=(Date.now()-t)/86400000; if(p==="kunlik")return d<1; if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31; }
+  function aOrderTime(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
+  function aInPeriod(o,p){
+    var t=aOrderTime(o); if(!t) return p==="oylik";
+    /* "Kunlik" yorlig'i «bugun» deb ko'rsatiladi — demak AYNAN bugungi kun
+       (Toshkent), oxirgi 24 soat emas. */
+    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
+    var d=(Date.now()-t)/86400000;
+    if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31;
+  }
   function renderDash(){
     /* REAL: komissiya faqat mijoz tasdiqlagan (done) buyurtmalardan; har restoran komissiyasi bo'yicha */
     const live=(typeof STORE!=="undefined")?STORE.orders():[];
@@ -348,13 +355,29 @@
   /* =========================================================
      RESTORANLAR — render (desktop jadval + mobile karta)
      ========================================================= */
+  /* Restoranning backend yozuvi (ish vaqti shu yerda) */
+  function beRest(r){
+    try{ const list=(typeof STORE!=="undefined"&&STORE.restaurants)?(STORE.restaurants()||[]):[];
+      return list.find(x=>x.login&&r.login&&x.login===r.login) || list.find(x=>x.name===r.name) || null; }catch(e){ return null; }
+  }
+  /* Restoran O'ZI belgilagan ish vaqti — admin ham AYNAN shuni ko'radi */
+  function restHours(r){ const be=beRest(r); return be ? YZ_TIME.restHours(be) : "—"; }
+  function restOpenNow(r){ const be=beRest(r); return be ? YZ_TIME.restOpen(be) : true; }
+  function restOpenBadge(r){
+    const be=beRest(r); if(!be) return "";
+    return restOpenNow(r)
+      ? ` <span class="yz-openbadge is-open" title="Ish vaqti: ${esc(restHours(r))}">🟢 Ochiq</span>`
+      : ` <span class="yz-openbadge is-closed" title="Ish vaqti: ${esc(restHours(r))}">🔴 Yopiq</span>`;
+  }
+
   function renderRests(){
     /* Desktop jadval */
     const tb=$("#restTbody"); if(tb){
       tb.innerHTML=RESTS.map(r=>{
         const pend=getPending(r.id,"rest");
         return `<tr data-id="${r.id}">
-          <td><div class="tname"><span class="av">${r.emoji}</span>${r.name}</div></td>
+          <td><div class="tname"><span class="av">${r.emoji}</span>${r.name}${restOpenBadge(r)}</div>
+              <div style="color:var(--grey);font-size:11.5px;margin-top:2px">🕒 ${esc(restHours(r))}</div></td>
           <td><span class="star">★ ${r.rating}</span></td>
           <td>${money(r.orders)}</td>
           <td class="money">${money(r.rev)}</td>
@@ -374,7 +397,7 @@
         return `<div class="mcard" data-id="${r.id}">
           <div class="mcard-top">
             <span class="mcard-icon">${r.emoji}</span>
-            <div class="mcard-info"><div class="mcard-name">${r.name}</div><div class="mcard-sub">${r.addr}</div></div>
+            <div class="mcard-info"><div class="mcard-name">${r.name}${restOpenBadge(r)}</div><div class="mcard-sub">🕒 ${esc(restHours(r))}${r.addr?" · "+esc(r.addr):""}</div></div>
             ${pend
               ? `<span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`
               : `<span class="pill ${r.status==="ok"?"ok":"warn"}">${r.status==="ok"?"Faol":"Nazorat"}</span>`}
@@ -405,13 +428,23 @@
     if(be && be.leaveStatus==='pending') return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef9c3;color:#a16207">⏳ Javob so'rovi</span>`;
     return "";
   }
-  function courHours(c){ const be=beCourier(c); if(!be) return "—"; const p=n=>String(n).padStart(2,"0"); return p(be.openH!=null?be.openH:8)+":00–"+p(be.closeH!=null?be.closeH:22)+":00"; }
+  function courHours(c){ const be=beCourier(c); if(!be) return "—"; return YZ_TIME.courHours(be); }
+  /* Kuryer AYNAN hozir ish vaqtida bo'lsa — buyurtmalar unga tushadi
+     (server ham shu qoidani qo'llaydi: orders-core.js assignCourier) */
+  function courOnShift(c){ const be=beCourier(c); return be ? YZ_TIME.courOpen(be) : true; }
+  function courShiftBadge(c){
+    const be=beCourier(c); if(!be) return "";
+    if(be.onLeave) return "";                      // "Ishdan javobda" nishoni allaqachon chiqadi
+    return courOnShift(c)
+      ? ` <span class="yz-openbadge is-open">🟢 Ishda</span>`
+      : ` <span class="yz-openbadge is-closed">🌙 Ish vaqti emas</span>`;
+  }
   function renderCouriers(){
     const tb=$("#courTbody"); if(tb){
       tb.innerHTML=COURIERS.map(c=>{
         const pend=getPending(c.id,"courier");
         return `<tr data-id="${c.id}">
-          <td><div class="tname"><span class="av">${c.emoji}</span>${c.name}${courLeaveBadge(c)}</div></td>
+          <td><div class="tname"><span class="av">${c.emoji}</span>${c.name}${courLeaveBadge(c)}${courShiftBadge(c)}</div></td>
           <td>${c.rest}</td>
           <td>${money(c.deliveries)}</td>
           <td>${courHours(c)}</td>
@@ -566,8 +599,10 @@
     setHead(r.emoji, r.name, r.addr+" · "+r.phone);
     const pend=getPending(id,"rest");
     const myCouriers=COURIERS.filter(c=>c.rest===r.name);
-    const beR=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.login===r.login||x.name===r.name):null;
+    const beR=beRest(r);
     const openH=beR&&beR.openH!=null?beR.openH:9, closeH=beR&&beR.closeH!=null?beR.closeH:23;
+    /* Restoran O'ZI belgilagan ish vaqti va HOZIRGI holati — admin ham ko'radi */
+    const rOpen=restOpenNow(r), rHours=restHours(r);
     drawer(`
       <div class="dd-sec"><h4>Ishlash darajasi</h4>
         <div class="kv">
@@ -591,7 +626,7 @@
           <div class="k"><span>Egasi</span><b>${esc((beR&&beR.owner)||'—')}</b></div>
           <div class="k"><span>Email</span><b>${esc((beR&&beR.email)||'—')}</b></div>
           <div class="k"><span>Manzil</span><b>${esc((beR&&beR.addr)||r.addr||'—')}</b></div>
-          <div class="k"><span>Ish vaqti</span><b>${esc((beR&&beR.hours)||'—')}</b></div>
+          <div class="k"><span>Ish vaqti</span><b>${esc(rHours)} <span class="yz-openbadge ${rOpen?'is-open':'is-closed'}">${rOpen?'🟢 Hozir ochiq':'🔴 Hozir yopiq'}</span></b></div>
           <div class="k"><span>Hudud</span><b>${esc((beR&&beR.area)||'—')}</b></div>
         </div>
         ${(beR&&beR.descr)?`<p style="color:var(--grey);font-size:13px;margin-top:8px">${esc(beR.descr)}</p>`:''}
@@ -602,8 +637,9 @@
         <div class="add-field"><label>Komissiya (%)</label><input id="edrComm" type="number" value="${r.commission!=null?r.commission:18}"></div>
         <div class="add-row">
           <div class="add-field"><label>Ochilish (soat)</label><input id="edrOpen" type="number" min="0" max="23" value="${openH}"></div>
-          <div class="add-field"><label>Yopilish (soat)</label><input id="edrClose" type="number" min="1" max="24" value="${closeH}"></div>
+          <div class="add-field"><label>Yopilish (soat)</label><input id="edrClose" type="number" min="0" max="24" value="${closeH}"></div>
         </div>
+        <p style="color:var(--grey);font-size:12px;margin:-2px 0 8px">Tungi smena mumkin (20 → 02), bir xil son = 24 soat. Vaqt Toshkent (UTC+5) bo'yicha.</p>
         <div class="add-field"><label>Egasi (F.I.Sh)</label><input id="edrOwner" value="${esc((beR&&beR.owner)||'')}"></div>
         <div class="add-field"><label>Email</label><input id="edrEmail" value="${esc((beR&&beR.email)||'')}" placeholder="email@example.com"></div>
         <div class="add-field"><label>Manzil</label><input id="edrAddr" value="${esc((beR&&beR.addr)||r.addr||'')}"></div>
@@ -641,8 +677,11 @@
       const name=($("#edrName").value||"").trim()||r.name;
       const phone=($("#edrPhone").value||"").trim();
       const comm=Math.max(0,Math.min(50,parseInt($("#edrComm").value,10)||18));
-      const oh=Math.max(0,Math.min(23,parseInt($("#edrOpen").value,10)||9));
-      const ch=Math.max(1,Math.min(24,parseInt($("#edrClose").value,10)||23));
+      /* 0–23 / 0–24: tungi smena (20→02) va 24 soat (9→9) ham ruxsat etiladi.
+         `|| 9` ishlatilmaydi — 0 (yarim tun) haqiqiy qiymat. */
+      const rawOh=parseInt($("#edrOpen").value,10), rawCh=parseInt($("#edrClose").value,10);
+      const oh=Math.max(0,Math.min(23,Number.isFinite(rawOh)?rawOh:9));
+      const ch=Math.max(0,Math.min(24,Number.isFinite(rawCh)?rawCh:23));
       const pass=($("#edrPass").value||"").trim();
       const oldName=r.name;
       const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -753,8 +792,11 @@
     const lvStatus=be.leaveStatus||c.leaveStatus||'none';
     const onLeave=be.onLeave!=null?be.onLeave:c.onLeave;
     const leaveReason=be.leaveReason||c.leaveReason||'';
-    const holatTxt=onLeave?'🚪 Ishdan javobda':(lvStatus==='pending'?'⏳ Javob so\'rovi kutilmoqda':'🟢 Ishda');
-    const holatCol=onLeave?'#d97706':(lvStatus==='pending'?'#b45309':'#16a34a');
+    /* Ish vaqti — backend yozuvidan (admin belgilaydi), Toshkent vaqti bo'yicha */
+    const cHours=YZ_TIME.courHours(beC||c);
+    const cOnShift=YZ_TIME.courOpen(beC||c);
+    const holatTxt=onLeave?'🚪 Ishdan javobda':(lvStatus==='pending'?'⏳ Javob so\'rovi kutilmoqda':(cOnShift?'🟢 Ishda':'🌙 Ish vaqti emas'));
+    const holatCol=onLeave?'#d97706':(lvStatus==='pending'?'#b45309':(cOnShift?'#16a34a':'#9ca3af'));
     drawer(`
       <div class="dd-sec"><h4>Ish ma'lumotlari</h4>
         <div class="kv">
@@ -762,7 +804,7 @@
           <div class="k"><span>Reyting</span><b class="star">★ ${c.rating}</b></div>
           <div class="k"><span>Yetkazgan</span><b>${money(c.deliveries)}</b></div>
           <div class="k"><span>Telefon</span><b>${esc(c.phone)||"—"}</b></div>
-          <div class="k"><span>Ish vaqti</span><b>${String(c.openH!=null?c.openH:8).padStart(2,"0")}:00–${String(c.closeH!=null?c.closeH:22).padStart(2,"0")}:00</b></div>
+          <div class="k"><span>Ish vaqti</span><b>${esc(cHours)}</b></div>
           <div class="k"><span>Holati</span><b style="color:${holatCol}">${holatTxt}</b></div>
         </div>
         ${(onLeave||lvStatus==='denied')&&leaveReason?`<p style="color:#b45309;font-size:13px;margin-top:8px">Javob sababi: <b>${esc(leaveReason)}</b></p>`:''}
@@ -798,9 +840,10 @@
         <div class="add-field"><label>Restoranlar (vergul bilan ajrating)</label><input id="edcRest" value="${esc(c.rest)||''}" placeholder="Restoran nomi"></div>
         <div class="add-field"><label>Bir yetkazish haqi (so'm)</label><input id="edcFee" type="number" value="${c.fee||0}"></div>
         <div style="display:flex;gap:10px">
-          <div class="add-field" style="flex:1"><label>Ish boshi (soat)</label><input id="edcOpenH" type="number" min="0" max="23" value="${c.openH!=null?c.openH:8}"></div>
-          <div class="add-field" style="flex:1"><label>Ish oxiri (soat)</label><input id="edcCloseH" type="number" min="1" max="24" value="${c.closeH!=null?c.closeH:22}"></div>
+          <div class="add-field" style="flex:1"><label>Ish boshi (soat)</label><input id="edcOpenH" type="number" min="0" max="23" value="${(beC&&beC.openH!=null)?beC.openH:(c.openH!=null?c.openH:8)}"></div>
+          <div class="add-field" style="flex:1"><label>Ish oxiri (soat)</label><input id="edcCloseH" type="number" min="0" max="24" value="${(beC&&beC.closeH!=null)?beC.closeH:(c.closeH!=null?c.closeH:22)}"></div>
         </div>
+        <p style="color:var(--grey);font-size:12px;margin:-2px 0 8px">Tungi smena mumkin (20 → 02), bir xil son = 24 soat. Vaqt Toshkent (UTC+5) bo'yicha.</p>
         <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
         <div class="add-field"><label>Email</label><input id="edcEmail" type="email" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
@@ -846,9 +889,11 @@
       const phone=($("#edcPhone").value||"").trim();
       const rest=($("#edcRest").value||"").trim();
       const fee=Math.max(0,parseInt(($("#edcFee").value||"").replace(/\D/g,""),10)||0);
-      const openH=Math.max(0,Math.min(23,parseInt(($("#edcOpenH")||{}).value,10)||0));
-      const closeH=Math.max(1,Math.min(24,parseInt(($("#edcCloseH")||{}).value,10)||24));
-      if(closeH<=openH){ toast("Ish oxiri ish boshidan katta bo'lsin"); return; }
+      /* Tungi smena (22 → 06) va 24 soat (8 → 8) ham qo'llab-quvvatlanadi —
+         hours.js dagi qoida bilan bir xil. `|| 0` ishlatilmaydi: 0 haqiqiy soat. */
+      const rawO=parseInt(($("#edcOpenH")||{}).value,10), rawC=parseInt(($("#edcCloseH")||{}).value,10);
+      const openH=Math.max(0,Math.min(23,Number.isFinite(rawO)?rawO:8));
+      const closeH=Math.max(0,Math.min(24,Number.isFinite(rawC)?rawC:22));
       const pass=($("#edcPass").value||"").trim();
       const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
       const emailV=val("edcEmail");
@@ -951,12 +996,10 @@
   /* =========================================================
      USER DRAWER
      ========================================================= */
+  /* created_at bazaga UTC yoziladi — Toshkent vaqtiga o'giramiz (hours.js).
+     Ilgari UTC satr shundayligicha ko'rsatilardi va vaqt 5 soat orqada edi. */
   function fmtDateTime(o){
-    var raw=(o&&o.created_at)||"";
-    var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    if(m) return m[3]+"."+m[2]+"."+m[1]+" · "+m[4]+":"+m[5];
-    if(raw) return raw.slice(0,10).split("-").reverse().join(".");
-    return (o&&o.time)||"—";
+    return YZ_TIME.fmtDateTime((o&&o.created_at)||"") || (o&&o.time) || "—";
   }
   function showTopRestModal(agg){
     if(!agg) return;
@@ -1085,6 +1128,9 @@
     renderDash(); renderLiveOrders(); renderRests(); renderCouriers(); renderUsers(); renderAdminReviews();
     emptyStates();
     renderPendingCountdowns();
+    /* Tepadagi "ochiq/yopiq" hisoblagichi restoranlar ro'yxati bilan birga
+       yangilansin (kirish paytida RESTS hali bo'sh bo'lishi mumkin). */
+    try{ updateOnlineStatus(); }catch(e){}
     loadLiveUsers();   // ro'yxatdan o'tganlarni backenddan yangilash
   }
 
@@ -1099,12 +1145,17 @@
   /* =========================================================
      ADMIN / ONLINE — mobil header modallari + ish vaqti
      ========================================================= */
-  const WORK_START=8, WORK_END=22; // ish vaqti 08:00–22:00
-  function isWorkTime(){ const h=new Date().getHours(); return h>=WORK_START && h<WORK_END; }
+  /* Platforma holati — QOTIRIB yozilgan 08:00–22:00 emas, balki HAR BIR
+     restoranning O'ZI belgilagan ish vaqtidan kelib chiqadi (Toshkent vaqti).
+     Kamida bitta restoran ochiq bo'lsa — platforma buyurtma qabul qiladi. */
+  function openRestsNow(){ return RESTS.filter(restOpenNow); }
+  function isWorkTime(){ return RESTS.length ? openRestsNow().length>0 : true; }
   function updateOnlineStatus(){
     const badge=document.querySelector(".tb-badge"); if(!badge) return;
-    if(isWorkTime()){ badge.textContent="🟢 Online"; badge.style.background="#16a34a"; badge.style.color="#fff"; }
-    else { badge.textContent="🔴 Offline"; badge.style.background="#9ca3af"; badge.style.color="#fff"; }
+    const n=openRestsNow().length, total=RESTS.length;
+    if(isWorkTime()){ badge.textContent=`🟢 Ochiq: ${n}/${total}`; badge.style.background="#16a34a"; badge.style.color="#fff"; }
+    else { badge.textContent="🔴 Hamma yopiq"; badge.style.background="#9ca3af"; badge.style.color="#fff"; }
+    badge.title="Restoranlarning hozirgi ish holati (Toshkent vaqti)";
   }
   function infoModal(title, html){
     let el=document.getElementById("infoModal"); if(el) el.remove();
@@ -1121,15 +1172,24 @@
     el.addEventListener("click",e=>{ if(e.target===el) close(); });
     document.getElementById("infoModalClose").addEventListener("click",close);
   }
+  /* Har bir restoranning ish vaqti va hozirgi holati — admin bir joydan ko'radi.
+     Bu AYNAN mijoz saytda ko'radigan holat (yagona manba: hours.js). */
   function openOnlineModal(){
-    const work=isWorkTime();
     const row=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">${k}</span><b>${v}</b></div>`;
-    infoModal("🟢 Holat va ish vaqti",
-      `<div style="display:flex;flex-direction:column;gap:10px;font-size:14px">`+
-      row("Hozirgi holat", `<span style="color:${work?'#16a34a':'#9ca3af'}">${work?'● Online':'● Offline'}</span>`)+
-      row("Ish vaqti", `${String(WORK_START).padStart(2,'0')}:00 – ${String(WORK_END).padStart(2,'0')}:00`)+
-      row("Hozir soat", new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}))+
-      `</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqti tugagach (soat ${String(WORK_END).padStart(2,'0')}:00) tizim avtomatik <b>Offline</b> holatiga o'tadi va ertalab ${String(WORK_START).padStart(2,'0')}:00 da yana <b>Online</b> bo'ladi.</p>`);
+    const n=openRestsNow().length;
+    const list=RESTS.length ? RESTS.map(r=>{
+      const open=restOpenNow(r);
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">
+        <span>${r.emoji||'🏪'} <b>${esc(r.name)}</b><br><small style="color:var(--grey)">🕒 ${esc(restHours(r))}</small></span>
+        <span class="yz-openbadge ${open?'is-open':'is-closed'}">${open?'🟢 Ochiq':'🔴 Yopiq'}</span>
+      </div>`;
+    }).join("") : `<p style="color:var(--grey)">Hali restoran qo'shilmagan.</p>`;
+    infoModal("🕒 Restoranlar ish vaqti",
+      `<div style="display:flex;flex-direction:column;gap:10px;font-size:14px;margin-bottom:12px">`+
+      row("Hozir ochiq", `<span style="color:${n?'#16a34a':'#9ca3af'}">${n} / ${RESTS.length}</span>`)+
+      row("Hozir soat (Toshkent)", YZ_TIME.nowClock())+
+      `</div>${list}`+
+      `<p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqtini restoran <b>o'zi</b> (Sozlamalar → Ish vaqti) yoki siz restoran kartasidan o'zgartirasiz. Yopiq restorandan mijoz buyurtma bera olmaydi.</p>`);
   }
   function openAdminModal(){
     const ses=(typeof STORE!=="undefined")?STORE.session():null;
@@ -1188,7 +1248,12 @@
     const userEl=document.querySelector(".tb-user");
     if(userEl){ userEl.style.cursor="pointer"; userEl.addEventListener("click",openAdminModal); }
     updateOnlineStatus();
-    setInterval(updateOnlineStatus, 60000);
+    /* Ish vaqti chegarasidan o'tganda ro'yxatdagi 🟢/🔴 nishonlar ham
+       yangilansin — admin sahifani qayta yuklamasin. */
+    setInterval(()=>{
+      updateOnlineStatus();
+      try{ if(document.querySelector('#view-rest.show') || document.querySelector('#view-courier.show')) renderAll(); }catch(e){}
+    }, 30000);
 
     $("#loginBtn").addEventListener("click",login);
     $("#alPass").addEventListener("keydown",e=>{ if(e.key==="Enter") login(); });

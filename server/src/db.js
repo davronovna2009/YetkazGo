@@ -146,6 +146,18 @@ export function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Yuklangan rasmlar BAZADA saqlanadi (diskda emas).
+    -- Sabab: Render bepul planida doimiy disk yo'q — konteyner har deploy'da
+    -- va uxlab-uyg'onganda tozalanadi, natijada uploads/ dagi barcha rasm
+    -- yo'qolardi (baza esa yo'lni eslab, sayt buzuq rasm ko'rsatardi).
+    -- Baza Turso'da doimiy saqlangani uchun rasm ham endi yo'qolmaydi.
+    CREATE TABLE IF NOT EXISTS images (
+      name       TEXT PRIMARY KEY,          -- masalan dish_1737..._412.jpg
+      mime       TEXT NOT NULL,
+      data       BLOB NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
     CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
     CREATE INDEX IF NOT EXISTS idx_orders_user    ON orders(user);

@@ -154,7 +154,6 @@
   }
 
   function openDishModal(d){
-    const qty = (cart.find(i=>i.id===d.id)||{}).qty||0;
     const price = d.discount ? fmt(d.eff) : fmt(d.price);
     const oldPrice = d.discount ? `<span style="text-decoration:line-through;color:#aaa;font-size:14px;margin-right:6px">${fmt(d.price)}</span>` : "";
     openModal(`
@@ -179,24 +178,26 @@
             <span style="font-size:22px;font-weight:800;color:var(--red)">${price}</span>
             <span style="font-size:13px;color:var(--grey)"> ${I18N.t("sum")}</span>
           </div>
-          <div class="dish-modal-foot">
-            ${qty===0
-              ? `<button class="btn btn-primary btn-block" id="dmAddBtn">${I18N.t("added_btn")}</button>`
-              : `<div class="dm-qty">
-                  <button class="qty-btn qty-minus" id="dmMinus">−</button>
-                  <span class="qty-num" id="dmNum">${qty}</span>
-                  <button class="qty-btn qty-plus" id="dmPlus">+</button>
-                </div>
-                <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">${I18N.t("view_cart_btn")}</button>`
-            }
-          </div>
+          <div class="dish-modal-foot"></div>
         </div>
       </div>`);
 
+    /* Modal pastki qismi — kartadagi bilan BIR XIL ustuvorlik:
+       1) tugagan  2) restoran yopiq  3) savatda bor  4) qo'shish */
     const refreshModal = ()=>{
       const q = (cart.find(i=>i.id===d.id)||{}).qty||0;
       const foot = document.querySelector(".dish-modal-foot");
       if(!foot) return;
+      const closed = !!(d.rest && !isRestOpen(d.rest));
+      if(q===0 && d.soldout){
+        foot.innerHTML=`<button class="btn btn-block" disabled style="background:#eee;color:#999;cursor:not-allowed">${I18N.t("soldout")}</button>`;
+        return;
+      }
+      if(q===0 && closed){
+        foot.innerHTML=`<button class="btn btn-block" id="dmClosedBtn" style="background:#f3e9ea;color:#9b7b80;cursor:not-allowed">⏱ ${esc(d.rest)} ${I18N.t("closed_now")} · ${esc(restHoursText(d.rest))}</button>`;
+        foot.querySelector("#dmClosedBtn").addEventListener("click",()=>toast(d.rest+" "+I18N.t("closed_now"),"error"));
+        return;
+      }
       if(q===0){
         foot.innerHTML=`<button class="btn btn-primary btn-block" id="dmAddBtn">${I18N.t("added_btn")}</button>`;
         foot.querySelector("#dmAddBtn").addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
@@ -204,23 +205,19 @@
         foot.innerHTML=`<div class="dm-qty">
             <button class="qty-btn qty-minus" id="dmMinus">−</button>
             <span class="qty-num" id="dmNum">${q}</span>
-            <button class="qty-btn qty-plus" id="dmPlus">+</button>
+            <button class="qty-btn qty-plus${closed?' qty-closed':''}" id="dmPlus">+</button>
           </div>
           <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">${I18N.t("view_cart_btn")}</button>`;
         foot.querySelector("#dmMinus").addEventListener("click",()=>{changeQty(d.id,-1);updateAllCards();refreshModal();});
-        foot.querySelector("#dmPlus").addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
+        foot.querySelector("#dmPlus").addEventListener("click",()=>{
+          /* Yopiqda ko'paytirib bo'lmaydi — kartadagi bilan bir xil qoida */
+          if(closed){ toast(d.rest+" "+I18N.t("closed_now"),"error"); return; }
+          addToCart(d);updateAllCards();refreshModal();
+        });
         foot.querySelector("#dmGoCart").addEventListener("click",()=>{closeModal();openCart();});
       }
     };
-
-    const addBtn = document.querySelector("#dmAddBtn");
-    if(addBtn) addBtn.addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
-    const minus = document.querySelector("#dmMinus");
-    if(minus){
-      minus.addEventListener("click",()=>{changeQty(d.id,-1);updateAllCards();refreshModal();});
-      document.querySelector("#dmPlus").addEventListener("click",()=>{addToCart(d);updateAllCards();refreshModal();});
-      document.querySelector("#dmGoCart").addEventListener("click",()=>{closeModal();openCart();});
-    }
+    refreshModal();
   }
 
   /* Reklama (announcement) shu taomга tegishlimi — nomi yoki rasmi bir xil bo'lsa.
@@ -373,7 +370,7 @@
     const disc=menu.filter(d=>d.discount>0);
     let anns=[]; try{ anns=getAllPromos().filter(p=>p && p.rest===r.name); }catch(e){}
     if(!disc.length && !anns.length) return "";
-    const realImg=s=>/^\/uploads\/|^data:|^https?:/.test(String(s||""));
+    const realImg=s=>/^\/(?:uploads|img)\/|^data:|^https?:/.test(String(s||""));
     const annHtml=anns.map(p=>{
       const photo=p.img||promoPhoto(p);
       /* Rasm yuklanmasa emoji ko'rsatamiz — ilgari bu `onerror` ichidagi JS
@@ -469,7 +466,7 @@
     try{
       const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===name):null;
       const p=(be&&be.photo)||"";
-      return /^\/uploads\/|^data:/.test(p) ? p : "";
+      return /^\/(?:uploads|img)\/|^data:/.test(p) ? p : "";
     }catch(e){ return ""; }
   }
   /* Restoran haqida backend qo'shimcha ma'lumoti */
@@ -482,13 +479,14 @@
       const be=restExtra(r.name);
       const dishCount=catalog().filter(d=>d.rest===r.name).length;
       const addr=be.addr||r.addr||"";
-      const hours=(be.open_h!=null&&be.close_h!=null)?(String(be.open_h).padStart(2,"0")+":00–"+String(be.close_h).padStart(2,"0")+":00"):"";
-      const openLbl=(typeof restOpenLabel==="function")?restOpenLabel(r.name):"";
-      const isOpen=/ochiq|open|очиқ/i.test(openLbl);
+      /* Ish vaqti — backend `openH`/`closeH` (camelCase) beradi; ilgari bu yerda
+         `open_h` o'qilardi va shu sabab soat KARTADA umuman ko'rinmasdi. */
+      const hours=restHoursText(r.name);
+      const isOpen=isRestOpen(r.name);
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
         <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:"";})()}
-          ${openLbl?`<span class="rest-openbadge ${isOpen?'is-open':'is-closed'}">${isOpen?'🟢 '+I18N.t("open_l"):'🔴 '+I18N.t("closed_l")}</span>`:""}</div>
+          <span class="rest-openbadge ${isOpen?'is-open':'is-closed'}" title="${esc(hours)}">${isOpen?'🟢 '+I18N.t("open_l"):'🔴 '+I18N.t("closed_l")}</span></div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
@@ -559,23 +557,14 @@
     }, { enableHighAccuracy:true, timeout:10000, maximumAge:60000 });
   }
 
-  /* Restoran hozir ochiqmi (ish vaqti) */
+  /* Restoran hozir ochiqmi (ish vaqti).
+     YAGONA manba — assets/js/hours.js (Asia/Tashkent). Server ham AYNAN shu
+     qoida bo'yicha buyurtmani rad etadi (server/src/pricing.js). */
   function isRestOpen(restName){
-    try{
-      const r = (typeof STORE!=="undefined" && STORE.restaurants) ? STORE.restaurants().find(x=>x.name===restName) : null;
-      if(!r || r.openH==null || r.closeH==null) return true;
-      const h = new Date().getHours();
-      return h>=r.openH && h<r.closeH;
-    }catch(e){ return true; }
+    try{ return YZ_TIME.isRestOpenByName(restName); }catch(e){ return true; }
   }
   function restHoursText(restName){
-    try{
-      const r=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===restName):null;
-      if(r && r.hours) return String(r.hours);
-      const oh=r&&r.openH!=null?r.openH:9, ch=r&&r.closeH!=null?r.closeH:23;
-      const pad=n=>String(n).padStart(2,"0");
-      return pad(oh)+":00–"+pad(ch)+":00";
-    }catch(e){ return "09:00–23:00"; }
+    try{ return YZ_TIME.restHoursByName(restName); }catch(e){ return "09:00–23:00"; }
   }
   function restOpenLabel(restName){
     try{
@@ -1364,6 +1353,14 @@
   function checkout(){
     if(!cart.length){ toast(I18N.t("empty_cart"),"error"); return; }
     if(cartTotal()<MIN_ORDER){ toast(I18N.t("t_min"),"error"); return; }
+    /* Savatga solingandan keyin restoran yopilgan bo'lishi mumkin — shu yerda
+       yana bir bor tekshiramiz (serverda ham tekshiriladi, bu faqat tushunarli
+       xabar uchun). */
+    const rest = cart[0] && cart[0].rest;
+    if(rest && !isRestOpen(rest)){
+      toast(rest+" "+I18N.t("closed_now")+" · "+restHoursText(rest),"error");
+      return;
+    }
     closeCart();
     if(!user.name) openAuth(()=>openOrder()); else openOrder();
   }
@@ -1414,7 +1411,7 @@
      Hech biri bo'lmasa "" qaytadi -> emoji ko'rsatiladi. */
   function promoPhoto(p){
     try{
-      const hasImg = s => /^\/uploads\/|^data:|^https?:/.test(String(s||""));
+      const hasImg = s => /^\/(?:uploads|img)\/|^data:|^https?:/.test(String(s||""));
       const cat = catalog();
       if(p.dish){
         const d = cat.find(x=>x.rest===p.rest && x.name===p.dish && hasImg(x.photo));
@@ -1780,6 +1777,23 @@
 
     window.addEventListener("hashchange",handleHash);
     handleHash();
+    startOpenWatch();
+  }
+
+  /* Ish vaqti chegarasidan o'tganda sahifani O'ZI yangilaydi: soat 23:00 bo'lishi
+     bilan "Ochiq" → "Yopiq" bo'ladi va "+" tugmalari ⏱ ga aylanadi. Sahifani
+     qayta yuklash shart emas. Har daqiqada faqat HOLAT o'zgarsa qayta chizamiz. */
+  function openStateKey(){
+    try{ return restList().map(r=> r.name+":"+(isRestOpen(r.name)?1:0)).join("|"); }catch(e){ return ""; }
+  }
+  function startOpenWatch(){
+    let last = openStateKey();
+    setInterval(()=>{
+      const now = openStateKey();
+      if(now === last) return;
+      last = now;
+      try{ renderDishes(); renderRests(); updateAllCards(); }catch(e){}
+    }, 30000);
   }
   document.addEventListener("DOMContentLoaded",init);
 })();

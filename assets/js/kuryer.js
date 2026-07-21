@@ -54,8 +54,14 @@
 
   /* Daromad davri: kunlik/haftalik/oylik/yillik */
   let kIncomePeriod="oylik";
-  function kOrderTime(o){ var raw=String((o&&o.created_at)||""); var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):?(\d{2})?/); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)):0; }
-  function kInPeriod(o,p){ var t=kOrderTime(o); if(!t) return p==="oylik"; var d=(Date.now()-t)/86400000; if(p==="kunlik")return d<1; if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31; }
+  function kOrderTime(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
+  function kInPeriod(o,p){
+    var t=kOrderTime(o); if(!t) return p==="oylik";
+    /* "Kunlik" = bugun (Toshkent kalendar kuni), oxirgi 24 soat emas */
+    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
+    var d=(Date.now()-t)/86400000;
+    if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31;
+  }
   function renderDash(){
     const c=CUR;
     /* Real: faqat yetkazilgan (done) buyurtmalar hisoblanadi, 0 dan boshlanadi */
@@ -126,13 +132,10 @@
     loadOrders(); renderOrders(); renderDash(); renderIncome();
   }
 
-  /* Buyurtma to'liq ma'lumot modali (mobil + desktop) */
+  /* Buyurtma to'liq ma'lumot modali (mobil + desktop).
+     created_at bazaga UTC yoziladi — Toshkent vaqtiga o'giramiz (hours.js). */
   function fmtDateTime(o){
-    var raw=(o&&o.created_at)||"";
-    var m=raw.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
-    if(m) return m[3]+"."+m[2]+"."+m[1]+" · "+m[4]+":"+m[5];
-    if(raw) return raw.slice(0,10).split("-").reverse().join(".");
-    return (o&&o.time)||"—";
+    return YZ_TIME.fmtDateTime((o&&o.created_at)||"") || (o&&o.time) || "—";
   }
   function openOrderModal(o){
     if(!o) return;
@@ -229,8 +232,11 @@
     return kState;
   }
 
-  /* Kuryer hozir O'Z ish vaqti ichidami */
-  function courierWorkingNow(){ const h=new Date().getHours(); const o=kState.openH!=null?kState.openH:8, c=kState.closeH!=null?kState.closeH:22; return h>=o && h<c; }
+  /* Kuryer hozir O'Z ish vaqti ichidami — Toshkent vaqti bo'yicha (hours.js).
+     Server buyurtma biriktirishda AYNAN shu qoidani qo'llaydi
+     (server/src/orders-core.js: assignCourier). */
+  function courierWorkingNow(){ try{ return YZ_TIME.courOpen(kState); }catch(e){ return true; } }
+  function courierHoursText(){ try{ return YZ_TIME.courHours(kState); }catch(e){ return "08:00–22:00"; } }
   function updateStatusBadge(){
     const b=document.querySelector(".tb-badge"); if(!b) return;
     if(kState.onLeave){ b.textContent="🚪 Ishdan javobda"; b.style.background="#d97706"; b.style.color="#fff"; return; }
@@ -241,8 +247,7 @@
   async function fillCourierSettings(){
     await loadCourierState();
     const hv=$("#kHoursView"), lg=$("#kSetLogin");
-    const pad=n=>String(n).padStart(2,"0");
-    if(hv) hv.textContent=pad(kState.openH)+":00 – "+pad(kState.closeH)+":00";
+    if(hv) hv.textContent=courierHoursText();
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
     renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
@@ -273,12 +278,12 @@
       el.innerHTML='<div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
         '<span style="font-size:30px">🌙</span>'+
         '<div style="flex:1;min-width:180px"><b style="color:#9ca3af">Hozir ishda emassiz</b>'+
-        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Ish vaqtingiz tashqarisidasiz — buyurtmalar sizga tushmaydi. Admin belgilagan ish vaqti: <b>'+String(kState.openH).padStart(2,"0")+':00–'+String(kState.closeH).padStart(2,"0")+':00</b>.</div></div></div>';
+        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Ish vaqtingiz tashqarisidasiz — buyurtmalar sizga tushmaydi. Admin belgilagan ish vaqti: <b>'+esc(courierHoursText())+'</b> (Toshkent vaqti).</div></div></div>';
     } else {
       el.innerHTML='<div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
         '<span style="font-size:30px">🟢</span>'+
         '<div style="flex:1;min-width:180px"><b style="color:#16a34a">Siz ishdasiz</b>'+
-        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Buyurtmalar sizga tushmoqda. Ish vaqti: <b>'+String(kState.openH).padStart(2,"0")+':00–'+String(kState.closeH).padStart(2,"0")+':00</b></div></div></div>';
+        '<div style="color:var(--grey);font-size:13px;margin-top:2px">Buyurtmalar sizga tushmoqda. Ish vaqti: <b>'+esc(courierHoursText())+'</b> (Toshkent vaqti)</div></div></div>';
     }
   }
 
@@ -406,13 +411,11 @@
 
   /* ===== Online holati (tepadagi belgi bosilsa modal) ===== */
   /* Ish vaqti kuryerning O'ZINIKI (kState) — sozlamalarda o'zgartiriladi */
-  function kOpenH(){ return (typeof kState!=="undefined"&&kState&&kState.openH!=null)?kState.openH:8; }
-  function kCloseH(){ return (typeof kState!=="undefined"&&kState&&kState.closeH!=null)?kState.closeH:22; }
-  function yzIsWork(){ var h=new Date().getHours(); return h>=kOpenH() && h<kCloseH(); }
-  function yzUpdateOnline(){ updateStatusBadge(); }
+  function yzIsWork(){ return courierWorkingNow(); }
+  /* Ish vaqti chegarasidan o'tganda panel O'ZI yangilanadi (qayta yuklash shart emas) */
+  function yzUpdateOnline(){ updateStatusBadge(); try{ renderStatusPanel(); }catch(e){} }
   function yzOnlineModal(){
     var onLeave=(typeof kState!=="undefined"&&kState&&kState.onLeave), work=!onLeave&&yzIsWork();
-    var pad=function(n){return String(n).padStart(2,"0");};
     var statusTxt=onLeave?"🚪 Ishdan javobda":(work?"● Online":"● Ishda emassiz");
     var statusColor=onLeave?"#d97706":(work?"#16a34a":"#9ca3af");
     var el=document.getElementById("yzOnlineModal"); if(el) el.remove();
@@ -424,13 +427,13 @@
       '<h3 style="margin:0 0 14px">🟢 Holat va ish vaqti</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px;font-size:14px">'+
       row("Hozirgi holat",'<span style="color:'+statusColor+'">'+statusTxt+'</span>')+
-      row("Ish vaqti",pad(kOpenH())+":00 – "+pad(kCloseH())+":00")+
-      row("Hozir soat",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}))+
-      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqtingizdan tashqarida (soat '+pad(kCloseH())+':00 dan keyin) siz <b>ishda emassiz</b> — buyurtmalar boshqa kuryerga tushadi. Ish vaqtini <b>admin</b> belgilaydi.</p></div>';
+      row("Ish vaqti",esc(courierHoursText()))+
+      row("Hozir soat (Toshkent)",YZ_TIME.nowClock())+
+      '</div><p style="color:var(--grey);font-size:13px;margin-top:14px">Ish vaqtingizdan tashqarida siz <b>ishda emassiz</b> — yangi buyurtmalar boshqa kuryerga tushadi. Ish vaqtini <b>admin</b> belgilaydi. Vaqt <b>Toshkent (UTC+5)</b> bo\'yicha.</p></div>';
     document.body.appendChild(el);
     el.querySelector("#yzOnClose").addEventListener("click",function(){ el.remove(); });
     el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
   }
-  document.addEventListener("DOMContentLoaded",function(){ var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); } yzUpdateOnline(); setInterval(yzUpdateOnline,60000); });
+  document.addEventListener("DOMContentLoaded",function(){ var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); } yzUpdateOnline(); setInterval(yzUpdateOnline,30000); });
 
 })();

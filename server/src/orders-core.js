@@ -5,6 +5,7 @@
 import { randomBytes } from 'node:crypto';
 import { db } from './db.js';
 import { priceOrder, PriceError } from './pricing.js';
+import { courierIsOpen } from './hours.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
@@ -40,22 +41,38 @@ export function rowToOrder(r) {
   };
 }
 
-/* Restoranga eng mos (eng kam yuklangan) faol kuryerni tanlash */
+/* Restoranga eng mos (eng kam yuklangan) faol kuryerni tanlash.
+
+   ISH VAQTI: kuryer paneli "ish vaqtingizdan tashqarida buyurtmalar sizga
+   tushmaydi" deb yozadi — shuning uchun avval AYNAN hozir ish vaqtida bo'lgan
+   kuryerlar orasidan tanlaymiz (hours.js, Asia/Tashkent). Bunday kuryer
+   topilmasa — buyurtma egasiz qolmasligi uchun oddiy tartibga qaytamiz. */
 export function assignCourier(rest) {
-  const pick = (sql, ...p) => { try { return db.prepare(sql).get(...p); } catch (e) { return null; } };
+  const all = (sql, ...p) => { try { return db.prepare(sql).all(...p); } catch (e) { return []; } };
   /* Faol (hali yetkazilmagan) buyurtmalar — buyurtma tasdiqsiz to'g'ridan kuryerga
      borgani uchun 'new'/'accepted' ham yukni hisoblashda inobatga olinadi. */
   const ACTIVE = "('new','accepted','ready','ontheway')";
-  let c = pick(
-    `SELECT c.name FROM couriers c WHERE c.rest = ? AND c.active = 1 AND c.on_leave = 0
-     ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`,
+  const LOAD = `(SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE})`;
+
+  /* Avval shu restoranning kuryerlari, keyin qolgan hammasi — ikkalasi ham
+     yuk bo'yicha saralangan. Ish vaqti tekshiruvi JS tomonda (mintaqa uchun). */
+  const mine = all(
+    `SELECT c.name, c.open_h, c.close_h FROM couriers c
+      WHERE c.rest = ? AND c.active = 1 AND c.on_leave = 0 ORDER BY ${LOAD} ASC, RANDOM()`,
     String(rest || '')
   );
-  if (!c) c = pick(
-    `SELECT c.name FROM couriers c WHERE c.active = 1 AND c.on_leave = 0
-     ORDER BY (SELECT COUNT(*) FROM orders o WHERE o.courier = c.name AND o.status IN ${ACTIVE}) ASC, RANDOM() LIMIT 1`
+  const others = all(
+    `SELECT c.name, c.open_h, c.close_h FROM couriers c
+      WHERE c.active = 1 AND c.on_leave = 0 ORDER BY ${LOAD} ASC, RANDOM()`
   );
-  return c ? c.name : '';
+
+  for (const list of [mine, others]) {
+    const onShift = list.find(courierIsOpen);
+    if (onShift) return onShift.name;
+  }
+  /* Hech kim ish vaqtida emas — baribir kimgadir biriktiramiz (buyurtma yo'qolmasin) */
+  const any = mine[0] || others[0];
+  return any ? any.name : '';
 }
 
 /* Chaqiruvchiga tushunarli xato — HTTP status bilan birga */

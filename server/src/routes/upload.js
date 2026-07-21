@@ -1,27 +1,67 @@
-/* ===== /api/upload — rasm yuklash (base64 -> diskka) ===== */
-import { Router } from 'express';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { requireRole } from '../auth.js';
-import { UPLOAD_DIR } from '../config.js';
+/* ===== Rasm yuklash va berish — rasm BAZADA saqlanadi =====
 
-mkdirSync(UPLOAD_DIR, { recursive: true });
+   NEGA diskda emas: Render bepul planida doimiy disk yo'q. Konteyner har
+   deploy'da va uxlab-uyg'onganda tozalanadi, shuning uchun `server/uploads/`
+   ichidagi barcha rasm yo'qolardi. Baza (Turso) esa bulutda doimiy saqlanadi —
+   demak rasm ham endi yo'qolmaydi.
+
+   NEGA bazadagi ustunga to'g'ridan-to'g'ri `data:` URL sifatida emas: u holda
+   har bir rasm /api/bootstrap javobiga qo'shilib, bosh sahifa bir necha
+   megabaytga shishardi. Hozir bazada faqat QISQA yo'l (`/img/xxx.jpg`) turadi,
+   rasmning o'zi esa alohida, brauzer keshlaydigan so'rov bilan olinadi.
+
+   Eski `/uploads/...` yo'llari ham ishlayveradi (app.js dagi statik xizmat) —
+   fayllari saqlanib qolgan lokal muhitda eskisi buzilmasin. */
+import { Router } from 'express';
+import { db } from '../db.js';
+import { requireRole } from '../auth.js';
 
 const router = Router();
 
-/* POST /api/upload  body: { dataUrl: "data:image/png;base64,..." } */
+const MAX_BYTES = 6 * 1024 * 1024;   // 6MB — frontend rasmni 800–900px ga siqadi
+const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+
+/* POST /api/upload  body: { dataUrl: "data:image/png;base64,..." } -> { url } */
 router.post('/', requireRole('restoran', 'admin'), (req, res) => {
   const dataUrl = String(req.body?.dataUrl || '');
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/);
   if (!m) return res.status(400).json({ error: 'Rasm formati noto`g`ri' });
 
   const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
-  const buf = Buffer.from(m[2], 'base64');
-  if (buf.length > 6 * 1024 * 1024) return res.status(413).json({ error: 'Rasm juda katta (max 6MB)' });
+  let buf;
+  try { buf = Buffer.from(m[2], 'base64'); }
+  catch (e) { return res.status(400).json({ error: 'Rasmni o`qib bo`lmadi' }); }
+  if (!buf.length) return res.status(400).json({ error: 'Rasm bo`sh' });
+  if (buf.length > MAX_BYTES) return res.status(413).json({ error: 'Rasm juda katta (max 6MB)' });
 
   const name = `dish_${Date.now()}_${Math.floor(Math.random() * 1e6)}.${ext}`;
-  writeFileSync(resolve(UPLOAD_DIR, name), buf);
-  res.status(201).json({ url: '/uploads/' + name });
+  try {
+    db.prepare('INSERT INTO images (name, mime, data) VALUES (?,?,?)').run(name, MIME[ext], buf);
+  } catch (e) {
+    console.error('Rasmni bazaga yozib bo`lmadi:', e);
+    return res.status(500).json({ error: 'Rasmni saqlab bo`lmadi' });
+  }
+  res.status(201).json({ url: '/img/' + name });
+});
+
+/* GET /img/:name — rasmni bazadan beradi (ochiq, autentifikatsiyasiz).
+   Nom tasodifiy va o'zgarmas, shuning uchun uzoq muddat keshlanadi. */
+export const imageRouter = Router();
+imageRouter.get('/img/:name', (req, res) => {
+  const name = String(req.params.name || '');
+  /* Faqat biz yaratgan nom shakli — boshqa hech narsa bazaga so'rov qilmasin */
+  if (!/^[A-Za-z0-9_.-]{1,120}$/.test(name)) return res.sendStatus(404);
+
+  let row;
+  try { row = db.prepare('SELECT mime, data FROM images WHERE name = ?').get(name); }
+  catch (e) { return res.sendStatus(500); }
+  if (!row) return res.sendStatus(404);
+
+  const buf = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data);
+  res.setHeader('Content-Type', row.mime || 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.setHeader('Content-Length', buf.length);
+  res.end(buf);
 });
 
 export default router;
