@@ -279,6 +279,12 @@ const STORE = (function () {
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
+    /* Admin foydalanuvchi ma'lumotini tahrirlaydi (restoran/kuryerdagi kabi) */
+    editUser(data) {
+      return api("/users", { method: "PATCH", body: data, auth: true })
+        .then(r => { refreshAll(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
 
     /* Mijoz "qabul qildim" — arrived -> done.
        MUHIM: `auth: true` — tizimga kirgan mijoz O'Z buyurtmasini track-token'siz

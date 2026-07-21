@@ -237,15 +237,13 @@
   <button class="to-top" id="toTop" aria-label="Yuqoriga">↑</button>
   <div class="toast" id="toast" role="alert"></div>
 
-  <!-- MOBIL BOTTOM BAR: Logo | Kirish | [SAVAT] | Lang | Burger -->
+  <!-- MOBIL BOTTOM BAR: Kirish | [SAVAT] | Til
+       Logo va burger pastda EMAS — ular yuqoridagi headerda (mobil ko'rinishda
+       header logo + burgerdan iborat). Shu sabab pastda roppa-rosa 3 ta element
+       qoladi va savat aniq o'rtada turadi. -->
   <nav class="mobile-bottom-bar" id="mobileBottomBar">
 
-    <!-- Chap: Logo -->
-    <a href="#top" class="mbb-item mbb-logo" aria-label="Bosh sahifa">
-      <img src="assets/logo.png" alt="Yetkaz" class="mbb-logo-img" />
-    </a>
-
-    <!-- Kirish -->
+    <!-- Chap: Kirish -->
     <button class="mbb-item mbb-login" id="mbbLogin" aria-label="Kirish">
       <span class="mbb-icon">👤</span>
       <span class="mbb-label">Kirish</span>
@@ -261,16 +259,10 @@
       <span class="mbb-cart-pulse" id="mbbCartPulse"></span>
     </button>
 
-    <!-- Til -->
+    <!-- O'ng: Til -->
     <button class="mbb-item mbb-lang-item" id="mbbLangItem" aria-label="Til">
       <span class="mbb-lang-pill" id="mbbLangBtn"><span id="mbbLangLabel">Кир</span></span>
       <span class="mbb-label">Til</span>
-    </button>
-
-    <!-- O'ng: Burger -->
-    <button class="mbb-item mbb-burger" id="mbbBurger" aria-label="Menyu">
-      <span class="mbb-icon" id="mbbBurgerIcon">☰</span>
-      <span class="mbb-label">Menyu</span>
     </button>
 
   </nav>
@@ -297,8 +289,9 @@
   /* ===== MOBIL BOTTOM BAR ===== */
   document.addEventListener('DOMContentLoaded', function(){
     var mobileNav  = document.getElementById('mobileMainNav');
-    var mbbBurger  = document.getElementById('mbbBurger');
-    var mbbBurgerIcon = document.getElementById('mbbBurgerIcon');
+    /* Burger endi PASTKI barda emas, yuqoridagi headerda (#navBurger) */
+    var mbbBurger  = document.getElementById('navBurger');
+    var mbbBurgerIcon = null;
     var mbbCart    = document.getElementById('mbbCart');
     var mbbLogin   = document.getElementById('mbbLogin');
     var mbbLangBtn = document.getElementById('mbbLangBtn');
@@ -310,16 +303,12 @@
     var navOpen = false;
     function openMobNav(){
       if(mobileNav) mobileNav.classList.add('open');
-      if(mbbBurgerIcon) mbbBurgerIcon.textContent = '✕';
-      var lbl = mbbBurger && mbbBurger.querySelector('.mbb-label');
-      if(lbl) lbl.textContent = 'Yopish';
+      if(mbbBurger){ mbbBurger.textContent = '✕'; mbbBurger.setAttribute('aria-expanded','true'); }
       navOpen = true;
     }
     function closeMobNav(){
       if(mobileNav) mobileNav.classList.remove('open');
-      if(mbbBurgerIcon) mbbBurgerIcon.textContent = '☰';
-      var lbl = mbbBurger && mbbBurger.querySelector('.mbb-label');
-      if(lbl) lbl.textContent = 'Menyu';
+      if(mbbBurger){ mbbBurger.textContent = '☰'; mbbBurger.setAttribute('aria-expanded','false'); }
       navOpen = false;
     }
 
@@ -337,9 +326,9 @@
     document.addEventListener('click', function(e){
       if(!navOpen) return;
       var bar = document.getElementById('mobileBottomBar');
-      if(mobileNav && !mobileNav.contains(e.target) && bar && !bar.contains(e.target)){
-        closeMobNav();
-      }
+      var hdr = document.getElementById('header');
+      var ichida = (el) => el && el.contains(e.target);
+      if(!ichida(mobileNav) && !ichida(bar) && !ichida(hdr)) closeMobNav();
     });
 
     /* ---- Savat ---- */
@@ -405,21 +394,11 @@
         .observe(cartCountEl, {childList:true, characterData:true, subtree:true});
     }
 
-    /* ---- Desktop burger ---- */
-    var desktopBurger = document.getElementById('navBurger');
-    var desktopNav    = document.getElementById('mainNav');
-    desktopBurger && desktopBurger.addEventListener('click', function(){
-      if(desktopNav){
-        var open = desktopNav.classList.toggle('open');
-        desktopBurger.textContent = open ? '✕' : '☰';
-      }
-    });
-    desktopNav && desktopNav.querySelectorAll('a').forEach(function(a){
-      a.addEventListener('click', function(){
-        desktopNav.classList.remove('open');
-        if(desktopBurger) desktopBurger.textContent = '☰';
-      });
-    });
+    /* Eslatma: burger uchun ALOHIDA "desktop" ishlovi YO'Q.
+       .nav-burger faqat ≤768px da ko'rinadi, o'sha yerda esa #mainNav butunlay
+       yashirilgan va menyu #mobileMainNav orqali ochiladi (yuqoridagi
+       openMobNav/closeMobNav). Ilgari shu tugmaga uchta ishlov osilgan edi va
+       ular bir-birini bekor qilib, burger belgisi noto'g'ri qolardi. */
 
     /* ---- Resize ---- */
     window.addEventListener('resize', function(){

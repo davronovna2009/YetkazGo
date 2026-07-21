@@ -482,8 +482,27 @@
     if(typeof STORE==="undefined" || !STORE.fetchUsers) return;
     STORE.fetchUsers().then(list=>{
       if(!Array.isArray(list)) return;
-      LIVE_USERS=list.map(u=>({ id:100000+(u.id||0), name:u.name, emoji:"👤", phone:u.phone||"",
-        orders:0, spent:0, fav:"—", reviews:0, last:u.joined||"—", joined:u.joined||"—", reg:true }));
+      /* Statistikani BUYURTMALARDAN hisoblaymiz. Ilgari 0 qotirib qo'yilgan edi:
+         jadvalda "0 buyurtma" ko'rinib turardi-yu, ichiga kirsangiz haqiqiy
+         tarix chiqardi — ikkisi bir-biriga mos kelmasdi. */
+      const all=(typeof STORE!=="undefined")?(STORE.orders()||[]):[];
+      const revs=(typeof STORE!=="undefined"&&STORE.reviews)?(STORE.reviews()||[]):[];
+      LIVE_USERS=list.map(u=>{
+        const mine=all.filter(o=>o.user===u.name);
+        const done=mine.filter(o=>o.status==="done");
+        const spent=done.reduce((s,o)=>s+(o.amount||0)+(o.delivery||0),0);
+        /* Sevimli restoran — eng ko'p buyurtma bergani */
+        const cnt={}; mine.forEach(o=>{ if(o.rest) cnt[o.rest]=(cnt[o.rest]||0)+1; });
+        const fav=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+        const last=mine[0] ? (YZ_TIME.fmtDate(mine[0].created_at)||u.joined||"—") : (u.joined||"—");
+        return { id:100000+(u.id||0), backendId:u.id, login:u.login||"", name:u.name, emoji:"👤",
+          phone:u.phone||"", email:u.email||"",
+          orders:mine.length, done:done.length,
+          cancelled:mine.filter(o=>o.status==="cancelled").length,
+          spent:spent, fav:fav?fav[0]:"—",
+          reviews:revs.filter(r=>r.name===u.name).length,
+          last:last, joined:u.joined||"—", reg:true };
+      });
       renderUsers();
     }).catch(()=>{});
   }
@@ -513,6 +532,10 @@
             <div class="mcard-stat"><span>Oxirgi</span><b>${esc(u.last)}</b></div>
           </div>
         </div>`).join("");
+      /* Mobil kartalar ham bosiladigan bo'lsin — restoran/kuryerda shunday edi,
+         foydalanuvchilarda esa faqat DESKTOP jadvali ulangan edi va telefonda
+         karta bosilganda hech narsa ochilmasdi. */
+      mc.querySelectorAll(".mcard").forEach(c=>c.addEventListener("click",()=>openUser(+c.dataset.id)));
     }
     const demand={};
     USERS.forEach(u=>demand[u.fav]=(demand[u.fav]||0)+u.orders);
@@ -1040,17 +1063,76 @@
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
         '</div></div>';
     }).join(""):'<p style="color:var(--grey)">Hali buyurtma bermagan.</p>';
+    /* Restoran oynasi (openRest) bilan BIR XIL tuzilma: umumiy ko'rsatkichlar →
+       moliya → kirish ma'lumotlari → qo'shimcha → tahrirlash → tarix. */
+    const done=orders.filter(o=>o.status==="done");
+    const cancelled=orders.filter(o=>o.status==="cancelled");
+    const active=orders.filter(o=>!["done","cancelled"].includes(o.status));
+    const ortacha=done.length?Math.round(spent/done.length):0;
+    const cnt={}; orders.forEach(o=>{ if(o.rest) cnt[o.rest]=(cnt[o.rest]||0)+1; });
+    const fav=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+    const myRevs=((typeof STORE!=="undefined"&&STORE.reviews)?STORE.reviews():[]).filter(r=>r.name===u.name);
+    const oxirgi=orders[0]?fmtDateTime(orders[0]):"—";
+
     drawer(`
-      <div class="dd-sec"><h4>Umumiy</h4>
+      <div class="dd-sec"><h4>Faollik</h4>
         <div class="kv">
-          <div class="k"><span>Buyurtmalar</span><b>${orders.length}</b></div>
-          <div class="k"><span>Sarflagan</span><b>${money(spent)} so'm</b></div>
-          <div class="k"><span>Telefon</span><b>${esc(u.phone)||"—"}</b></div>
-          <div class="k"><span>Qo'shilgan</span><b>${u.joined||"—"}</b></div>
+          <div class="k"><span>Jami buyurtma</span><b>${orders.length}</b></div>
+          <div class="k"><span>Yetkazilgan</span><b style="color:var(--green)">${done.length}</b></div>
+          <div class="k"><span>Faol</span><b>${active.length}</b></div>
+          <div class="k"><span>Bekor qilingan</span><b style="color:#C8102E">${cancelled.length}</b></div>
         </div></div>
+      <div class="dd-sec"><h4>Moliya</h4>
+        <div class="fin-row"><span>Jami sarflagan</span><b>${money(spent)} so'm</b></div>
+        <div class="fin-row"><span>O'rtacha chek</span><b>${money(ortacha)} so'm</b></div>
+        <div class="fin-row tot"><span>Sevimli restoran</span><b>${esc(fav?fav[0]:"—")}</b></div>
+      </div>
+      <div class="dd-sec"><h4>Kirish ma'lumotlari</h4>
+        <div class="kv">
+          <div class="k"><span>Login</span><b class="mono">${esc(u.login||"—")}</b></div>
+          <div class="k"><span>Parol</span><b class="mono">••••••</b></div>
+        </div></div>
+      <div class="dd-sec"><h4>Qo'shimcha ma'lumot</h4>
+        <div class="kv">
+          <div class="k"><span>Telefon</span><b>${esc(u.phone)||"—"}</b></div>
+          <div class="k"><span>Email</span><b>${esc(u.email)||"—"}</b></div>
+          <div class="k"><span>Qo'shilgan</span><b>${esc(u.joined)||"—"}</b></div>
+          <div class="k"><span>Oxirgi buyurtma</span><b>${esc(oxirgi)}</b></div>
+          <div class="k"><span>Izohlari</span><b>${myRevs.length}</b></div>
+        </div>
+      </div>
+      ${u.backendId?`
+      <div class="dd-sec"><h4>✏️ Tahrirlash</h4>
+        <div class="add-field"><label>Ism</label><input id="eduName" value="${esc(u.name)}"></div>
+        <div class="add-field"><label>Telefon</label><input id="eduPhone" type="tel" value="${esc(u.phone)}"></div>
+        <div class="add-field"><label>Email</label><input id="eduEmail" type="email" value="${esc(u.email)}" placeholder="email@example.com"></div>
+        <div class="add-field"><label>Login</label><input id="eduLogin" value="${esc(u.login)}"></div>
+        <div class="add-field"><label>Yangi parol (bo'sh = o'zgarmaydi)</label><input id="eduPass" placeholder="••••••" autocomplete="new-password"></div>
+        <button class="dd-action-btn" id="eduSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
+      </div>`:`
+      <div class="dd-sec"><p style="color:var(--grey);font-size:13px">Bu yozuv namuna ma'lumot — tahrirlab bo'lmaydi.</p></div>`}
       <div class="dd-sec"><h4>Buyurtmalar tarixi (${orders.length})</h4>
         ${hist}
       </div>`);
+
+    const sv=$("#eduSave");
+    if(sv) sv.addEventListener("click",async()=>{
+      const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+      const name=val("eduName"), login=val("eduLogin"), email=val("eduEmail"), pass=val("eduPass");
+      if(name.length<2){ toast("Ismni to'ldiring"); return; }
+      if(login.length<3){ toast("Login kamida 3 belgi bo'lsin"); return; }
+      if(email && window.YZ_EMAIL && !YZ_EMAIL.valid(email)){ toast("Email noto'g'ri formatda"); return; }
+      if(pass && pass.length<6){ toast("Parol kamida 6 belgi bo'lsin"); return; }
+      sv.disabled=true;
+      const body={ id:u.backendId, name:name, phone:val("eduPhone"), email:email, login:login };
+      if(pass) body.pass=pass;
+      const r=(typeof STORE!=="undefined"&&STORE.editUser)? await STORE.editUser(body) : null;
+      sv.disabled=false;
+      if(r && !r.error){
+        closeDrawer(); loadLiveUsers();
+        toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+      } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+    });
   }
 
   /* =========================================================

@@ -134,20 +134,16 @@
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
     const paid=live.filter(o=>o.status==="done");            // mijoz qabul qilgan = to'lov yozilgan
     const pct=restPct(r);
-    const periodPaid=paid.filter(o=>inIncomePeriod(o, incomePeriod));
-    const periodNet=Math.round(periodPaid.reduce((s,o)=>s+(o.amount||0),0)*(100-pct)/100);
     const orders=live.filter(o=>o.status!=="cancelled").length;
-    const allGross=paid.reduce((s,o)=>s+(o.amount||0),0);
-    const avg=paid.length?Math.round(allGross/paid.length):0;
-    const pLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[incomePeriod];
-    const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-right:4px;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
+    /* Dashboard PUL ko'rsatmaydi — daromad faqat "Daromad hisoboti" bo'limida.
+       Bu yerda restoranga kundalik ish uchun kerakli sonlar turadi. */
+    const bugun=live.filter(o=>o.status!=="cancelled" && YZ_TIME.isToday(o.created_at)).length;
+    const faol=live.filter(o=>!["done","cancelled"].includes(o.status)).length;
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><b>${mln(periodNet)}</b><span>Daromad (${pLabel})</span>
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div></div>
+      <div class="scard c1"><div class="si">🔔</div><b>${money(bugun)}</b><span>Bugungi buyurtmalar</span></div>
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
-      <div class="scard c3"><div class="si">🧮</div><b>${money(avg)}</b><span>O'rtacha chek (so'm)</span></div>
+      <div class="scard c3"><div class="si">🛵</div><b>${money(faol)}</b><span>Hozir jarayonda</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
-    $$("#statCards .inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; renderDash(); }); });
     /* REAL oylik daromad — buyurtmalarni created_at oyiga guruhlab (so'nggi 6 oy) */
     const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
     const now=new Date();
@@ -472,11 +468,15 @@
     const pct=restPct(r), keep=100-pct;
     /* REAL: pul faqat mijoz tasdiqlagan (done) buyurtmalardan yoziladi */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
-    const doneOrders=live.filter(o=>o.status==="done");
+    /* Davr tanlovi dashboarddan SHU YERGA ko'chdi — daromad endi faqat shu
+       bo'limda ko'rinadi. Ilgari sarlavhada "(oy)" yozilar, hisob esa BUTUN
+       davr bo'yicha ketardi — ya'ni yorliq bilan raqam mos kelmasdi. */
+    const doneOrders=live.filter(o=>o.status==="done" && inIncomePeriod(o, incomePeriod));
     const gross=doneOrders.reduce((s,o)=>s+(o.amount||0),0);
     const commission=Math.round(gross*pct/100);
     const net=gross-commission;
-    const weekly=Math.round(net/4.3);
+    const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[incomePeriod];
+    const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
     /* Har bir taom bo'yicha REAL: buyurtma nomi (item) taom nomiga mos kelsa hisoblanadi */
     const dishStats=function(dish){
       var m=doneOrders.filter(function(o){ return o.item && (o.item===dish.name || o.item.indexOf(dish.name)===0); });
@@ -491,16 +491,22 @@
       <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${x.d.emoji||"🍽️"} ${esc(x.d.name)}</b><span>${money(x.st.sold)} marta</span></div>
       <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(x.st.sold/maxSold*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha sotuv yo\'q</p>';
     $("#incomeBody").innerHTML=`
+      <div class="panel"><div class="panel-body" style="padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
+        <div style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div>
+      </div></div>
       <div class="row2">
-        <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (oy)</h3></div><div class="panel-body">
+        <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
+          <div class="fin-row"><span>Buyurtmalar (yetkazilgan)</span><b>${money(doneOrders.length)} ta</b></div>
+          <div class="fin-row"><span>Jami savdo</span><b>${money(gross)} so'm</b></div>
+          <div class="fin-row"><span>Sayt komissiyasi (${pct}%)</span><b style="color:#C8102E">−${money(commission)} so'm</b></div>
           <div class="fin-row tot"><span>Sizning daromadingiz</span><b>${money(net)} so'm</b></div>
-          <div class="fin-row"><span>Haftalik (o'rtacha)</span><b>${money(weekly)} so'm</b></div>
         </div></div>
         <div class="panel"><div class="panel-head"><h3>🔥 Eng ko'p sotilgan taomlar</h3></div><div class="panel-body">
           ${bestSellers}
         </div></div>
       </div>
-      <div class="panel"><div class="panel-head"><h3>Har bir taomdan qancha daromad (oy)</h3></div>
+      <div class="panel"><div class="panel-head"><h3>Har bir taomdan qancha daromad (${pLabel})</h3></div>
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi</th><th>Daromad</th></tr></thead>
           <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}</div></td>
@@ -508,6 +514,9 @@
             <td>${money(st.sold)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
         </div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: bu yerda faqat sizning taomlaringizdan keladigan daromad ko'rsatiladi.</p>`;
+    $$("#incomeBody .inc-seg").forEach(function(b){
+      b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; renderIncome(); });
+    });
   }
 
   const RSM={new:["Avtomatik kuryerga yo'naltirilgan","blue"],accepted:["Kuryerga yo'naltirilgan","blue"],ready:["Kuryer kutilmoqda","blue"],ontheway:["Yo'lda","red"],arrived:["Yetkazildi (tasdiq kutilmoqda)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};

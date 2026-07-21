@@ -405,8 +405,48 @@ router.post('/pay/:token/:orderId', (req, res) => {
 
 /* GET /api/users — ro'yxatdan o'tgan foydalanuvchilar (admin) */
 router.get('/users', requireRole('admin'), (_req, res) => {
-  const rows = db.prepare("SELECT id, login, name, phone, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
-  res.json(rows.map((u) => ({ id: u.id, login: u.login, name: u.name, phone: u.phone || '', joined: (u.created_at || '').slice(0, 10) })));
+  const rows = db.prepare("SELECT id, login, name, phone, email, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
+  res.json(rows.map((u) => ({
+    id: u.id, login: u.login, name: u.name, phone: u.phone || '', email: u.email || '',
+    joined: (u.created_at || '').slice(0, 10),
+  })));
+});
+
+/* PATCH /api/users — admin foydalanuvchi ma'lumotini tahrirlaydi
+   (restoran/kuryerdagi kabi: ism, telefon, email, login, parol).
+   Nom o'zgarsa — buyurtmalardagi `user` ham yangilanadi, aks holda mijoz
+   o'z buyurtmalarini ko'rmay qolardi (GET /api/orders `user = ?` bo'yicha). */
+router.patch('/users', requireRole('admin'), (req, res) => {
+  const b = req.body || {};
+  const id = Number(b.id);
+  if (!id) return res.status(400).json({ error: 'id kerak' });
+  const u = db.prepare("SELECT * FROM accounts WHERE id = ? AND role = 'user'").get(id);
+  if (!u) return res.status(404).json({ error: 'Foydalanuvchi topilmadi' });
+
+  if (b.login != null) {
+    const login = String(b.login).trim();
+    if (login.length < 3) return res.status(400).json({ error: 'Login kamida 3 belgi bo`lsin' });
+    if (login !== u.login && db.prepare('SELECT 1 FROM accounts WHERE login = ?').get(login)) {
+      return res.status(409).json({ error: 'Bu login band' });
+    }
+    db.prepare('UPDATE accounts SET login = ? WHERE id = ?').run(login, id);
+  }
+  if (b.name != null) {
+    const name = String(b.name).trim();
+    if (name && name !== u.name) {
+      db.prepare('UPDATE accounts SET name = ? WHERE id = ?').run(name, id);
+      db.prepare('UPDATE orders SET user = ? WHERE user = ?').run(name, u.name);
+    }
+  }
+  if (b.phone != null) db.prepare('UPDATE accounts SET phone = ? WHERE id = ?').run(String(b.phone).slice(0, 40), id);
+  if (b.email != null) db.prepare('UPDATE accounts SET email = ? WHERE id = ?').run(String(b.email).slice(0, 120), id);
+  if (b.pass) {
+    if (String(b.pass).length < 6) return res.status(400).json({ error: 'Parol kamida 6 belgi bo`lsin' });
+    db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(String(b.pass)), id);
+  }
+
+  const n = db.prepare('SELECT id, login, name, phone, email, created_at FROM accounts WHERE id = ?').get(id);
+  res.json({ id: n.id, login: n.login, name: n.name, phone: n.phone || '', email: n.email || '', joined: (n.created_at || '').slice(0, 10) });
 });
 
 export default router;

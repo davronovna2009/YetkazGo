@@ -1748,8 +1748,10 @@
     /* Backend ma'lumoti kelганда/yangilanганда taom va izohlarni qayta chizamiz
        (chegirma, "tugagan", yangi izohlar darhol ko'rinsin) */
     if(typeof STORE!=="undefined" && STORE.onChange){ STORE.onChange(()=>{ try{ renderDishes(); renderAdPromo(); renderRests(); renderReviews(); }catch(e){} }); }
-    $("#navBurger").addEventListener("click",()=>$("#mainNav").classList.toggle("open"));
-    $$("#mainNav a").forEach(a=>a.addEventListener("click",()=>$("#mainNav").classList.remove("open")));
+    /* Burger (#navBurger) FAQAT mobilda ko'rinadi va u yerda #mobileMainNav
+       pastki varag'ini ochadi — buni index.html dagi inline skript boshqaradi
+       (yagona joy). Bu yerda ham ishlov bo'lsa, ikkalasi bir-birini bekor qilib,
+       burger belgisi ☰ / ✕ noto'g'ri qolardi. */
 
     // onboarding (yangi foydalanuvchi yo'l ko'rsatkichi) — har QURILMADA faqat BIR MARTA
     const onb=$("#onboard");

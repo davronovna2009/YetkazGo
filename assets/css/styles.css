@@ -261,26 +261,101 @@ a {
   touch-action: manipulation
 }
 
-/* ===== MOBIL: bottom bar ===== */
-@media(max-width:768px) {
-
-  /* Desktop elementlarini yashirish */
+/* ===== TOR DESKTOP (769–900px) =====
+   Bu oraliqda hali desktop header ishlaydi (burger 768px dan chiqadi), lekin
+   nav + til + savat + kirish bir qatorga sig'masdi va sahifa YONGA surilardi.
+   Elementlarni bir oz ixchamlashtiramiz. */
+@media(min-width:769px) and (max-width:900px) {
   .header-inner {
+    gap: 8px;
+    padding: 0 12px
+  }
+
+  .logo-text {
     display: none
   }
+
+  /* logo rasmi qoladi */
+  .main-nav {
+    gap: 13px;
+    margin-left: 6px
+  }
+
+  .main-nav a {
+    font-size: 13px
+  }
+
+  .header-actions {
+    gap: 6px
+  }
+
+  .header-actions .btn {
+    padding: 8px 12px;
+    font-size: 13px
+  }
+}
+
+/* ===== MOBIL: bottom bar ===== */
+@media(max-width:768px) {
 
   .sticky-top-bar {
     position: static
   }
 
-  /* yuqorida emas */
-
-  /* Sticky top qoladi faqat promo-band uchun */
+  /* ===== MOBIL HEADER — FAQAT logo + burger =====
+     Ilgari mobilda header butunlay yashirilar edi va hamma narsa pastki barga
+     tushardi. Endi yuqorida logo va burger turadi, pastki barda esa roppa-rosa
+     3 ta element qoladi: Kirish | SAVAT (o'rtada) | Til. */
   .site-header {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    height: 54px;
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .logo-img {
+    height: 30px
+  }
+
+  .logo-text {
+    font-size: 18px
+  }
+
+  /* Til / Savat / Kirish tugmalari mobilda headerda EMAS — pastki barda */
+  .header-actions>.lang-toggle,
+  .header-actions>#cartBtn,
+  .header-actions>#loginBtn {
     display: none
   }
 
-  /* desktop header yashiriladi */
+  .header-actions {
+    margin-left: auto;
+    gap: 0
+  }
+
+  .nav-burger {
+    display: flex
+  }
+
+  /* Headerdagi nav — mobilda ishlatilmaydi (uning o'rniga #mobileMainNav
+     pastki varaq ochiladi). Ikkita varaq bir vaqtda chiqmasligi uchun. */
+  #mainNav {
+    display: none !important
+  }
+
+  /* Headerning to'lqinsimon pastki chegarasi mobilda ortiqcha joy egallaydi */
+  .header-wave {
+    display: none
+  }
 
   /* ===== BOTTOM BAR ===== */
   .mobile-bottom-bar {
