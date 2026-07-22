@@ -79,7 +79,7 @@
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Mening taomlarim",income:"Daromad hisoboti",promo:"E'lon va chegirma",settings:"Sozlamalar"};
-    if(view==="settings"){ fillSettings(); renderRestTg(); }
+    if(view==="settings"){ fillSettings(); renderRestTg(); renderRestPhotoCard(); }
     $("#tbTitle").textContent=t[view]||"";
     $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
@@ -98,19 +98,20 @@
     if(typeof STORE!=="undefined" && STORE.setRestaurantPhoto){ STORE.setRestaurantPhoto(url); }
     CUR.photo=url; renderRestPhotoCard(); toast("Restoran rasmi yangilandi \u2713");
   }
+  /* Rasm yuklash SOZLAMALARДА (#rPhotoArea) — ilgari dashboard tepasida turib,
+     buyurtmalarni pastga surib yuborardi. Endi dashboardда faqat buyurtmalar. */
   function renderRestPhotoCard(){
-    var sc=$("#statCards"); if(!sc) return;
-    var card=document.getElementById("restPhotoCard");
-    if(!card){ card=document.createElement("div"); card.id="restPhotoCard"; sc.parentNode.insertBefore(card, sc); }
+    var card=document.getElementById("rPhotoArea"); if(!card) return;
     var p=curRestPhoto();
-    card.innerHTML='<div class="panel" style="margin-bottom:16px"><div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
+    card.innerHTML='<div><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
       '<div style="width:76px;height:76px;border-radius:16px;background:#f3eef0;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;flex:none">'+
         (p?'<img src="'+p+'" alt="" style="width:100%;height:100%;object-fit:cover">':(CUR.emoji||"\ud83c\udfea"))+'</div>'+
       '<div style="flex:1;min-width:190px">'+
-        '<b>Restoran rasmi</b>'+
-        '<p style="color:var(--grey);font-size:13px;margin:4px 0">O\'z restoraningiz rasmini yuklang yoki kameradan oling — bosh sahifada kartochkangizda ko\'rinadi.</p>'+
+        '<p style="color:var(--grey);font-size:13px;margin:0 0 8px">Rasmni yuklang yoki kameradan oling — bosh sahifada kartochkangizda ko\'rinadi.</p>'+
         '<label class="set-save" style="display:inline-block;cursor:pointer;padding:9px 14px">\ud83d\udcf7 Rasm tanlash / olish'+
           '<input type="file" id="restPhotoInput" accept="image/*" capture="environment" style="display:none"></label>'+
+        (p?'<div style="color:var(--grey);font-size:12px;margin-top:7px">Rasm yuklangan ✓ — almashtirish uchun qayta tanlang</div>'
+          :'<div style="color:var(--grey);font-size:12px;margin-top:7px">Rasm hali yuklanmagan — hozircha belgi ko\'rsatilmoqda</div>')+
       '</div></div></div>';
     var inp=document.getElementById("restPhotoInput");
     if(inp) inp.addEventListener("change",function(e){ if(e.target.files&&e.target.files[0]) uploadRestPhoto(e.target.files[0]); });
@@ -176,8 +177,8 @@
       const nm=it.dataset.topname; const d=agg[nm]; if(!d) return;
       showTopDishModal(d, findRestDish(nm));
     }); });
-    renderRestPhotoCard();
-    renderDashOrders();     // dashboard'даги jonli buyurtmalar
+    /* Rasm kartochkasi endi SOZLAMALARДА — u yerда nav()/fillSettings chizadi */
+    renderDashOrders();     // dashboard'даги jonli buyurtmalar (eng tepada)
     renderTopCustomers();
   }
   /* Bir xillik: telefon (yoki ism+manzil) bo'yicha guruhlab, eng ko'p buyurtma bergan mijoz */

@@ -13,7 +13,7 @@ import { db } from './db.js';
 import { createOrder, OrderError } from './orders-core.js';
 import { TG_TOKEN, TG_CHAT_OPS, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const API = TG_TOKEN ? `https://api.telegram.org/bot${TG_TOKEN}` : '';
 export const BOT_ENABLED = Boolean(TG_TOKEN);
@@ -577,6 +577,115 @@ botRouter.post(WEBHOOK_PATH, (req, res) => {
   if (req.get('X-Telegram-Bot-Api-Secret-Token') !== SECRET) return res.sendStatus(401);
   res.sendStatus(200);
   handleUpdate(req.body || {});
+});
+
+/* ================== MINI ILOVADAN BUYURTMA (POST /api/tg/order) ==================
+   NEGA KERAK: Telegram qoidasiga ko'ra `WebApp.sendData()` FAQAT pastki
+   klaviatura (reply keyboard) tugmasidan ochilgan mini ilovada ishlaydi.
+   Bizda restoranlar INLINE tugmalar bilan beriladi (har biri o'z menyusini
+   ochadi), shuning uchun sendData jimgina yo'qolardi — mijoz "Tasdiqlash"
+   bosardi-yu, buyurtma yaratilmasdi.
+
+   Endi mini ilova buyurtmani TO'G'RIDAN-TO'G'RI shu API'ga yuboradi. Mijozni
+   Telegram bergan `initData` imzosi bo'yicha tekshiramiz — bot tokeni bilan
+   HMAC hisoblanadi, ya'ni soxta so'rov o'tmaydi. */
+
+/* initData imzosini tekshiradi. To'g'ri bo'lsa Telegram foydalanuvchisini
+   qaytaradi, aks holda null. */
+function verifyInitData(initData) {
+  if (!TG_TOKEN || !initData) return null;
+  let params;
+  try { params = new URLSearchParams(String(initData)); } catch (e) { return null; }
+
+  const hash = params.get('hash');
+  if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) return null;
+  params.delete('hash');
+
+  /* Telegram talab qiladi: kalitlar alifbo tartibida, "kalit=qiymat" satrlari \n bilan */
+  const dataCheckString = [...params.entries()]
+    .map(([k, v]) => `${k}=${v}`)
+    .sort()
+    .join('\n');
+
+  const secretKey = createHmac('sha256', 'WebAppData').update(TG_TOKEN).digest();
+  const calc = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+  /* Vaqt bo'yicha xavfsiz solishtirish */
+  try {
+    const a = Buffer.from(calc, 'hex');
+    const b = Buffer.from(hash.toLowerCase(), 'hex');
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch (e) { return null; }
+
+  /* Eskirgan imzo qabul qilinmaydi (24 soat) */
+  const authDate = Number(params.get('auth_date') || 0);
+  if (!authDate || (Date.now() / 1000 - authDate) > 86400) return null;
+
+  try { return JSON.parse(params.get('user') || 'null'); } catch (e) { return null; }
+}
+
+botRouter.post('/api/tg/order', async (req, res) => {
+  if (!BOT_ENABLED) return res.status(503).json({ error: 'Telegram bot sozlanmagan' });
+
+  const b = req.body || {};
+  const tgUser = verifyInitData(b.initData);
+  if (!tgUser || !tgUser.id) {
+    return res.status(401).json({ error: 'Telegram tasdig`i noto`g`ri. Mini ilovani bot orqali qayta oching.' });
+  }
+
+  const chatId = String(tgUser.id);
+  const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ')
+            || tgUser.username || 'Telegram mijoz';
+
+  let created;
+  try {
+    created = createOrder({
+      user: name,
+      phone: b.phone,
+      addr: b.addr,
+      pay: b.pay,
+      items: b.items,
+      tgChatId: chatId,
+    });
+  } catch (e) {
+    const status = e instanceof OrderError ? e.status : 500;
+    const reason = e instanceof OrderError ? e.message : 'Buyurtmani rasmiylashtirib bo`lmadi';
+    if (!(e instanceof OrderError)) console.error('[BOT] mini ilova buyurtmasi xatosi:', e);
+    return res.status(status).json({ error: reason });
+  }
+
+  const o = created.order;
+
+  /* 1) Restoran + kuryer + adminlar — saytdan berilgan buyurtma bilan BIR XIL */
+  notifyNewOrder(o, created.lines);
+
+  /* 2) Mijozning O'ZIGA botда tasdiq xabari (mini ilova yopilgach shu ko'rinadi) */
+  const lines = (created.lines || [])
+    .map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`)
+    .join('\n');
+  send(chatId,
+    '✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n'
+    + `🧾 Raqami: <b>#${o.id}</b>\n`
+    + `🏪 Restoran: <b>${esc(o.rest)}</b>\n\n`
+    + `🍽 <b>Tarkibi:</b>\n${lines}\n\n`
+    + `💰 Jami: <b>${money(o.amount)} so'm</b>\n`
+    + `📍 Manzil: ${esc(o.addr)}\n`
+    + `📞 Telefon: ${esc(o.phone)}\n`
+    + `💳 To'lov: ${o.pay === 'cash' ? '💵 Naqd' : '💳 Karta'}\n`
+    + (o.courier ? `🛵 Kuryer: <b>${esc(o.courier)}</b>\n` : '')
+    + `⏱ Taxminiy vaqt: <b>${Number(o.eta) || 15} daqiqa</b>\n\n`
+    + "Iltimos, kuting — restoran buyurtmani tayyorlay boshladi. Holat o'zgarishi haqida shu yerда xabar beramiz.",
+    { reply_markup: mainKeyboard() });
+
+  /* 3) Mini ilovaga javob — u "Tasdiqlandi" ekranini ko'rsatib yopiladi */
+  res.status(201).json({
+    ok: true,
+    id: o.id,
+    rest: o.rest,
+    amount: o.amount,
+    eta: o.eta,
+    courier: o.courier || '',
+  });
 });
 
 /* ---------- Ishga tushirish ---------- */

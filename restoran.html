@@ -61,15 +61,17 @@
       <div class="content">
         <!-- DASHBOARD -->
         <section class="view show" id="view-dash">
-          <div class="stat-grid" id="statCards"></div>
-          <!-- Jonli buyurtmalar — dashboardда darrov ko'rinadi (buyurtmalar bo'limidagi kabi) -->
+          <!-- BUYURTMALAR ENG TEPADA — restoran kirgan zahoti ularni ko'radi.
+               Statistika va qolgan panellar pastda. Rasm yuklash "Sozlamalar"ga
+               ko'chirildi (u bu yerda buyurtmalarni pastga surib yuborardi). -->
           <div class="panel">
             <div class="panel-head"><h3>🔔 Yangi buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi</span></div>
-            <div class="panel-body tbl-wrap" style="max-height:520px;overflow-y:auto">
+            <div class="panel-body tbl-wrap" style="max-height:560px;overflow-y:auto">
               <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Holat</th></tr></thead>
               <tbody id="dashOrdersBody"></tbody></table>
             </div>
           </div>
+          <div class="stat-grid" id="statCards"></div>
           <div class="panel">
             <div class="panel-head"><h3>Eng ko'p sotilgan taomlar</h3></div>
             <div class="panel-body"><div class="toplist" id="topDishes"></div></div>
@@ -228,6 +230,19 @@
 
         <!-- SETTINGS: sozlamalar (login / parol) -->
         <section class="view" id="view-settings">
+
+          <!-- Restoran rasmi — ilgari dashboardда edi, buyurtmalarni pastga
+               surib yuborardi. Endi shu yerда, boshqa sozlamalar qatorida. -->
+          <div class="settings-group">
+            <div class="settings-group-title">🖼 Restoran rasmi</div>
+            <div class="setting-item column" style="padding:14px 16px">
+              <div class="setting-label">
+                <span class="setting-name">Bosh sahifadagi rasm</span>
+                <span class="setting-desc">Restoraningiz rasmini yuklang yoki kameradan oling — saytdagi kartochkangizda ko'rinadi</span>
+              </div>
+              <div id="rPhotoArea" style="width:100%"></div>
+            </div>
+          </div>
 
           <!-- Telegram bot — buyurtmalar botда ham keladi -->
           <div class="settings-group">

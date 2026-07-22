@@ -617,8 +617,20 @@ function validateForm(){
   return ok;
 }
 
-/* ============================== Yuborish =============================== */
-function submit(){
+/* ============================== Yuborish ===============================
+   MUHIM: `tg.sendData()` ISHLATILMAYDI — u Telegram qoidasiga ko'ra faqat
+   pastki klaviatura tugmasidan ochilgan mini ilovada ishlaydi. Bot esa
+   restoranlarni INLINE tugmalar bilan beradi, shuning uchun sendData jimgina
+   yo'qolib, buyurtma umuman yaratilmasdi.
+
+   Endi buyurtma to'g'ridan-to'g'ri sayt API'siga yuboriladi (/api/tg/order).
+   Server Telegram `initData` imzosini bot tokeni bilan tekshiradi — soxta
+   so'rov o'tmaydi. Buyurtma yaratilgach: saytga tushadi, restoran/kuryer/admin
+   xabar oladi, mijozga botда tasdiq keladi va mini ilova yopiladi. */
+let SENDING = false;
+
+async function submit(){
+  if (SENDING) return;
   const lines = cartLines();
   if (!lines.length) return show('menu');
 
@@ -636,10 +648,15 @@ function submit(){
     return show('menu');
   }
 
-  /* Botga faqat NIMA va NECHTA + kontakt ketadi.
+  if (!tg){
+    alert('Bu sahifa Telegram ichida ochilishi kerak.');
+    return;
+  }
+
+  /* Serverga faqat NIMA va NECHTA + kontakt ketadi.
      Summani backend dish id bo'yicha o'zi hisoblaydi (ishonchli manba). */
   const payload = {
-    v: 1,
+    initData: tg.initData || '',
     rest: REST,
     items: lines.map(l => ({ id: l.id, qty: l.qty })),
     phone: '998' + digits($('fPhone').value),
@@ -647,15 +664,64 @@ function submit(){
     pay: PAY,
   };
 
-  if (!tg){
-    alert('Bu sahifa Telegram ichida ochilishi kerak.');
+  SENDING = true;
+  const mb = tg.MainButton;
+  try { mb.setText('Yuborilmoqda...'); mb.disable(); mb.showProgress(true); } catch(e){}
+
+  let data = null, errText = '';
+  try {
+    const r = await fetch('/api/tg/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    data = await r.json().catch(() => null);
+    if (!r.ok) errText = (data && data.error) || ('Xatolik (' + r.status + ')');
+  } catch (e) {
+    errText = 'Internetga ulanib bo\'lmadi. Qayta urinib ko\'ring.';
+  }
+
+  SENDING = false;
+  try { mb.hideProgress(); } catch(e){}
+
+  if (errText){
+    notify('error');
+    try { mb.setText('✅ Buyurtmani tasdiqlash'); mb.enable(); } catch(e){}
+    alertMsg(errText);
     return;
   }
+
+  /* Muvaffaqiyat: savatni tozalab, "Tasdiqlandi — kuting" ekranini
+     ko'rsatamiz va mini ilovani O'ZIMIZ yopamiz. Bot chatда to'liq tasdiq
+     xabarini yuboradi — mijoz ilova yopilgach o'shani ko'radi. */
   notify('success');
-  try { tg.disableClosingConfirmation(); } catch(e){}
   rememberContact();                   // keyingi buyurtmada tayyor chiqadi
-  localStorage.removeItem(CART_KEY);   // savat yuborildi — tozalaymiz
-  tg.sendData(JSON.stringify(payload)); // <- shu chaqiruv mini saytni O'ZI yopadi
+  CART = {};
+  try { localStorage.removeItem(CART_KEY); } catch(e){}
+  try { tg.disableClosingConfirmation(); } catch(e){}
+  showAccepted(data);
+}
+
+/* "Tasdiqlandi — kuting" ekrani, so'ng ilova o'zi yopiladi */
+function showAccepted(d){
+  const num = d && d.id ? '#' + d.id : '';
+  const eta = d && d.eta ? d.eta : 15;
+  try { tg.MainButton.hide(); tg.BackButton.hide(); } catch(e){}
+  document.body.innerHTML = html`
+    <div class="nope" style="text-align:center;padding:40px 22px">
+      <div style="font-size:64px">✅</div>
+      <h2 style="margin:14px 0 6px">Buyurtmangiz tasdiqlandi!</h2>
+      <p style="color:#6B6B6B;font-size:15px;margin:0 0 4px">Raqami: <b>${num}</b></p>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.5;margin:10px 0 0">
+        Iltimos, <b>kuting</b> — restoran buyurtmangizni tayyorlay boshladi.<br>
+        Taxminiy vaqt: <b>${String(eta)} daqiqa</b>.
+      </p>
+      <p style="color:#9a9a9a;font-size:13px;margin-top:18px">
+        Holat o'zgarishi haqida botда xabar beramiz.
+      </p>
+    </div>`;
+  /* Mijoz xabarni o'qishga ulgursin — so'ng yopamiz */
+  setTimeout(() => { try { tg.close(); } catch(e){} }, 2200);
 }
 
 /* =============================== Xatolar =============================== */
