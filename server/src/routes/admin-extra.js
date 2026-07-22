@@ -6,7 +6,10 @@ import { randomBytes } from 'node:crypto';
 import { db } from '../db.js';
 import { requireRole } from '../auth.js';
 import { botUsername, BOT_ENABLED } from '../bot.js';
-import { listBlocks, unblockPhone, blockPhone, forgetPhone, PAUSE_MIN, BLOCK_AT } from '../blocks.js';
+import {
+  listBlocks, unblockPhone, blockPhone, forgetPhone,
+  PAUSE_MIN, BLOCK_AT, WARN_AT, SPAM_MAX, SPAM_WINDOW_MIN,
+} from '../blocks.js';
 
 const router = Router();
 
@@ -91,9 +94,16 @@ router.post('/tg/unlink', requireRole('restoran', 'kuryer', 'admin'), (req, res)
 
 /* ================= BLOKLANGAN RAQAMLAR (ADMIN) ================= */
 
-/* GET /api/blocked — ro'yxat (bloklangan + ogohlantirilgan raqamlar) */
+/* GET /api/blocked — ro'yxat (bloklangan + ogohlantirilgan raqamlar).
+   `rules` — saytning O'ZI avtomatik qo'llaydigan qoidalar (panelда ko'rsatiladi). */
 router.get('/blocked', requireRole('admin'), (_req, res) => {
-  res.json({ rules: { pauseMin: PAUSE_MIN, blockAt: BLOCK_AT }, list: listBlocks() });
+  res.json({
+    rules: {
+      pauseMin: PAUSE_MIN, warnAt: WARN_AT, blockAt: BLOCK_AT,
+      spamMax: SPAM_MAX, spamWindowMin: SPAM_WINDOW_MIN,
+    },
+    list: listBlocks(),
+  });
 });
 
 /* POST /api/blocked/unblock — admin blokni ochadi */

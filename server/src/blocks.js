@@ -1,14 +1,17 @@
-/* ===== Telefon raqami cheklovlari =====
-   Mijoz buyurtmani ketma-ket bekor qilaversa, restoran va kuryer bekorga
-   ishlaydi. Shuning uchun bitta TELEFON RAQAMI bo'yicha hisob yuritamiz:
+/* ===== Telefon raqami cheklovlari — SAYT O'ZI, AVTOMATIK qo'llaydi =====
+   Hech kim tugma bosmaydi: qoida buzilgan zahoti server o'zi cheklaydi va
+   bloklaydi. Admin faqat KEYIN ko'radi va xohlasa blokni ochadi.
 
+   1-QOIDA — buyurtmani ketma-ket bekor qilish:
      1-bekor  → hech narsa (faqat yoziladi)
      2-bekor  → OGOHLANTIRISH + 5 daqiqaga buyurtma berish cheklanadi
-     3-bekor  → raqam BLOKLANADI (admin panelida "Bloklangan raqamlar"
-                bo'limida chiqadi, faqat ADMIN ochadi)
+     3-bekor  → raqam AVTOMATIK BLOKLANADI
 
-   Muvaffaqiyatli yakunlangan (done) buyurtma hisobni NOLGA qaytaradi —
-   bir marta adashib bekor qilgan mijoz abadiy "jazoda" qolmasin. */
+   2-QOIDA — spam buyurtma (soxta buyurtma yog'diruvi):
+     10 daqiqa ichida 6 ta buyurtma → raqam AVTOMATIK BLOKLANADI
+
+   Muvaffaqiyatli yakunlangan (done) buyurtma bekor qilish hisobini NOLGA
+   qaytaradi — bir marta adashib bekor qilgan mijoz abadiy "jazoda" qolmaydi. */
 import { db } from './db.js';
 
 /* Telefon yordamchilari shu yerда takrorlangan (orders-core.js dagi bilan bir xil):
@@ -20,10 +23,25 @@ function prettyPhone(p) {
   return `+998 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8, 10)} ${d.slice(10, 12)}`;
 }
 
-/* Vaqtinchalik cheklov (daqiqa) va bloklashgacha bo'lgan bekorlar soni */
+/* 1-qoida: bekor qilish */
 export const PAUSE_MIN = 5;
 export const WARN_AT = 2;    // shu bekorда ogohlantirish + pauza
 export const BLOCK_AT = 3;   // shu bekorда butunlay bloklash
+
+/* 2-qoida: spam buyurtma — shuncha daqiqada shuncha buyurtma = blok */
+export const SPAM_WINDOW_MIN = 10;
+export const SPAM_MAX = 6;
+
+/* Avtomatik blok bo'lganда adminlarga xabar berish uchun ilgak.
+   To'g'ridan-to'g'ri bot.js ni import qilmaymiz: bot.js → orders-core.js →
+   blocks.js zanjiri bor, teskari import halqa hosil qilardi. app.js ulaydi. */
+let onAutoBlock = null;
+export function setAutoBlockNotifier(fn) { onAutoBlock = typeof fn === 'function' ? fn : null; }
+function fireAutoBlock(phone, name, reason) {
+  if (!onAutoBlock) return;
+  try { onAutoBlock(prettyPhone(phone), name, reason); }
+  catch (e) { console.warn('[BLOCK] xabar yuborilmadi:', e.message); }
+}
 
 const row = (phone) => {
   try { return db.prepare('SELECT * FROM phone_blocks WHERE phone = ?').get(phone) || null; }
@@ -65,6 +83,59 @@ export function phoneStatus(phoneRaw) {
   return { ok: true };
 }
 
+/* ===== 2-QOIDA: spam buyurtma =====
+   Bitta raqamdan qisqa vaqtда juda ko'p buyurtma — bu odatiy mijoz emas.
+   Sayt O'ZI bloklaydi (createOrder shu funksiyani chaqiradi).
+   Qaytaradi: null (hammasi joyida) yoki { message } (bloklandi). */
+export function checkSpam(phoneRaw, userName) {
+  const phone = normalizePhone(phoneRaw);
+  if (!phone) return null;
+  const pretty = prettyPhone(phone);
+
+  let cnt = 0;
+  try {
+    /* Admin blokni ochgan bo'lsa — O'SHA PAYTGACHA bo'lgan buyurtmalar
+       hisobga OLINMAYDI. Aks holda oyna ichidagi eski buyurtmalar mijozni
+       darhol qayta bloklab, adminning blokni ochgani foydasiz bo'lardi. */
+    const prev = row(phone);
+    const since = (prev && prev.unblocked_at) || '';
+
+    /* Buyurtmalarда telefon "chiroyli" ko'rinishда saqlanadi (orders-core.js) */
+    const r = db.prepare(
+      `SELECT COUNT(*) AS n FROM orders
+        WHERE phone = ?
+          AND created_at > datetime('now', '-${SPAM_WINDOW_MIN} minutes')
+          AND (? = '' OR created_at > ?)`
+    ).get(pretty, since, since);
+    cnt = (r && r.n) || 0;
+  } catch (e) { return null; }
+
+  if (cnt < SPAM_MAX) return null;
+
+  autoBlock(phone, userName, `${SPAM_WINDOW_MIN} daqiqada ${cnt} ta buyurtma (spam)`);
+  return {
+    message: `Bu raqamdan juda ko'p buyurtma yuborildi (${SPAM_WINDOW_MIN} daqiqada ${cnt} ta). `
+           + 'Raqam avtomatik bloklandi. Blokni administrator ochadi.',
+  };
+}
+
+/* Sayt O'ZI bloklaydi (source = 'auto') — hamma avtomatik qoidalar shuni chaqiradi */
+function autoBlock(phone, userName, reason) {
+  try {
+    db.prepare(
+      `INSERT INTO phone_blocks (phone, pretty, cancels, blocked, until, last_name, reason, source, last_cancel)
+       VALUES (?,?,?,1,'',?,?,'auto',datetime('now'))
+       ON CONFLICT(phone) DO UPDATE SET
+         blocked = 1, until = '', reason = excluded.reason, source = 'auto',
+         last_name = excluded.last_name, last_cancel = datetime('now')`
+    ).run(phone, prettyPhone(phone), BLOCK_AT, String(userName || ''), String(reason || ''));
+    console.log(`[BLOCK] AVTOMATIK: ${prettyPhone(phone)} bloklandi — ${reason}`);
+    fireAutoBlock(phone, userName, reason);
+  } catch (e) {
+    console.warn('[BLOCK] avtomatik bloklab bo`lmadi:', e.message);
+  }
+}
+
 /* Mijoz buyurtmani bekor qildi — hisobni oshiramiz va oqibatini qaytaramiz.
    Qaytaradi: { cancels, blocked, pausedSeconds, level, message } */
 export function registerCancel(phoneRaw, userName) {
@@ -80,8 +151,8 @@ export function registerCancel(phoneRaw, userName) {
   const untilSql = pause ? `datetime('now', '+${pause} minutes')` : `''`;
   try {
     db.prepare(
-      `INSERT INTO phone_blocks (phone, pretty, cancels, blocked, until, last_name, reason, last_cancel)
-       VALUES (?,?,?,?,${untilSql},?,?,datetime('now'))
+      `INSERT INTO phone_blocks (phone, pretty, cancels, blocked, until, last_name, reason, source, last_cancel)
+       VALUES (?,?,?,?,${untilSql},?,?,'auto',datetime('now'))
        ON CONFLICT(phone) DO UPDATE SET
          cancels = excluded.cancels,
          blocked = excluded.blocked,
@@ -89,6 +160,7 @@ export function registerCancel(phoneRaw, userName) {
          pretty  = excluded.pretty,
          last_name = excluded.last_name,
          reason  = excluded.reason,
+         source  = 'auto',
          last_cancel = datetime('now')`
     ).run(
       phone, prettyPhone(phone), cancels, blocked,
@@ -100,6 +172,9 @@ export function registerCancel(phoneRaw, userName) {
   }
 
   if (blocked) {
+    const why = `${cancels} marta buyurtma bekor qilingan`;
+    console.log(`[BLOCK] AVTOMATIK: ${prettyPhone(phone)} bloklandi — ${why}`);
+    fireAutoBlock(phone, userName, why);
     return {
       cancels, blocked: true, pausedSeconds: 0, level: 3,
       message: '⛔ Raqamingiz BLOKLANDI. Siz buyurtmalarni qayta-qayta bekor qildingiz. '
@@ -149,29 +224,41 @@ export function listBlocks() {
     pausedSeconds: r.blocked ? 0 : secondsLeft(r.until),
     name: r.last_name || '',
     reason: r.reason || '',
+    /* 'auto' — saytning o'zi bloklagan, 'admin' — administrator qo'lда */
+    source: r.source || 'auto',
     lastCancel: r.last_cancel || '',
   }));
 }
 
-/* Admin blokni ochadi — hisob ham nolga tushadi (mijoz toza boshlaydi) */
+/* Admin blokni ochadi — hisob ham nolga tushadi (mijoz toza boshlaydi).
+   MUHIM: hisob nolga tushmasa, mijoz bitta bekor qilishда darrov qayta
+   bloklanardi va admin blokni ochgani foydasiz bo'lardi. */
 export function unblockPhone(phoneRaw) {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return false;
   try {
-    db.prepare("UPDATE phone_blocks SET blocked = 0, cancels = 0, until = '', reason = '' WHERE phone = ?").run(phone);
+    /* unblocked_at — "toza varaq" payti: spam qoidasi shundan OLDINGI
+       buyurtmalarni sanamaydi (aks holda mijoz darrov qayta bloklanardi). */
+    db.prepare(
+      `UPDATE phone_blocks
+          SET blocked = 0, cancels = 0, until = '', reason = '',
+              unblocked_at = datetime('now')
+        WHERE phone = ?`
+    ).run(phone);
     return true;
   } catch (e) { return false; }
 }
 
-/* Admin qo'lda bloklaydi */
+/* Admin qo'lda bloklaydi (source = 'admin' — ro'yxatda shunday ko'rinadi) */
 export function blockPhone(phoneRaw, reason) {
   const phone = normalizePhone(phoneRaw);
   if (!phone) return false;
   try {
     db.prepare(
-      `INSERT INTO phone_blocks (phone, pretty, cancels, blocked, reason, last_cancel)
-       VALUES (?,?,?,1,?,datetime('now'))
-       ON CONFLICT(phone) DO UPDATE SET blocked = 1, reason = excluded.reason, last_cancel = datetime('now')`
+      `INSERT INTO phone_blocks (phone, pretty, cancels, blocked, reason, source, last_cancel)
+       VALUES (?,?,?,1,?,'admin',datetime('now'))
+       ON CONFLICT(phone) DO UPDATE SET blocked = 1, reason = excluded.reason,
+         source = 'admin', last_cancel = datetime('now')`
     ).run(phone, prettyPhone(phone), BLOCK_AT, String(reason || 'Admin tomonidan bloklandi'));
     return true;
   } catch (e) { return false; }

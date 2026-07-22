@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { db } from './db.js';
 import { priceOrder, PriceError } from './pricing.js';
 import { courierIsOpen } from './hours.js';
-import { phoneStatus } from './blocks.js';
+import { phoneStatus, checkSpam } from './blocks.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
@@ -98,10 +98,15 @@ export function createOrder(b = {}) {
   }
   const phone = prettyPhone(b.phone);
 
-  /* Ketma-ket bekor qilish uchun cheklov/blok (blocks.js).
-     429 — "juda ko'p urinish", 403 — bloklangan raqam. */
+  /* ===== AVTOMATIK CHEKLOVLAR (blocks.js) — sayt o'zi qo'llaydi =====
+     1) Raqam allaqachon bloklangan yoki 5 daqiqalik pauzadami?
+        429 — "juda ko'p urinish", 403 — bloklangan raqam.
+     2) Spam: qisqa vaqtда juda ko'p buyurtma → raqam SHU YERДА bloklanadi. */
   const st = phoneStatus(phone);
   if (!st.ok) throw new OrderError(st.message, st.blocked ? 403 : 429);
+
+  const spam = checkSpam(phone, b.user);
+  if (spam) throw new OrderError(spam.message, 403);
 
   let priced;
   try {

@@ -170,6 +170,8 @@ export function initSchema() {
       until       TEXT DEFAULT '',           -- vaqtinchalik cheklov tugash payti (UTC)
       last_name   TEXT DEFAULT '',           -- oxirgi buyurtmadagi ism
       reason      TEXT DEFAULT '',
+      source      TEXT DEFAULT 'auto',      -- 'auto' = sayt o'zi, 'admin' = qo'lда
+      unblocked_at TEXT DEFAULT '',         -- admin blokni ochgan payt ("toza varaq")
       last_cancel TEXT DEFAULT '',
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -266,5 +268,9 @@ export function initSchema() {
     // Restoran/kuryer Telegram chat_id — buyurtma xabarlari botда keladi
     "ALTER TABLE restaurants ADD COLUMN tg_chat_id TEXT DEFAULT ''",
     "ALTER TABLE couriers ADD COLUMN tg_chat_id TEXT DEFAULT ''",
+    // Blok kim tomonidan: 'auto' — sayt o'zi qoida bo'yicha, 'admin' — qo'lда
+    "ALTER TABLE phone_blocks ADD COLUMN source TEXT DEFAULT 'auto'",
+    // Admin blokni ochgan payt — spam qoidasi shundan oldingi buyurtmalarni sanamaydi
+    "ALTER TABLE phone_blocks ADD COLUMN unblocked_at TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

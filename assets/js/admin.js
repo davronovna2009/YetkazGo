@@ -197,7 +197,7 @@
      (5 daqiqaga cheklaydi), uchinchisida esa raqamni BLOKLAYDI. Bloklangan
      raqam faqat SHU yerдан ochiladi.
      ========================================================= */
-  let BLOCKED=[], BLOCK_RULES={pauseMin:5,blockAt:3};
+  let BLOCKED=[], BLOCK_RULES={pauseMin:5,warnAt:2,blockAt:3,spamMax:6,spamWindowMin:10};
 
   async function loadBlocked(){
     if(typeof STORE==="undefined" || !STORE.fetchBlocked) return;
@@ -208,14 +208,22 @@
   }
 
   function renderBlocked(){
+    const R=BLOCK_RULES||{};
     const rules=$("#blockRules");
     if(rules){
       rules.innerHTML=
+        '<div style="background:#ecfdf3;border:1px solid #bbf7d0;border-radius:12px;padding:10px 12px;margin-bottom:12px;color:#15803d;font-size:13px;font-weight:700">'+
+          '🤖 Bu qoidalarni <b>sayt o\'zi avtomatik</b> qo\'llaydi — sizdan hech qanday amal talab qilinmaydi. '+
+          'Siz faqat natijani ko\'rasiz va kerak bo\'lsa blokni ochasiz.'+
+        '</div>'+
         '<div style="display:flex;flex-direction:column;gap:6px">'+
-        '<div>1️⃣ <b>Birinchi bekor qilish</b> — faqat qayd etiladi.</div>'+
-        '<div>2️⃣ <b>Ikkinchi bekor qilish</b> — mijoz ogohlantiriladi va <b>'+(BLOCK_RULES.pauseMin||5)+' daqiqaga</b> buyurtma berish cheklanadi.</div>'+
-        '<div>3️⃣ <b>Uchinchi bekor qilish</b> — raqam <b>bloklanadi</b> va shu ro\'yxatga tushadi.</div>'+
-        '<div style="color:#16a34a">✅ Buyurtma muvaffaqiyatli yakunlansa — hisob nolga qaytadi.</div>'+
+        '<div style="font-weight:800;color:var(--ink,#222)">1-qoida — buyurtmani bekor qilish</div>'+
+        '<div style="padding-left:12px">1️⃣ <b>Birinchi</b> — faqat qayd etiladi.</div>'+
+        '<div style="padding-left:12px">2️⃣ <b>Ikkinchi</b> — mijoz ogohlantiriladi va <b>'+(R.pauseMin||5)+' daqiqaga</b> buyurtma berish cheklanadi.</div>'+
+        '<div style="padding-left:12px">3️⃣ <b>Uchinchi</b> — raqam <b>avtomatik bloklanadi</b> va shu ro\'yxatga tushadi.</div>'+
+        '<div style="font-weight:800;margin-top:8px;color:var(--ink,#222)">2-qoida — spam buyurtma</div>'+
+        '<div style="padding-left:12px">🚨 <b>'+(R.spamWindowMin||10)+' daqiqada '+(R.spamMax||6)+' ta</b> buyurtma yuborilsa — raqam <b>darhol avtomatik bloklanadi</b>.</div>'+
+        '<div style="color:#16a34a;margin-top:8px">✅ Buyurtma muvaffaqiyatli yakunlansa — bekor qilish hisobi nolga qaytadi.</div>'+
         '</div>';
     }
     const host=$("#blockedList"); if(!host) return;
@@ -229,12 +237,19 @@
         : (b.pausedSeconds>0
             ? '<span class="pill warn">⏳ '+Math.ceil(b.pausedSeconds/60)+' daq. cheklangan</span>'
             : '<span class="pill blue">'+b.cancels+' marta bekor qilgan</span>');
+      /* Blokni kim qo'ygan: sayt o'zi (avtomatik) yoki admin qo'lда */
+      const src=b.blocked
+        ? (b.source==="admin"
+            ? '<span style="font-size:11px;font-weight:800;color:#6b7280;background:#f3f4f6;border-radius:8px;padding:3px 8px">👤 Admin bloklagan</span>'
+            : '<span style="font-size:11px;font-weight:800;color:#15803d;background:#ecfdf3;border-radius:8px;padding:3px 8px">🤖 Sayt avtomatik bloklagan</span>')
+        : "";
       return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line)">'+
         '<div style="flex:1;min-width:180px">'+
           '<div style="font-weight:800;font-size:15px">📞 '+esc(b.pretty||b.phone)+'</div>'+
           '<div style="color:var(--grey);font-size:13px">'+(b.name?esc(b.name)+' · ':'')+
             'Bekor qilishlar: <b>'+b.cancels+'</b>'+(b.lastCancel?' · oxirgisi: '+esc(String(b.lastCancel).slice(0,16)):'')+'</div>'+
           (b.reason?'<div style="color:#C8102E;font-size:12px;margin-top:2px">'+esc(b.reason)+'</div>':'')+
+          (src?'<div style="margin-top:5px">'+src+'</div>':'')+
         '</div>'+
         pill+
         (b.blocked

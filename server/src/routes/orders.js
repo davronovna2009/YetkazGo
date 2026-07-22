@@ -5,7 +5,7 @@ import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
 import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone } from '../orders-core.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi) */
-import { notifyCustomerStatus, notifyNewOrder, notifyStaffStatus, notifyPhoneBlocked } from '../bot.js';
+import { notifyCustomerStatus, notifyNewOrder, notifyStaffStatus } from '../bot.js';
 /* Telefon raqami cheklovlari — ketma-ket bekor qilishga qarshi */
 import { registerCancel, clearOnSuccess } from '../blocks.js';
 
@@ -131,12 +131,11 @@ router.post('/:id/cancel', (req, res) => {
   const updated = rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id));
   const byStaff = req.user && STAFF_ROLES.includes(req.user.role);
 
-  /* Hisob FAQAT haqiqiy bekor qilishда oshadi (takroriy so'rov jazolamaydi) */
+  /* Hisob FAQAT haqiqiy bekor qilishда oshadi (takroriy so'rov jazolamaydi).
+     Bloklanса — adminlarga xabarni blocks.js ning O'ZI yuboradi
+     (app.js: setAutoBlockNotifier), shuning uchun bu yerда takrorlamaymiz. */
   let penalty = null;
-  if (!byStaff && !alreadyCancelled) {
-    penalty = registerCancel(o.phone, o.user);
-    if (penalty.blocked) notifyPhoneBlocked(o.phone, o.user, penalty.cancels);
-  }
+  if (!byStaff && !alreadyCancelled) penalty = registerCancel(o.phone, o.user);
 
   if (!alreadyCancelled) notifyStaffStatus(updated, o.status, byStaff ? req.user.role : '');
 

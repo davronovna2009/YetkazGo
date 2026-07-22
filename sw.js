@@ -8,7 +8,7 @@
    bo'ldi. Eski kesh bu fayllarni bilmaydi — versiya oshirildi.
    (v7 — hours.js; v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
 /* v9 — manzil/telefon HAR BUYURTMADA so'raladi (sayt, kabinet, mini ilova bir xil). */
-const CACHE = 'yetkaz-v9';
+const CACHE = 'yetkaz-v10';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

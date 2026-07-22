@@ -20,8 +20,9 @@ import uploadRoutes, { imageRouter } from './routes/upload.js';
 import { migrateUploadsToDb } from './migrate-images.js';
 import resetRoutes from './routes/reset.js';
 import adminExtraRoutes from './routes/admin-extra.js';
-import { botRouter, startBot } from './bot.js';
+import { botRouter, startBot, notifyPhoneBlocked } from './bot.js';
 import { startDeadlineAlerts } from './alerts.js';
+import { setAutoBlockNotifier } from './blocks.js';
 
 /* Birinchi ishga tushganda bazani seed qilamiz */
 seed();
@@ -31,6 +32,8 @@ ensureAdminSecure();
 startAutoConfirm();
 /* Yetkazish muddati tugayotgan buyurtmalar — kuryerga 3 ta ogohlantirish + kechikish */
 startDeadlineAlerts();
+/* Sayt qoida bo'yicha raqamni AVTOMATIK bloklaganда — adminlarga Telegramда xabar */
+setAutoBlockNotifier(notifyPhoneBlocked);
 /* Diskda qolgan eski rasmlarni bazaga ko'chiramiz (bir martalik, xavfsiz) */
 migrateUploadsToDb();
 
