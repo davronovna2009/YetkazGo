@@ -181,13 +181,236 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
+    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",
+                  suspicious:"Shubhali buyurtmalar",comments:"Izohlar",
+                  blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
     if(view==="blocked") loadBlocked();
+    if(view==="suspicious") renderSuspicious();
+    if(view==="comments") renderComments();
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
+  }
+
+  /* =========================================================
+     SHUBHALI BUYURTMALAR (status = 'review')
+     Server (server/src/order-rules.js) juda katta yoki g'ayrioddiy buyurtmani
+     restoranga YUBORMAYDI — u shu yerga tushadi. Admin tasdiqlasa restoranga,
+     so'ng kuryerga boradi; rad etsa — bekor qilinadi va mijoz sababini ko'radi.
+     ========================================================= */
+  function suspiciousList(){
+    try{ return (typeof STORE!=="undefined" && STORE.suspiciousOrders) ? STORE.suspiciousOrders() : []; }
+    catch(e){ return []; }
+  }
+  /* Yon menyudagi qizil hisoblagich — admin yangi tekshiruvni o'tkazib yubormasin */
+  function updateSuspBadge(){
+    const b=document.getElementById("suspBadge"); if(!b) return;
+    const n=suspiciousList().length;
+    b.textContent=n; b.hidden = n===0;
+  }
+  function renderSuspicious(){
+    const rules=$("#suspRules");
+    if(rules){
+      rules.innerHTML=
+        '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:10px 12px;margin-bottom:12px;color:#c2410c;font-size:13px;font-weight:700">'+
+          '🤖 Buni <b>sayt o\'zi</b> aniqlaydi. Bunday buyurtma restoranga ham, kuryerga ham <b>ko\'rinmaydi</b> — '+
+          'siz tasdiqlaganingizdan keyingina ishga tushadi.'+
+        '</div>'+
+        '<div style="display:flex;flex-direction:column;gap:6px">'+
+        '<div style="padding-left:4px">📦 <b>60 donadan ko\'p</b> mahsulot buyurtma qilingan bo\'lsa</div>'+
+        '<div style="padding-left:4px">💰 Summa <b>3 000 000 so\'mdan</b> oshsa</div>'+
+        '<div style="padding-left:4px">🍽️ <b>30 xildan ko\'p</b> turli taom tanlangan bo\'lsa</div>'+
+        '<div style="padding-left:4px">⏱ Bitta raqamdan <b>30 daqiqada 3 va undan ko\'p</b> buyurtma kelsa</div>'+
+        '<div style="color:#16a34a;margin-top:6px">✅ Tasdiqlasangiz — buyurtma restoranga tushadi va kuryer biriktiriladi.</div>'+
+        '<div style="color:var(--grey);margin-top:8px;font-size:13px">Eslatma: oddiy katta buyurtma (20–30 ta mahsulot) restoranga '+
+          'to\'g\'ridan-to\'g\'ri boradi — unда kuryer yo\'lga chiqishdan oldin mijozga qo\'ng\'iroq qiladi.</div>'+
+        '</div>';
+    }
+    const host=$("#suspList"); if(!host) return;
+    const list=suspiciousList();
+    const cnt=$("#suspCount"); if(cnt) cnt.textContent=list.length+" ta";
+    updateSuspBadge();
+    if(!list.length){
+      host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">Tekshirishni kutayotgan buyurtma yo\'q. 👍</p>';
+      return;
+    }
+    host.innerHTML=list.map(function(o){
+      var items=""; try{ items=YZ_ITEMS.listHtml(o,{maxHeight:220}); }catch(e){}
+      var qty=0; try{ qty=YZ_ITEMS.qty(o); }catch(e){}
+      return '<div style="border:2px solid #fed7aa;border-radius:16px;padding:14px;margin-bottom:14px;background:#fffdfa">'+
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+          '<b style="font-size:16px">#'+o.id+' · '+esc(o.item)+'</b>'+
+          '<span class="pill warn">🔎 Tekshiruvda</span>'+srcBadge(o)+
+        '</div>'+
+        (o.suspiciousReason
+          ? '<div style="background:#fef2f2;color:#b91c1c;border-radius:10px;padding:8px 11px;font-size:13px;font-weight:700;margin-bottom:10px">⚠️ Sabab: '+esc(o.suspiciousReason)+'</div>'
+          : "")+
+        '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--grey);margin-bottom:6px">'+
+          '<span>👤 <b style="color:var(--ink,#222)">'+esc(o.user||"—")+'</b></span>'+
+          (o.phone?'<span>📞 <a href="tel:'+encodeURIComponent(o.phone)+'" style="color:var(--red);font-weight:700;text-decoration:none">'+esc(o.phone)+'</a></span>':"")+
+          '<span>🏪 <b style="color:var(--ink,#222)">'+esc(o.rest||"—")+'</b></span>'+
+          '<span>📦 <b style="color:var(--ink,#222)">'+qty+' dona</b></span>'+
+          '<span>💰 <b style="color:var(--red)">'+money(o.amount)+' so\'m</b></span>'+
+        '</div>'+
+        '<div style="font-size:13px;color:var(--grey);margin-bottom:4px">📍 '+esc(o.addr||"—")+'</div>'+
+        '<div style="font-size:12px;color:var(--grey)">🕐 '+esc(fmtDateTime(o))+'</div>'+
+        items+
+        '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px">'+
+          '<button class="add-action-btn" data-appr="'+o.id+'" style="background:#16a34a">✅ Tasdiqlash — restoranga yuborish</button>'+
+          '<button class="add-action-btn" data-rej="'+o.id+'" style="background:#C8102E">❌ Rad etish</button>'+
+          (o.phone?'<a href="tel:'+encodeURIComponent(o.phone)+'" class="add-action-btn" style="background:#2563eb;text-decoration:none;display:inline-block">📞 Mijozga qo\'ng\'iroq</a>':"")+
+        '</div></div>';
+    }).join("");
+
+    $$("#suspList [data-appr]").forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        btn.disabled=true; btn.textContent="Tasdiqlanmoqda...";
+        const r=await STORE.approveOrder(btn.dataset.appr);
+        if(r && !r.error){ toast("✅ Buyurtma tasdiqlandi — restoranga yuborildi"); }
+        else { toast((r&&r.error)||"Xatolik"); }
+        renderSuspicious(); renderLiveOrders();
+      });
+    });
+    $$("#suspList [data-rej]").forEach(function(btn){
+      btn.addEventListener("click",function(){ askRejectReason(btn.dataset.rej); });
+    });
+  }
+
+  /* Rad etish — sabab so'raladi va mijozga yuboriladi */
+  function askRejectReason(id){
+    var el=document.getElementById("suspRejModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="suspRejModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    var quick=["Soxta buyurtma","Mijoz telefonda tasdiqlamadi","Restoran bunchalik tayyorlay olmaydi","Manzil noaniq"];
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px">'+
+      '<h3 style="margin:0 0 6px">Buyurtmani rad etish</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 12px">Sababini yozing — u mijozga ko\'rsatiladi.</p>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'+quick.map(function(q){return '<button type="button" class="srq" style="border:1px solid var(--line);background:#faf7f8;border-radius:999px;padding:6px 11px;font-size:12px;cursor:pointer">'+q+'</button>';}).join("")+'</div>'+
+      '<textarea id="srReason" rows="3" placeholder="Rad etish sababi..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:14px;resize:vertical;font-family:inherit"></textarea>'+
+      '<div style="display:flex;gap:10px;margin-top:12px">'+
+        '<button id="srCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
+        '<button id="srOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#C8102E;color:#fff;font-weight:700;cursor:pointer">Rad etish</button>'+
+      '</div></div>';
+    document.body.appendChild(el);
+    var ta=el.querySelector("#srReason");
+    el.querySelectorAll(".srq").forEach(function(b){ b.addEventListener("click",function(){ ta.value=b.textContent; ta.style.borderColor="var(--line)"; }); });
+    el.querySelector("#srCancel").addEventListener("click",function(){ el.remove(); });
+    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
+    el.querySelector("#srOk").addEventListener("click",async function(){
+      var reason=ta.value.trim(); if(!reason){ ta.style.borderColor="#C8102E"; return; }
+      this.disabled=true;
+      const r=await STORE.rejectOrder(id, reason);
+      el.remove();
+      if(r && !r.error) toast("Buyurtma rad etildi — sabab mijozga yuborildi");
+      else toast((r&&r.error)||"Xatolik");
+      renderSuspicious(); renderLiveOrders();
+    });
+  }
+
+  /* =========================================================
+     IZOHLAR — admin nazorati (o'chirish + egasiga javob yozish)
+     ========================================================= */
+  let cmtOnlyBad=false, cmtQuery="";
+  function commentsList(){
+    let rv=[];
+    try{ rv=(typeof STORE!=="undefined")?STORE.reviews().slice():[]; }catch(e){ rv=[]; }
+    if(cmtOnlyBad) rv=rv.filter(r=>(r.rating||0)<=3);
+    const q=cmtQuery.trim().toLowerCase();
+    if(q) rv=rv.filter(r=>[r.name,r.dish,r.text,r.reply].some(v=>String(v||"").toLowerCase().indexOf(q)>=0));
+    return rv;
+  }
+  function renderComments(){
+    const host=$("#cmtList"); if(!host) return;
+    const rv=commentsList();
+    const cnt=$("#cmtCount"); if(cnt) cnt.textContent=rv.length+" ta";
+    if(!rv.length){
+      host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">'+
+        (cmtQuery||cmtOnlyBad?"Bu shartga mos izoh topilmadi.":"Hali izoh yozilmagan.")+'</p>';
+      return;
+    }
+    host.innerHTML=rv.map(function(r){
+      const rr=Math.max(0,Math.min(5,r.rating|0));
+      /* Kuryer reytinglari saytda ko'rinmaydi — bu yerда ajratib ko'rsatamiz */
+      const isCour=/^🛵\s*Kuryer:/.test(String(r.dish||""));
+      return '<div style="padding:14px 0;border-bottom:1px solid var(--line)" data-cmt="'+esc(String(r.id||""))+'">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">'+
+          '<b>'+(r.ava||"👤")+' '+esc(r.name)+'</b>'+
+          '<span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span>'+
+        '</div>'+
+        '<div style="color:var(--grey);font-size:12px;margin-top:2px">'+
+          (isCour?'🛵 ':'🍽️ ')+esc(r.dish||"—")+(r.rest?' · 🏪 '+esc(r.rest):"")+(r.date?' · '+esc(r.date):"")+
+          (r.flagged?' <span class="pill red">signal</span>':"")+
+        '</div>'+
+        '<div style="font-size:14px;margin-top:6px">'+esc(r.text||"—")+'</div>'+
+        (r.reply
+          ? '<div style="background:#ecfdf3;border-left:3px solid #16a34a;border-radius:8px;padding:8px 11px;margin-top:8px;font-size:13px">'+
+              '<b style="color:#15803d">↩ Yetkaz javobi:</b> '+esc(r.reply)+'</div>'
+          : "")+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">'+
+          '<button class="add-action-btn" data-reply="'+esc(String(r.id||""))+'" style="background:#2563eb">'+(r.reply?"✏️ Javobni tahrirlash":"↩ Javob yozish")+'</button>'+
+          (r.reply?'<button class="add-action-btn" data-unreply="'+esc(String(r.id||""))+'" style="background:#9ca3af">Javobni olib tashlash</button>':"")+
+          '<button class="add-action-btn" data-delcmt="'+esc(String(r.id||""))+'" style="background:#C8102E">🗑 O\'chirish</button>'+
+        '</div></div>';
+    }).join("");
+
+    $$("#cmtList [data-reply]").forEach(function(b){
+      b.addEventListener("click",function(){
+        const r=rv.find(x=>String(x.id)===b.dataset.reply);
+        openReplyModal(r);
+      });
+    });
+    $$("#cmtList [data-unreply]").forEach(function(b){
+      b.addEventListener("click",async function(){
+        b.disabled=true;
+        const res=await STORE.replyReview(b.dataset.unreply,"");
+        if(res && res.error) toast(res.error); else toast("Javob olib tashlandi");
+        renderComments();
+      });
+    });
+    $$("#cmtList [data-delcmt]").forEach(function(b){
+      b.addEventListener("click",function(){
+        confirmModal({
+          icon:"🗑", title:"Izohni o'chirish",
+          desc:"Bu izoh saytdan butunlay o'chiriladi. Buni ortga qaytarib bo'lmaydi.",
+          confirmLabel:"Ha, o'chirish",
+          onConfirm:async function(){
+            const res=await STORE.deleteReview(b.dataset.delcmt);
+            if(res && res.error) toast(res.error); else toast("Izoh o'chirildi ✓");
+            renderComments(); renderAdminReviews();
+          }
+        });
+      });
+    });
+  }
+  function openReplyModal(r){
+    if(!r) return;
+    var el=document.getElementById("cmtReplyModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="cmtReplyModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px;max-height:90vh;overflow:auto">'+
+      '<h3 style="margin:0 0 6px">↩ Izohga javob</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 10px">Javobingiz saytda izoh ostida <b>«Yetkaz javobi»</b> bo\'lib ko\'rinadi.</p>'+
+      '<div style="background:#faf7f8;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px">'+
+        '<b>'+(r.ava||"👤")+' '+esc(r.name)+'</b><div style="margin-top:4px">'+esc(r.text||"—")+'</div></div>'+
+      '<textarea id="cmtReplyText" rows="4" placeholder="Hurmatli mijoz, ..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:14px;resize:vertical;font-family:inherit"></textarea>'+
+      '<div style="display:flex;gap:10px;margin-top:12px">'+
+        '<button id="cmtRepCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
+        '<button id="cmtRepOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#16a34a;color:#fff;font-weight:700;cursor:pointer">Javobni joylash</button>'+
+      '</div></div>';
+    document.body.appendChild(el);
+    var ta=el.querySelector("#cmtReplyText"); ta.value=r.reply||""; ta.focus();
+    el.querySelector("#cmtRepCancel").addEventListener("click",function(){ el.remove(); });
+    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
+    el.querySelector("#cmtRepOk").addEventListener("click",async function(){
+      var v=ta.value.trim(); if(!v){ ta.style.borderColor="#C8102E"; return; }
+      this.disabled=true;
+      const res=await STORE.replyReview(r.id, v);
+      el.remove();
+      if(res && res.error) toast(res.error); else toast("Javob joylandi ✓ — saytda ko'rinadi");
+      renderComments();
+    });
   }
 
   /* =========================================================
@@ -296,7 +519,7 @@
       +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
   }
 
-  const OSM={new:["Yangi","warn"],accepted:["Tayyorlanmoqda","warn"],ready:["Tayyor","blue"],ontheway:["Yo'lda","blue"],arrived:["Yetkazildi (tasdiq)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
+  const OSM={review:["🔎 Tekshiruvda (siz tasdiqlashingiz kerak)","warn"],new:["Yangi","warn"],accepted:["Tayyorlanmoqda","warn"],ready:["Tayyor","blue"],ontheway:["Yo'lda","blue"],arrived:["Yetkazildi (tasdiq)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
   function renderLiveOrders(){
     const o=(typeof STORE!=="undefined")?STORE.orders():[];
     // Desktop jadval
@@ -332,14 +555,23 @@
     let el=document.getElementById("ordModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="ordModal";
     el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)";
-    el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
+    /* Buyurtma tarkibi — har bir taom rasmi bilan, uzun ro'yxatда scroll (order-items.js) */
+    var itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:240}); }catch(e){}
+    var qty=0; try{ qty=YZ_ITEMS.qty(o); }catch(e){}
+    el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
       "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer\">✕</button>"+
       "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>"+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
+      (o.suspiciousReason?"<div style=\"background:#fff7ed;color:#c2410c;border-radius:10px;padding:8px 11px;font-size:13px;font-weight:700;margin-bottom:10px\">⚠️ Shubha sababi: "+esc(o.suspiciousReason)+"</div>":"")+
+      itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
         omr("Manzil",esc(o.addr)||"-")+omr("Restoran",esc(o.rest)||"-")+omr("Kuryer (yetkazmoqda)",esc(o.courier)||"-")+
+        (qty?omr("Jami mahsulot",qty+" dona"):"")+
+        (o.callRequired?omr("Tasdiqlovchi qo'ng'iroq", o.callDone
+          ? "<span style=\"color:#16a34a\">✅ Qilingan"+(o.callBy?" ("+esc(o.callBy)+")":"")+"</span>"
+          : "<span style=\"color:#c2410c\">📞 Kutilmoqda</span>"):"")+
         omr("Qayerdan kelgan",srcBadge(o))+
         omr("Buyurtma narxi",money(o.amount)+" so'm")+omr("Yetkazish narxi",money(o.delivery||0)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+omr("Sana / vaqt",fmtDateTime(o))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
@@ -1365,6 +1597,10 @@
   function renderAll(){
     syncEntitiesFromBackend();   // backend = manba: hamma restoran/kuryer to'liq ma'lumoti bilan
     renderDash(); renderLiveOrders(); renderRests(); renderCouriers(); renderUsers(); renderAdminReviews();
+    updateSuspBadge();
+    /* Ochiq bo'lgan bo'limlarni ham yangilaymiz (yangi shubhali buyurtma / izoh darrov ko'rinsin) */
+    try{ if(document.querySelector("#view-suspicious.show")) renderSuspicious(); }catch(e){}
+    try{ if(document.querySelector("#view-comments.show")) renderComments(); }catch(e){}
     emptyStates();
     renderPendingCountdowns();
     /* Tepadagi "ochiq/yopiq" hisoblagichi restoranlar ro'yxati bilan birga
@@ -1454,7 +1690,13 @@
 
     // Realtime: yangi buyurtma/status o'zgarganda jadval va KPI yangilanadi
     if(typeof STORE!=="undefined" && STORE.onChange){
-      STORE.onChange(()=>{ try{ syncEntitiesFromBackend(); renderDash(); renderLiveOrders(); renderRests(); renderCouriers(); }catch(e){} });
+      STORE.onChange(()=>{ try{
+        syncEntitiesFromBackend(); renderDash(); renderLiveOrders(); renderRests(); renderCouriers();
+        /* Yangi shubhali buyurtma / izoh kelsa — hisoblagich va ochiq bo'lim yangilanadi */
+        updateSuspBadge();
+        if(document.querySelector("#view-suspicious.show")) renderSuspicious();
+        if(document.querySelector("#view-comments.show")) renderComments();
+      }catch(e){} });
     }
     /* Kuryerlar bootstrap'da yo'q — ularni alohida davriy yangilaymiz (ishdan-javob holati ham) */
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){
@@ -1506,6 +1748,14 @@
       $("#alPass").value="";
       try{location.href="index.html";}catch(e){}
     });
+
+    // Izohlar bo'limi — qidiruv va filtrlar
+    const cs=document.getElementById("cmtSearch");
+    if(cs) cs.addEventListener("input",function(){ cmtQuery=cs.value; renderComments(); });
+    const cbad=document.getElementById("cmtFilterBad");
+    if(cbad) cbad.addEventListener("click",function(){ cmtOnlyBad=true; renderComments(); });
+    const call=document.getElementById("cmtFilterAll");
+    if(call) call.addEventListener("click",function(){ cmtOnlyBad=false; renderComments(); });
 
     // Bloklangan raqamlar bo'limi
     const blkRefresh=document.getElementById("blockRefreshBtn");

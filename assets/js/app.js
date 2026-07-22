@@ -528,6 +528,7 @@
         <div><div class="rv-name">${esc(r.name)}</div><div class="rv-stars">${stars}</div></div>
         ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
         <p class="rv-text">${esc(txt)}</p>
+        ${r.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(r.reply)}</div>`:""}
         <div class="rv-dish">🍽️ ${esc(r.dish)}${rest?` · 🏪 ${esc(rest)}`:""}</div>`;
       g.appendChild(el);
     });
@@ -926,7 +927,16 @@
           time: new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"})
         },{
           /* Server qabul qildi — ANIQ id ni bog'laymiz (taxminiy moslashtirish o'rniga) */
-          onOk: saved => attachBackendId(orderId, saved.id),
+          onOk: saved => {
+            attachBackendId(orderId, saved.id);
+            /* Katta/g'ayrioddiy buyurtma administrator tekshiruviga tushdi
+               (server/src/order-rules.js) — mijoz nima bo'layotganini bilsin. */
+            if(saved.status==="review"){
+              const st=document.getElementById("tStatus");
+              if(st) st.textContent="Administrator tekshiruvida";
+              toast("Buyurtmangiz katta — administrator tekshiradi va tez orada tasdiqlaydi","success");
+            }
+          },
           /* Server rad etdi (min. summa / sotuvda yo'q taom) — hammasini qaytaramiz */
           onFail: err => rollbackFailedOrder(orderId, savedCart, err)
         });
@@ -1005,7 +1015,10 @@
       // Bosqich: backend bo'lsa real statusdan, bo'lmasa vaqt bo'yicha simulyatsiya
       let step = getCurrentStep(order);
       if(be){
-        if(be.status==="new") step = 0;                             // Qabul qilindi
+        /* 'review' — katta buyurtma administrator tekshiruvida (server/src/order-rules.js).
+           Restoranga hali bormagan, shuning uchun birinchi bosqichda turadi. */
+        if(be.status==="review") step = 0;
+        else if(be.status==="new") step = 0;                        // Qabul qilindi
         else if(be.status==="accepted") step = 1;                   // Tayyorlanmoqda
         else if(be.status==="ready") step = 2;                      // Tayyor
         else if(be.status==="ontheway") step = 3;                   // Yo'lda

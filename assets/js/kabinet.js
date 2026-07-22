@@ -196,7 +196,8 @@
       <div class="scard c2"><div class="si">⭐</div><b>${USER.reviews.length}</b><span>Izohlarim</span></div>
       <div class="scard c3"><div class="si">💳</div><b>${money(spent)}</b><span>Jami sarflagan (so'm)</span></div>`;
     $("#orderTbody").innerHTML=USER.orders.map(o=>{
-      const cancellable=(o.status==="new"||o.status==="accepted"||o.status==="ready");
+      /* 'review' — admin tekshiruvidagi katta buyurtma; undan ham voz kechish mumkin */
+      const cancellable=(o.status==="review"||o.status==="new"||o.status==="accepted"||o.status==="ready");
       const last = cancellable
         ? `<button class="kab-cancel" data-oid="${o.id}" style="background:#fdecec;color:#C8102E;border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">✕ Bekor</button>`
         : (o.status==="cancelled" ? ('<span class="pill warn">Bekor qilingan</span>'+(o.reason?'<div style="font-size:11px;color:#C8102E;margin-top:3px">'+esc(o.reason)+'</div>':''))
@@ -731,7 +732,9 @@
     $("#koDone").addEventListener("click", closeCheckoutKeepOrder);
     const els=$$("#koContent .ko-step");
     const stepColors=["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
-    const STMAP={ new:0, accepted:1, ready:2, ontheway:3, arrived:4, done:4 };
+    /* 'review' — katta buyurtma administrator tekshiruvida (server/src/order-rules.js).
+       Restoranga hali bormagan, shuning uchun birinchi bosqichda turadi. */
+    const STMAP={ review:0, new:0, accepted:1, ready:2, ontheway:3, arrived:4, done:4 };
     function orderNow(){ try{ return (STORE.orders()||[]).find(o=> created && o.id===created.id) || created; }catch(e){ return created; } }
     function paint(idx){
       els.forEach((el,i)=>{ el.classList.remove("active","done-step"); if(i<idx) el.classList.add("done-step"); else if(i===idx) el.classList.add("active"); });
@@ -742,6 +745,8 @@
       const o=orderNow(); const s=(o&&o.status)||"new";
       if(s==="cancelled"){ clearInterval(poll); paint(0); showKabCancelled(o&&o.reason,emoji); return; }
       paint(STMAP[s]!=null?STMAP[s]:0);
+      /* Tekshiruvda turgan buyurtma — mijoz nima kutayotganini bilsin */
+      if(s==="review"){ const st=$("#koStatus"); if(st){ st.textContent="🔎 Administrator tekshiruvida"; st.style.color="#c2410c"; } }
       const act=$("#koTrackAction");
       if(s==="arrived" && act && !act.dataset.on){
         act.dataset.on="1";

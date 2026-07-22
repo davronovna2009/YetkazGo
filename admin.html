@@ -42,6 +42,8 @@
       <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
       <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
       <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
+      <a class="sb-link" data-view="suspicious"><span class="ic">🔎</span><span class="ic-label">Shubhali buyurtmalar</span><span class="sb-badge" id="suspBadge" hidden>0</span></a>
+      <a class="sb-link" data-view="comments"><span class="ic">💬</span><span class="ic-label">Izohlar</span></a>
       <a class="sb-link" data-view="blocked"><span class="ic">🚫</span><span class="ic-label">Bloklangan raqamlar</span></a>
       <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
     </nav>
@@ -178,6 +180,44 @@
         <div class="panel" style="margin-top:12px">
           <div class="panel-head"><h3>Talab tahlili</h3></div>
           <div class="panel-body" id="demandList"></div>
+        </div>
+      </section>
+
+      <!-- ===== SHUBHALI BUYURTMALAR (admin tasdig'ini kutmoqda) =====
+           Juda katta / g'ayrioddiy buyurtma restoranga TUSHMAYDI — u avval shu
+           yerga keladi. Admin tasdiqlagach restoranga, so'ng kuryerga boradi. -->
+      <section class="view" id="view-suspicious">
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head"><h3>🔎 Nima uchun buyurtma bu yerga tushadi?</h3></div>
+          <div class="panel-body" id="suspRules" style="font-size:14px;color:var(--grey)"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Tasdiq kutayotgan buyurtmalar</h3>
+            <span class="panel-badge" id="suspCount">0 ta</span>
+          </div>
+          <div class="panel-body" id="suspList"></div>
+        </div>
+      </section>
+
+      <!-- ===== IZOHLAR (admin nazorati) ===== -->
+      <section class="view" id="view-comments">
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head">
+            <h3>💬 Saytga yozilgan barcha izohlar</h3>
+            <span class="panel-badge" id="cmtCount">0 ta</span>
+          </div>
+          <div class="panel-body">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input id="cmtSearch" placeholder="Ism, taom yoki matn bo'yicha qidirish..."
+                     style="flex:1;min-width:190px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit" />
+              <button class="add-action-btn" id="cmtFilterBad" style="background:#C8102E">⚠️ Faqat past baho</button>
+              <button class="add-action-btn" id="cmtFilterAll" style="background:#9ca3af">Hammasi</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-body" id="cmtList"></div>
         </div>
       </section>
 
@@ -558,6 +598,8 @@
 <script src="assets/js/lottie.min.js"></script>
   <script src="assets/js/courier-anim.js"></script>
   <script src="assets/js/store.js"></script>
+  <!-- Buyurtma tarkibi (rasm + overflow) — restoran/kuryer/admin panellari uchun -->
+  <script src="assets/js/order-items.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/admin-reset.js"></script>

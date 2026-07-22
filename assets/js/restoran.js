@@ -554,13 +554,24 @@
   }
   /* Buyurtmalar jadvalini KO'RSATILGAN tbody ga render qiladi (bir nechta joy uchun:
      buyurtmalar bo'limi + dashboard). Logika bitta — takrorlanmaydi. */
+  /* Buyurtmadagi jami dona soni (YZ_ITEMS — barcha panellar uchun yagona manba) */
+  function orderQty(x){ try{ return YZ_ITEMS.qty(x); }catch(e){ return 0; } }
+  /* Ko'p taomli buyurtma uchun jadval qatoridagi rasm lentasi (yon tomonga suriladi) */
+  function itemsStrip(x){ try{ return YZ_ITEMS.strip(x); }catch(e){ return ""; } }
+
   function renderOrdersInto(tbId){
     const o=(typeof STORE!=="undefined")?STORE.ordersFor(CUR.name):[];
     const tb=$("#"+tbId); if(!tb) return;
     tb.innerHTML=o.length?o.map(function(x){ const s=RSM[x.status]||["?","warn"];
       var ph=orderPhoto(x);
       var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+(x.emoji||"🍽️")+"</span>";
-      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
+      /* Ko'p mahsulotli buyurtma: nom ostida BARCHA taomlar rasmi (gorizontal scroll)
+         va "N xil · M dona" belgisi — restoran nima tayyorlashini darrov ko'radi. */
+      var n=(x.items&&x.items.length)||0;
+      var extra = n>1
+        ? "<div class=\"o-more\">"+n+" xil · "+orderQty(x)+" dona</div>"+itemsStrip(x)
+        : "";
+      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div>"+extra+"</td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
       :"<tr><td colspan=6 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
     $$("#"+tbId+" .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
     $$("#"+tbId+" [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
@@ -596,7 +607,10 @@
     el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
     el.querySelector("#cxOk").addEventListener("click",function(){
       var reason=ta.value.trim(); if(!reason){ ta.style.borderColor="#C8102E"; return; }
-      if(typeof STORE!=="undefined" && STORE.updateOrder) STORE.updateOrder(id,{status:"cancelled", reason:reason});
+      /* Server rad etsa (masalan buyurtma allaqachon yo'lda) — sababini ko'rsatamiz */
+      if(typeof STORE!=="undefined" && STORE.updateOrder) STORE.updateOrder(id,{status:"cancelled", reason:reason},{
+        onFail:function(err){ toast((err&&err.message)||"Bekor qilib bo'lmadi"); renderOrdersView(); renderDash(); }
+      });
       el.remove(); var m=document.getElementById("ordModal"); if(m) m.remove();
       renderOrdersView(); renderDash();
       toast("Buyurtma bekor qilindi — sabab mijozga yuborildi");
@@ -627,14 +641,21 @@
     var head=ph
       ? "<div style=\"width:100%;height:180px;border-radius:14px;overflow:hidden;margin-bottom:10px;background:#f4f4f6\"><img src=\""+ph+"\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\"></div>"
       : "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>";
-    el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
+    /* Buyurtma tarkibi — HAR BIR taom rasmi, dona soni va summasi bilan.
+       Ro'yxat uzun bo'lsa (20–30 mahsulot) ichida scroll bo'ladi, modal
+       cho'zilib ketmaydi (YZ_ITEMS — order-items.js). */
+    var itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:280}); }catch(e){}
+    el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
       "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;z-index:2\">✕</button>"+
       head+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
+      itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
-        omr("Manzil",esc(o.addr)||"-")+omr("Summa",money(o.amount)+" so'm")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
+        omr("Manzil",esc(o.addr)||"-")+
+        (orderQty(o)?omr("Jami mahsulot",orderQty(o)+" dona"):"")+
+        omr("Summa",money(o.amount)+" so'm")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
         omr("Kuryer",esc(o.courier)||"-")+
         omr("🕐 Buyurtma berilgan",fmtDateTime(o))+
         (orderDelivered(o)

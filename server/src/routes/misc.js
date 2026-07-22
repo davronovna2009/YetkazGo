@@ -32,9 +32,12 @@ function courRow(c) {
 /* GET /api/bootstrap — bosh sahifa va panellar uchun ommaviy snapshot.
    Buyurtmalar (maxfiy) alohida /api/orders orqali (token bilan) olinadi. */
 router.get('/bootstrap', (_req, res) => {
+  /* Izohlar — admin javobi (reply) bilan birga: saytda izoh ostida ko'rinadi,
+     admin panelida esa boshqariladi (o'chirish / javob yozish). */
   const reviews = db.prepare('SELECT * FROM reviews ORDER BY id DESC').all().map(r => ({
-    id: r.id, name: r.name, ava: r.ava, rating: r.rating, dish: r.dish,
+    id: r.id, name: r.name, ava: r.ava, rating: r.rating, dish: r.dish, rest: r.rest || '',
     text: r.text, textCyr: r.text_cyr || '', flagged: !!r.flagged, date: r.date,
+    reply: r.reply || '', replyAt: r.reply_at || '', created_at: r.created_at || '',
   }));
   const announcements = db.prepare('SELECT * FROM announcements ORDER BY id DESC LIMIT 20').all().map(a => ({
     id: a.id, rest: a.rest, text: a.text, emoji: a.emoji, tag: a.tag, dish: a.dish, img: a.img || '',

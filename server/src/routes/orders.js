@@ -3,7 +3,9 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
-import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone } from '../orders-core.js';
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier } from '../orders-core.js';
+/* Katta/shubhali buyurtma qoidalari (kuryer qo'ng'irog'i, admin tekshiruvi) */
+import { rulesSnapshot } from '../order-rules.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
    Bot FAQAT MIJOZ bilan ishlaydi; restoran/kuryer o'z panelida ko'radi.
    notifyOps* — ixtiyoriy operatorlar guruhi (TG_CHAT_OPS) uchun. */
@@ -25,8 +27,14 @@ const router = Router();
    Panellar faqat status/reason yuboradi (kuryer.js:118, restoran.js:544,570). */
 const ALLOWED = ['status', 'reason', 'courier', 'eta', 'time'];
 
-/* Buyurtma bosqichlari — boshqa qiymat bazaga tushmasin */
+/* Buyurtma bosqichlari — boshqa qiymat bazaga tushmasin.
+   'review' — shubhali buyurtma, ADMIN tasdig'ini kutmoqda (order-rules.js).
+   Bu bosqichni panellar PATCH orqali qo'ya olmaydi: faqat server o'zi (buyurtma
+   yaratilganда) va admin /approve · /reject orqali chiqaradi. */
 const STATUSES = ['new', 'accepted', 'ready', 'ontheway', 'arrived', 'done', 'cancelled'];
+
+/* Admin tasdig'ini kutayotgan buyurtma — restoran va kuryer uni KO'RMAYDI */
+const REVIEW = 'review';
 
 /* Yangi buyurtma xabarnomasi (restoran + kuryer + admin/operator guruhi) —
    butun mantiq bot.js da: sayt va bot AYNAN bir xil xabar yuboradi. */
@@ -42,12 +50,16 @@ router.get('/', authRequired, (req, res) => {
       where.push('user = ?'); params.push(req.user.name);
       break;
     case 'restoran':
-      // Restoran — faqat O'Z restoraniga tushgan buyurtmalar
+      // Restoran — faqat O'Z restoraniga tushgan buyurtmalar.
+      // Shubhali (admin tekshiruvidagi) buyurtma bu yerда KO'RINMAYDI —
+      // u avval adminга boradi, admin tasdiqlagach restoranga tushadi.
       where.push('rest = ?'); params.push(req.user.name);
+      where.push('status <> ?'); params.push(REVIEW);
       break;
     case 'kuryer':
-      // Kuryer — faqat O'ZIGA biriktirilgan buyurtmalar
+      // Kuryer — faqat O'ZIGA biriktirilgan buyurtmalar (tekshiruvdagilar yo'q)
       where.push('courier = ?'); params.push(req.user.name);
+      where.push('status <> ?'); params.push(REVIEW);
       break;
     case 'admin':
       // Admin — hammasini ko'radi, ixtiyoriy filtrlar bilan
@@ -76,8 +88,12 @@ router.post('/', (req, res) => {
     return res.status(500).json({ error: 'Buyurtmani yaratib bo`lmadi' });
   }
 
-  /* Telegram xabarnomasini bloklamasdan yuboramiz (tarkibi bilan) */
-  notifyNewOrder(created.order, created.lines);
+  /* Telegram xabarnomasini bloklamasdan yuboramiz (tarkibi bilan).
+     Shubhali buyurtma hali HAQIQIY buyurtma emas — u admin tekshiruvida turadi,
+     shuning uchun "yangi buyurtma" xabari admin tasdiqlaganда yuboriladi
+     (/:id/approve). Mijozga esa holatni darrov aytamiz. */
+  if (created.order.status === REVIEW) notifyCustomerStatus({ ...created.order, tg_chat_id: req.body?.tgChatId || '' }, '');
+  else notifyNewOrder(created.order, created.lines);
 
   /* Javobда token QAYTADI — frontend uni localStorage'da saqlab, keyin
      bekor qilish/qabul qilishda yuboradi. */
@@ -124,7 +140,8 @@ router.post('/:id/cancel', (req, res) => {
   if (!canMutate(o, req)) return res.status(403).json({ error: 'Ruxsat yo`q' });
 
   const alreadyCancelled = o.status === 'cancelled';
-  if (['new', 'accepted', 'ready'].includes(o.status)) {
+  /* 'review' ham bekor qilinadi — mijoz admin tekshiruvini kutmasdan voz kechishi mumkin */
+  if ([REVIEW, 'new', 'accepted', 'ready'].includes(o.status)) {
     db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(id);
   } else if (!alreadyCancelled) {
     return res.status(409).json({ error: 'Bu bosqichda bekor qilib bo`lmaydi (kuryer yo`lda)' });
@@ -166,6 +183,72 @@ router.post('/:id/received', (req, res) => {
   res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 });
 
+/* ===== KATTA BUYURTMA: kuryerning tasdiqlovchi qo'ng'irog'i =====
+   POST /api/orders/:id/call-confirm — kuryer mijozga qo'ng'iroq qilib
+   "rostdan shuncha buyurtma berdingizmi?" deb so'radi va mijoz TASDIQLADI.
+   Shundan keyingina «Yo'lga chiqdim» tugmasi ishlaydi.
+   Mijoz rad etsa — kuryer buyurtmani bekor qiladi (odatdagi bekor qilish). */
+router.post('/:id/call-confirm', requireRole('kuryer', 'restoran', 'admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
+  if (req.user.role === 'kuryer' && o.courier !== req.user.name)
+    return res.status(403).json({ error: 'Ruxsat berilmagan' });
+  if (req.user.role === 'restoran' && o.rest !== req.user.name)
+    return res.status(403).json({ error: 'Ruxsat berilmagan' });
+  if (o.status === REVIEW)
+    return res.status(409).json({ error: 'Buyurtma administrator tekshiruvida' });
+
+  db.prepare("UPDATE orders SET call_done = 1, call_by = ?, call_at = datetime('now') WHERE id = ?")
+    .run(String(req.user.name || req.user.login || ''), id);
+  res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+});
+
+/* ===== SHUBHALI BUYURTMA: admin qarori =====
+   POST /api/orders/:id/approve — admin tasdiqlaydi: buyurtma 'new' bo'ladi,
+   kuryer AYNAN SHU PAYTDA biriktiriladi (2 ta cheklovi bilan) va restoran
+   panelida paydo bo'ladi. */
+router.post('/:id/approve', requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
+  if (o.status !== REVIEW) return res.status(409).json({ error: 'Bu buyurtma tekshiruvda emas' });
+
+  const courier = o.courier || assignCourier(o.rest) || '';
+  db.prepare(
+    `UPDATE orders SET status = 'new', courier = ?, approved_by = ?, approved_at = datetime('now')
+      WHERE id = ?`
+  ).run(courier, String(req.user.name || req.user.login || 'admin'), id);
+
+  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  /* Endi u haqiqiy buyurtma — mijozga va operatorlar guruhiga xabar beramiz */
+  notifyCustomerStatus(updated, REVIEW);
+  notifyNewOrder(rowToOrder(updated), parseItems(updated.items_json));
+  res.json(rowToOrder(updated));
+});
+
+/* POST /api/orders/:id/reject — admin rad etadi (soxta/noreal buyurtma).
+   Buyurtma bekor qilinadi, sabab mijozga ko'rinadi. */
+router.post('/:id/reject', requireRole('admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
+  if (o.status !== REVIEW) return res.status(409).json({ error: 'Bu buyurtma tekshiruvda emas' });
+
+  const reason = String(req.body?.reason || 'Buyurtma tekshiruvdan o`tmadi').slice(0, 200);
+  db.prepare(
+    `UPDATE orders SET status = 'cancelled', reason = ?, approved_by = ?, approved_at = datetime('now')
+      WHERE id = ?`
+  ).run(reason, String(req.user.name || req.user.login || 'admin'), id);
+
+  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  notifyCustomerStatus(updated, REVIEW);
+  res.json(rowToOrder(updated));
+});
+
+/* GET /api/orders/rules — panellar chegaralarni ko'rsatishi uchun (ochiq son) */
+router.get('/rules/limits', (_req, res) => res.json(rulesSnapshot()));
+
 /* PATCH /api/orders/:id — statusni yangilash va h.k. (FAQAT restoran/kuryer/admin) */
 router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
   const id = Number(req.params.id);
@@ -183,6 +266,27 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
   if ('status' in patch && !STATUSES.includes(String(patch.status))) {
     return res.status(400).json({ error: 'Buyurtma holati noto`g`ri' });
   }
+
+  /* ===== 1) ADMIN TEKSHIRUVIDAGI buyurtma qulflangan =====
+     Shubhali buyurtmani faqat admin /approve yoki /reject orqali harakatga
+     keltiradi. Aks holda restoran/kuryer uni oddiy PATCH bilan ochib olardi. */
+  if (existing.status === REVIEW) {
+    return res.status(409).json({
+      error: 'Bu buyurtma administrator tekshiruvida. Tasdiqlangach ishlay boshlaydi.',
+    });
+  }
+
+  /* ===== 2) KATTA BUYURTMA — avval mijozga QO'NG'IROQ =====
+     10 donadan ko'p yoki 300 000 so'mdan qimmat buyurtmada kuryer yo'lga
+     chiqishdan oldin mijoz bilan gaplashib tasdiqlashi shart (order-rules.js).
+     Tugma frontendда ham bekitiladi, lekin haqiqiy to'siq SHU YERDA. */
+  if (patch.status === 'ontheway' && existing.call_required && !existing.call_done) {
+    return res.status(409).json({
+      error: 'Katta buyurtma: avval mijozga qo`ng`iroq qilib tasdiqlang, keyin yo`lga chiqing.',
+      needCall: true,
+    });
+  }
+
   const sets = [], params = [];
   for (const k of ALLOWED) {
     if (k in patch) { sets.push(`${k} = ?`); params.push(patch[k]); }

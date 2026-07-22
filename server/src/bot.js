@@ -126,6 +126,8 @@ async function onChooseRest(chatId) {
 
 /* ---------- Holat matnlari (sayt paneli bilan bir xil) ---------- */
 const STATUS_TEXT = {
+  /* Katta/g'ayrioddiy buyurtma — administrator tekshiruvidan o'tadi (order-rules.js) */
+  review: { ico: '🔎', t: 'Buyurtmangiz katta — administrator tekshiruvida. Tasdiqlangach restoranga yuboriladi.' },
   new: { ico: '🆕', t: 'Qabul qilindi — restoran tayyorlashni boshlaydi' },
   accepted: { ico: '👨‍🍳', t: 'Tayyorlanmoqda' },
   ready: { ico: '✅', t: 'Tayyor — kuryer olib ketmoqda' },
@@ -137,7 +139,7 @@ const STATUS_TEXT = {
 
 /* Mijoz buyurtmani bekor qila oladigan bosqichlar — sayt bilan AYNAN bir xil
    (server/src/routes/orders.js: /:id/cancel). Kuryer yo'lga chiqqach bo'lmaydi. */
-const CANCELLABLE = ['new', 'accepted', 'ready'];
+const CANCELLABLE = ['review', 'new', 'accepted', 'ready'];
 
 /* Mijoz uchun tugmalar: bekor qilish (mumkin bo'lsa) */
 function customerKeyboard(order) {

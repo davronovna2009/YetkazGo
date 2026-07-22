@@ -132,6 +132,72 @@ yakunlansa (mijoz «Qabul qildim» bosса) — hisob **nolga qaytadi**.
 
 ---
 
+## Katta va shubhali buyurtmalar
+
+Chegaralar **bitta joyda**: `server/src/order-rules.js` (o'zgartirsangiz, panellar
+ham shu sonlarga moslashadi).
+
+### 1) Kuryerning tasdiqlovchi qo'ng'irog'i
+
+Buyurtma **10 donadan ko'p** yoki **300 000 so'mdan qimmat** bo'lsa, kuryer
+panelida «Yo'lga chiqdim» o'rniga **📞 Mijozga qo'ng'iroq** tugmasi chiqadi.
+Kuryer mijozga qo'ng'iroq qilib «rostdan shuncha buyurtma berdingizmi?» deb
+so'raydi va **«Mijoz tasdiqladi»** bosgandan keyingina yo'lga chiqa oladi.
+
+To'siq **serverда** ham bor: tasdiqsiz `status = ontheway` so'rovi `409` bilan
+rad etiladi — ya'ni tugmani chetlab o'tib bo'lmaydi.
+
+### 2) Shubhali buyurtma — avval ADMIN, keyin restoran
+
+Quyidagilardan **birortasi** bo'lsa, buyurtma `status = review` bo'ladi va
+**restoran ham, kuryer ham uni ko'rmaydi**:
+
+| Shart | Chegara |
+|---|---|
+| Jami mahsulot | **60 donadan** ko'p |
+| Summa | **3 000 000 so'mdan** qimmat |
+| Turli taom soni | **30 xildan** ko'p |
+| Bitta raqamdan ketma-ket buyurtma | **30 daqiqada 3 va undan ko'p** |
+
+Bunday buyurtma **Admin panel → 🔎 Shubhali buyurtmalar** bo'limiga tushadi
+(yon menyuda qizil hisoblagich chiqadi). Admin buyurtma tarkibini rasm bilan
+ko'radi, mijozga qo'ng'iroq qila oladi va:
+
+* **✅ Tasdiqlash** — buyurtma `new` bo'ladi, kuryer **shu paytda** biriktiriladi
+  va restoran panelida paydo bo'ladi;
+* **❌ Rad etish** — bekor qilinadi, sabab mijozga ko'rsatiladi.
+
+> Oddiy katta buyurtma (20–30 ta mahsulot) adminга **tushmaydi** — u to'g'ridan
+> restoranga boradi, faqat kuryerdan tasdiqlovchi qo'ng'iroq talab qilinadi.
+
+---
+
+## Kuryerga buyurtma taqsimlash
+
+| Holat | Kimga beriladi |
+|---|---|
+| Bo'sh joyi bor kuryer bor | **Eng kam yuklangani** (bir xil bo'lsa — shu restoranning kuryeri) |
+| Hamma kuryerda **2 tadan** bor | **Eng tez bo'shaydigani** (yetib borish vaqti eng kam) |
+
+Bitta kuryerda bir vaqtda **2 tadan ko'p** faol buyurtma bo'lmaydi
+(`MAX_ACTIVE_PER_COURIER`, `server/src/orders-core.js`). Ish vaqtidan tashqaridagi
+va ishdan javobdagi kuryerlar hisobga olinmaydi.
+
+---
+
+## Izohlarni admin nazorat qiladi
+
+**Admin panel → 💬 Izohlar** bo'limida saytga yozilgan **har bir** izoh ko'rinadi
+(qidiruv + «faqat past baho» filtri bilan). Admin:
+
+* **↩ Javob yozish** — javob saytda izoh ostida **«Yetkaz javobi»** bo'lib chiqadi;
+* **🗑 O'chirish** — izoh saytdan butunlay o'chadi.
+
+> Eslatma: bosh sahifada faqat **3 yulduz va undan yuqori** izohlar ko'rsatiladi
+> (eski qoida). Past bahodagi izohlar admin panelida to'liq ko'rinadi.
+
+---
+
 ## Yetkazish muddati ogohlantirishlari
 
 Buyurtmaga berilgan vaqt (`eta`) tugay deb qolganda kuryer **3 marta**
@@ -158,8 +224,12 @@ Mijoz (bot yoki sayt)
       ▼
 orders-core.js ← narx, kuryer biriktirish, telefon tekshiruvi
       │           (sayt va bot AYNAN shu kodni ishlatadi)
-      ▼
+      │
+      ├── shubhali? ──► Admin paneli (🔎 Shubhali buyurtmalar)
+      │                      │ admin tasdiqlaydi
+      ▼                      ▼
 Restoran paneli ──► Kuryer paneli
+                         │ katta buyurtma bo'lsa: avval mijozga qo'ng'iroq
                          │ "Yetkazdim"
                          ▼
                     status = arrived

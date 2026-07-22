@@ -59,6 +59,67 @@
       +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
   }
 
+  /* ===== KATTA BUYURTMA — AVVAL MIJOZGA QO'NG'IROQ =====
+     Buyurtma 10 donadan ko'p yoki 300 000 so'mdan qimmat bo'lsa (server
+     order-rules.js da belgilaydi va `callRequired` bilan yuboradi), kuryer
+     «Yo'lga chiqdim» tugmasini BOSA OLMAYDI. Avval mijozga qo'ng'iroq qilib
+     "rostdan shu buyurtmani berdingizmi?" deb so'raydi. Mijoz "ha, olib keling"
+     desa — kuryer tasdiqlaydi va tugmalar ochiladi.
+     Soxta katta buyurtma shu bosqichда aniqlanadi. */
+  function needsCall(o){ return !!(o && o.callRequired && !o.callDone); }
+  /* Jami dona soni (YZ_ITEMS — barcha panellar uchun yagona manba) */
+  function orderQty(o){ try{ return YZ_ITEMS.qty(o); }catch(e){ return 0; } }
+
+  function callBadge(o){
+    if(!o || !o.callRequired) return "";
+    if(o.callDone){
+      return '<div style="margin-top:6px;display:inline-block;background:#f0fdf4;color:#16a34a;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800">'+
+        '✅ Mijoz telefonda tasdiqladi'+(o.callBy?' ('+esc(o.callBy)+')':'')+'</div>';
+    }
+    return '<div style="margin-top:6px;display:inline-block;background:#fff7ed;color:#c2410c;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800">'+
+      '📞 Katta buyurtma — avval mijozga qo\'ng\'iroq qiling</div>';
+  }
+
+  /* Qo'ng'iroq modali: raqamni bosib qo'ng'iroq qilinadi, keyin natija belgilanadi */
+  function openCallModal(o){
+    if(!o) return;
+    var el=document.getElementById("kCallModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="kCallModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px";
+    var qty=orderQty(o);
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;max-height:90vh;overflow:auto">'+
+      '<div style="text-align:center;font-size:42px">📞</div>'+
+      '<h3 style="margin:6px 0 6px;text-align:center">Avval mijozga qo\'ng\'iroq qiling</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 14px;text-align:center">'+
+        'Bu <b>katta buyurtma</b>'+(qty?' — <b>'+qty+' dona</b>':'')+', <b>'+money(o.amount)+' so\'m</b>. '+
+        'Mijozdan buyurtmani <b>rostdan bergani</b>ni so\'rang. Tasdiqlagach yo\'lga chiqasiz.</p>'+
+      (o.phone
+        ? '<a href="tel:'+encodeURIComponent(o.phone)+'" class="set-save" style="display:block;text-align:center;text-decoration:none;padding:14px;font-size:16px;margin-bottom:14px">📞 '+esc(o.phone)+'</a>'
+        : '<div style="background:#fef2f2;color:#b91c1c;border-radius:12px;padding:12px;font-size:13px;margin-bottom:14px">Mijoz telefon raqami ko\'rsatilmagan — restoran bilan bog\'laning.</div>')+
+      '<div style="display:flex;flex-direction:column;gap:9px">'+
+        '<button id="kCallOk" style="padding:13px;border-radius:12px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer;font-size:15px">✅ Mijoz tasdiqladi — olib ketaman</button>'+
+        '<button id="kCallNo" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:#fff;color:#C8102E;font-weight:700;cursor:pointer">❌ Mijoz rad etdi / javob bermadi</button>'+
+        '<button id="kCallClose" style="padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Keyinroq</button>'+
+      '</div></div>';
+    document.body.appendChild(el);
+    var close=function(){ el.remove(); };
+    el.addEventListener("click",function(e){ if(e.target===el) close(); });
+    el.querySelector("#kCallClose").addEventListener("click",close);
+    el.querySelector("#kCallNo").addEventListener("click",function(){
+      close();
+      toast("Mijoz tasdiqlamadi — buyurtmani restoran yoki admin bekor qiladi. Ular bilan bog'laning.");
+    });
+    el.querySelector("#kCallOk").addEventListener("click",async function(){
+      var btn=this; btn.disabled=true; btn.textContent="Saqlanmoqda...";
+      var r=(typeof STORE!=="undefined"&&STORE.confirmOrderCall)? await STORE.confirmOrderCall(o.id) : null;
+      close();
+      if(r && !r.error){
+        toast("Tasdiqlandi ✓ Endi «Yo'lga chiqdim» tugmasi ishlaydi");
+        loadOrders(); renderAll();
+      } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+    });
+  }
+
   /* ===== YETKAZISH MUDDATI =====
      Buyurtmaга `eta` (daqiqa) beriladi. Muddat tugay deb qolganda kuryer
      UCH marta ogohlantiriladi, muddat o'tsa — to'rtinchi (kechikish) xabari.
@@ -174,22 +235,33 @@
     const host=document.getElementById(hostId); if(!host) return;
     host.innerHTML=list.length? list.map(o=>{
       const s=STT[o.status]||{t:o.status,p:"warn"};
-      const right = s.btn
-        ? `<button class="set-save" data-adv="${o.id}" style="padding:11px 18px">${s.btn}</button>`
-        : `<span class="pill ${s.p}">${s.t}</span>`;
+      /* Katta buyurtma va hali tasdiqlovchi qo'ng'iroq qilinmagan bo'lsa —
+         «Yo'lga chiqdim» o'rniga «Mijozga qo'ng'iroq» tugmasi chiqadi. */
+      const gate = s.next==="ontheway" && needsCall(o);
+      const right = gate
+        ? `<button class="set-save" data-call="${o.id}" style="padding:11px 18px;background:#ea580c">📞 Mijozga qo'ng'iroq</button>`
+        : (s.btn
+            ? `<button class="set-save" data-adv="${o.id}" style="padding:11px 18px">${s.btn}</button>`
+            : `<span class="pill ${s.p}">${s.t}</span>`);
+      /* Ko'p mahsulotli buyurtma: barcha taomlar rasm lentasi (yon tomonga suriladi) */
+      const n=(o.items&&o.items.length)||0;
+      const strip = n>1 ? `<div style="color:var(--red);font-size:11px;font-weight:800;margin-top:4px">${n} xil · ${orderQty(o)} dona</div>${(function(){try{return YZ_ITEMS.strip(o);}catch(e){return "";}})()}` : "";
       return `<div class="panel" style="margin-bottom:14px;cursor:pointer" data-oid="${o.id}"><div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <span class="av" style="width:48px;height:48px;font-size:24px">${o.emoji}</span>
         <div style="flex:1;min-width:160px">
           <div style="font-weight:700">${esc(o.item)} <span class="pill ${s.p}" style="margin-left:6px">${s.t}</span></div>
           <div style="color:var(--grey);font-size:14px">${esc(o.user)}${o.phone?` · 📞 ${esc(o.phone)}`:""}</div>
           <div style="color:var(--grey);font-size:13px">📍 ${esc(o.addr)} · ${money(o.amount)} so'm</div>
+          ${strip}
           <div style="margin-top:5px">${srcBadge(o)}</div>
+          ${callBadge(o)}
           ${kTimeBadge(o)}
         </div>
         ${right}
       </div></div>`;
     }).join("") : '<div style="color:var(--grey);padding:20px">Hozircha buyurtma yo\'q.</div>';
     $$("#"+hostId+" button[data-adv]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); advance(+b.dataset.adv); }));
+    $$("#"+hostId+" button[data-call]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); openCallModal(ORDERS.find(x=>x.id==b.dataset.call)); }));
     $$("#"+hostId+" [data-oid]").forEach(row=>row.addEventListener("click",()=>{ const o=ORDERS.find(x=>x.id==row.dataset.oid); openOrderModal(o); }));
   }
   /* Ikkala joy ham bir vaqtda yangilanadi — panellar bir-biriga mos turadi */
@@ -198,7 +270,14 @@
   function advance(id){
     const o=ORDERS.find(x=>x.id==id); if(!o) return;
     const s=STT[o.status]; if(!s || !s.next) return;
-    if(typeof STORE!=="undefined") STORE.updateOrder(id,{status:s.next});
+    /* Katta buyurtmada yo'lga chiqishdan oldin tasdiqlovchi qo'ng'iroq shart.
+       Bu yerда to'sib qo'yamiz, lekin YAKUNIY tekshiruv serverда
+       (server/src/routes/orders.js PATCH). */
+    if(s.next==="ontheway" && needsCall(o)){ openCallModal(o); return; }
+    if(typeof STORE!=="undefined") STORE.updateOrder(id,{status:s.next},{
+      /* Server rad etsa (masalan qo'ng'iroq tasdiqlanmagan) — sababini ko'rsatamiz */
+      onFail:function(err){ toast((err&&err.message)||"Holatni yangilab bo'lmadi"); loadOrders(); renderOrders(); }
+    });
     loadOrders(); renderOrders(); renderDash(); checkDeadlines();
   }
 
@@ -213,15 +292,22 @@
     let el=document.getElementById("ordModal"); if(el) el.remove();
     el=document.createElement("div"); el.id="ordModal";
     el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)";
-    el.innerHTML=`<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">
+    /* Buyurtma tarkibi — har bir taom rasmi, dona soni va summasi bilan.
+       20–30 mahsulotli buyurtmada ro'yxat ichida scroll bo'ladi (order-items.js). */
+    let itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:250}); }catch(e){}
+    const gate = s.next==="ontheway" && needsCall(o);
+    el.innerHTML=`<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">
       <button id="ordModalClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
       <div style="text-align:center;font-size:46px">${o.emoji||"🍽️"}</div>
       <h3 style="text-align:center;margin:6px 0 2px">${esc(o.item)}</h3>
-      <div style="text-align:center;margin-bottom:14px"><span class="pill ${s.p}">${s.t}</span></div>
+      <div style="text-align:center;margin-bottom:8px"><span class="pill ${s.p}">${s.t}</span></div>
+      <div style="text-align:center">${callBadge(o)}</div>
+      ${itemsHtml}
       <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Mijoz</span><b>${esc(o.user)||"-"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Telefon</span><b>${o.phone?`<a href="tel:${encodeURIComponent(o.phone)}" style="color:var(--red);text-decoration:none">${esc(o.phone)}</a>`:"-"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Manzil</span><b style="text-align:right">${esc(o.addr)||"-"}</b></div>
+        ${orderQty(o)?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Jami mahsulot</span><b>${orderQty(o)} dona</b></div>`:""}
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Summa</span><b>${money(o.amount)} so'm</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${o.pay==="cash"?"💵 Naqd":"💳 Karta"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Sana / vaqt</span><b>${fmtDateTime(o)}</b></div>
@@ -229,7 +315,10 @@
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Qayerdan</span><b>${srcBadge(o)}</b></div>
         ${o.reason?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Bekor sababi</span><b style="color:#C8102E;text-align:right">${esc(o.reason)}</b></div>`:""}
       </div>
-      ${s.btn?`<button class="set-save" id="ordModalAdv" style="width:100%;margin-top:16px;padding:13px">${s.btn}</button>`:""}
+      ${gate
+        ? `<button class="set-save" id="ordModalCall" style="width:100%;margin-top:16px;padding:13px;background:#ea580c">📞 Mijozga qo'ng'iroq qiling</button>
+           <p style="color:var(--grey);font-size:12px;margin-top:8px;text-align:center">Katta buyurtma. Mijoz telefonda tasdiqlagach «Yo'lga chiqdim» ochiladi.</p>`
+        : (s.btn?`<button class="set-save" id="ordModalAdv" style="width:100%;margin-top:16px;padding:13px">${s.btn}</button>`:"")}
     </div>`;
     document.body.appendChild(el);
     try{ history.pushState({ordModal:1}, ""); }catch(e){}
@@ -240,6 +329,8 @@
     document.getElementById("ordModalClose").addEventListener("click",close);
     const adv=document.getElementById("ordModalAdv");
     if(adv) adv.addEventListener("click",()=>{ advance(o.id); close(); });
+    const callBtn=document.getElementById("ordModalCall");
+    if(callBtn) callBtn.addEventListener("click",()=>{ close(); openCallModal(o); });
   }
   /* App ortga: modal ochiq bo'lsa back uni yopadi (sahifadan chiqmaydi) */
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });

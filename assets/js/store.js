@@ -200,13 +200,51 @@ const STORE = (function () {
       });
       return order;
     },
-    updateOrder(id, patch) {
+    /* Statusni yangilash. Server rad etishi mumkin (masalan katta buyurtmada
+       kuryer hali mijozga qo'ng'iroq qilmagan) — shunda optimistik o'zgarishni
+       QAYTARAMIZ va cbs.onFail(err) chaqiriladi, aks holda panel "yo'ldaman"
+       deb yolg'on ko'rsatib turardi. */
+    updateOrder(id, patch, cbs) {
       const o = cache.orders.find(x => x.id == id);
+      const prev = o ? Object.assign({}, o) : null;
       if (o) { Object.assign(o, patch); lsWrite(K.orders, cache.orders); fire(); }
-      send("/orders/" + id, { method: "PATCH", body: patch });
+      sendStrict("/orders/" + id, { method: "PATCH", body: patch })
+        .then(saved => {
+          if (o && saved && saved.id) { Object.assign(o, saved); lsWrite(K.orders, cache.orders); fire(); }
+          if (cbs && cbs.onOk) { try { cbs.onOk(saved); } catch (e) {} }
+        })
+        .catch(err => {
+          if (err && (err.status === 401 || err.status === 403)) onAuthLost();
+          if (o && prev) { Object.assign(o, prev); lsWrite(K.orders, cache.orders); fire(); }
+          console.warn("[STORE] holatni yangilab bo`lmadi:", err.message);
+          if (cbs && cbs.onFail) { try { cbs.onFail(err); } catch (e) {} }
+        });
       return o;
     },
     courierForRest,
+
+    /* ---- KATTA BUYURTMA: kuryer mijozga qo'ng'iroq qilib TASDIQLADI ----
+       Shundan keyingina «Yo'lga chiqdim» ishlaydi (server ham shuni talab qiladi). */
+    confirmOrderCall(id) {
+      return api("/orders/" + id + "/call-confirm", { method: "POST", auth: true })
+        .then(r => { const o = cache.orders.find(x => x.id == id); if (o && r) { Object.assign(o, r); lsWrite(K.orders, cache.orders); fire(); } return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+
+    /* ---- SHUBHALI BUYURTMALAR (admin) ----
+       status = 'review' bo'lgan buyurtmalar: restoran/kuryer ularni ko'rmaydi,
+       admin tasdiqlagach ('approve') restoranga, so'ng kuryerga boradi. */
+    suspiciousOrders: () => cache.orders.filter(o => o.status === "review"),
+    approveOrder(id) {
+      return api("/orders/" + id + "/approve", { method: "POST", auth: true })
+        .then(r => { refreshOrders(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    rejectOrder(id, reason) {
+      return api("/orders/" + id + "/reject", { method: "POST", body: { reason }, auth: true })
+        .then(r => { refreshOrders(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
 
     /* ---- REVIEWS ---- */
     reviews: () => cache.reviews,
@@ -216,6 +254,21 @@ const STORE = (function () {
       /* Mehmon (tokensiz) mijoz uchun — order token bilan yuboriladi (kesh toza qoladi) */
       const body = orderToken ? Object.assign({}, rev, { orderToken }) : rev;
       send("/reviews", { method: "POST", body });
+    },
+    /* ---- IZOHLARNI ADMIN NAZORAT QILADI ---- */
+    deleteReview(id) {
+      cache.reviews = cache.reviews.filter(r => String(r.id) !== String(id));
+      lsWrite(K.reviews, cache.reviews); fire();
+      return api("/reviews/" + id, { method: "DELETE", auth: true })
+        .then(r => { refreshPublic(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    replyReview(id, reply) {
+      const r = cache.reviews.find(x => String(x.id) === String(id));
+      if (r) { r.reply = reply; lsWrite(K.reviews, cache.reviews); fire(); }
+      return api("/reviews/" + id + "/reply", { method: "POST", body: { reply }, auth: true })
+        .then(x => { refreshPublic(); return x; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
     },
 
     /* ---- DISH OVERRIDES ---- */

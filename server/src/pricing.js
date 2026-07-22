@@ -10,7 +10,11 @@ import { db } from './db.js';
 import { MIN_ORDER } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
 
-const MAX_LINES = 30;   // savatdagi turli taomlar soni
+/* Savatdagi turli taomlar soni. Ilgari 30 edi va mijoz 30 xildan ko'p tanlasa
+   buyurtma umuman o'tmasdi (xato ko'rsatib, restoran panelida hech narsa
+   ko'rinmasdi). Endi katta buyurtma ham o'tadi — juda kattasi esa yo'qotilmay,
+   admin tekshiruviga tushadi (order-rules.js). */
+const MAX_LINES = 120;
 const MAX_QTY = 50;     // bitta taomdan maksimal dona
 
 /* Narx xatosi — status kodi bilan (route uni to'g'ridan-to'g'ri qaytaradi) */
@@ -54,7 +58,9 @@ function normalizeItems(rawItems) {
 export function priceOrder(rawItems) {
   const want = normalizeItems(rawItems);
 
-  const selDish = db.prepare('SELECT id, name, emoji, price, rest FROM added_dishes WHERE id = ?');
+  /* `photo` ham olinadi — buyurtma tarkibi panellarда RASM bilan ko'rinsin
+     (restoran/kuryer/admin modalida taomlar rasmi bilan chiqadi). */
+  const selDish = db.prepare('SELECT id, name, emoji, price, rest, photo FROM added_dishes WHERE id = ?');
   const selRemoved = db.prepare('SELECT 1 AS x FROM removed_dishes WHERE rest = ? AND name = ?');
   const selSoldout = db.prepare('SELECT 1 AS x FROM soldout_dishes WHERE rest = ? AND name = ?');
   const selDiscount = db.prepare('SELECT pct FROM discounts WHERE rest = ? AND name = ?');
@@ -87,7 +93,7 @@ export function priceOrder(rawItems) {
     const sum = eff * qty;
 
     amount += sum;
-    lines.push({ id: d.id, name: d.name, emoji: d.emoji || '🍽️', qty, price, pct, eff, sum });
+    lines.push({ id: d.id, name: d.name, emoji: d.emoji || '🍽️', photo: d.photo || '', qty, price, pct, eff, sum });
   }
 
   /* Restoran o'chirilgan bo'lsa — buyurtma qabul qilinmaydi.

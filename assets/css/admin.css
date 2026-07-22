@@ -76,6 +76,10 @@ a{color:inherit;text-decoration:none}
 .ic-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb-link:hover{background:rgba(255,255,255,.08);color:#fff}
 .sb-link.active{background:var(--red);color:#fff}
+/* Yon menyudagi hisoblagich — tasdiq kutayotgan shubhali buyurtmalar soni */
+.sb-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:999px;
+  min-width:20px;padding:1px 6px;font-size:11px;font-weight:800;text-align:center;flex-shrink:0}
+.sb-link.active .sb-badge{background:#fff;color:var(--red)}
 .sb-foot{border-top:1px solid rgba(255,255,255,.1);padding-top:10px;flex-shrink:0}
 .sb-foot-text{font-size:11px;color:#9b888c;padding:4px 10px;margin-bottom:4px}
 .sb-foot button{background:none;border:none;color:#cbb8bc;font-size:13px;font-weight:600;padding:8px 12px;cursor:pointer;width:100%;text-align:left;border-radius:8px}
@@ -150,6 +154,9 @@ a{color:inherit;text-decoration:none}
 .tbl tbody tr:active{background:#F5EFEF}
 .tbl .tname{font-weight:700;display:flex;align-items:center;gap:8px}
 .tbl .av{width:28px;height:28px;border-radius:7px;background:#FBEFF0;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+/* Ko'p mahsulotli buyurtma: nom ostidagi "N xil · M dona" belgisi.
+   Taomlar rasm lentasi (.yz-it-strip) order-items.js dan keladi. */
+.tbl .o-more{margin-top:3px;font-size:11px;font-weight:800;color:var(--red);letter-spacing:.2px}
 
 /* ===== PILLS / BADGES ===== */
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}

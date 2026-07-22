@@ -274,5 +274,22 @@ export function initSchema() {
     "ALTER TABLE phone_blocks ADD COLUMN unblocked_at TEXT DEFAULT ''",
     // Buyurtma QAYERDAN kelgan: 'sayt' yoki 'telegram' (panellarda ko'rsatiladi)
     "ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'sayt'",
+    // ===== Katta/shubhali buyurtmalar (order-rules.js) =====
+    // Jami dona soni — "10 tadan ko'p" qoidasi shundan hisoblanadi
+    'ALTER TABLE orders ADD COLUMN qty_total INTEGER DEFAULT 0',
+    // Kuryer yo'lga chiqishdan OLDIN mijozga qo'ng'iroq qilishi shartmi
+    'ALTER TABLE orders ADD COLUMN call_required INTEGER DEFAULT 0',
+    'ALTER TABLE orders ADD COLUMN call_done INTEGER DEFAULT 0',
+    "ALTER TABLE orders ADD COLUMN call_by TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN call_at TEXT DEFAULT ''",
+    // Shubhali buyurtma (status='review') — admin tasdig'isiz restoran/kuryerga bormaydi
+    'ALTER TABLE orders ADD COLUMN suspicious INTEGER DEFAULT 0',
+    "ALTER TABLE orders ADD COLUMN suspicious_reason TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN approved_by TEXT DEFAULT ''",
+    "ALTER TABLE orders ADD COLUMN approved_at TEXT DEFAULT ''",
+    // ===== Izohlarni admin nazorat qiladi =====
+    // Adminning izohga rasmiy javobi (saytda izoh ostida ko'rinadi)
+    "ALTER TABLE reviews ADD COLUMN reply TEXT DEFAULT ''",
+    "ALTER TABLE reviews ADD COLUMN reply_at TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

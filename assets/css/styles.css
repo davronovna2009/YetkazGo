@@ -1587,6 +1587,22 @@ body.ropen #about {
   border-radius: 999px
 }
 
+/* Adminning izohga rasmiy javobi (admin panelida yoziladi) */
+.rv-reply {
+  background: #ecfdf3;
+  border-left: 3px solid #16a34a;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #14532d
+}
+
+.rv-reply b {
+  color: #15803d
+}
+
 /* ========== HOW IT WORKS ========== */
 .steps {
   display: grid;
