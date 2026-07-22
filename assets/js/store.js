@@ -324,18 +324,8 @@ const STORE = (function () {
       }
     },
 
-    /* ---- TELEGRAMGA ULASH (restoran / kuryer / admin paneli) ----
-       Panel bir martalik kod oladi, egasi botga yuboradi va o'sha chat
-       buyurtmalarni Telegramда ola boshlaydi. */
-    tgStatus() { return api("/tg/status", { auth: true }).catch(() => null); },
-    tgLink() {
-      return api("/tg/link", { method: "POST", auth: true })
-        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
-    },
-    tgUnlink() {
-      return api("/tg/unlink", { method: "POST", auth: true })
-        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
-    },
+    /* Telegramga ulash metodlari OLIB TASHLANDI: bot faqat MIJOZ uchun
+       ishlaydi, xodimlar (restoran/kuryer/admin) o'z sayt panelida ishlaydi. */
 
     /* ---- BLOKLANGAN RAQAMLAR (faqat admin) ---- */
     fetchBlocked() { return api("/blocked", { auth: true }).catch(() => ({ list: [], rules: {} })); },

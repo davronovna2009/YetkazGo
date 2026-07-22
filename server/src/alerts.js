@@ -12,7 +12,7 @@
    Xabar Telegram orqali kuryerga (ulangan bo'lsa) va adminlarga boradi; kuryer
    paneli esa AYNAN shu chegaralarni o'zi hisoblab ekranda ko'rsatadi. */
 import { db } from './db.js';
-import { notifyCourierDeadline } from './bot.js';
+import { notifyOpsOverdue } from './bot.js';
 
 /* Hali yetkazilmagan bosqichlar — shular kuzatiladi */
 const ACTIVE = "('new','accepted','ready','ontheway')";
@@ -70,7 +70,11 @@ export function checkDeadlines() {
     if (alreadySent(o.id, level)) continue;
 
     markSent(o.id, level);
-    notifyCourierDeadline(o, level, Math.max(0, minutesLeft));
+    /* KURYERGA ogohlantirish O'Z PANELIDA chiqadi (assets/js/kuryer.js) —
+       aynan shu chegaralar bo'yicha, 3 ta ogohlantirish + "vaqt tugadi".
+       Bot kuryerga yozmaydi: u faqat mijoz uchun.
+       Vaqt tugagan bo'lsa — operatorlar guruhiga (bo'lsa) xabar boradi. */
+    if (level >= 4) notifyOpsOverdue(o, Math.abs(Math.min(0, minutesLeft)));
     console.log(`[ALERT] #${o.id} — ${level}-daraja (${minutesLeft} daq.), kuryer: ${o.courier || '—'}`);
   }
 }

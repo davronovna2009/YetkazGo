@@ -4,8 +4,10 @@ import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
 import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone } from '../orders-core.js';
-/* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi) */
-import { notifyCustomerStatus, notifyNewOrder, notifyStaffStatus } from '../bot.js';
+/* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
+   Bot FAQAT MIJOZ bilan ishlaydi; restoran/kuryer o'z panelida ko'radi.
+   notifyOps* — ixtiyoriy operatorlar guruhi (TG_CHAT_OPS) uchun. */
+import { notifyCustomerStatus, notifyNewOrder, notifyOpsStatus } from '../bot.js';
 /* Telefon raqami cheklovlari — ketma-ket bekor qilishga qarshi */
 import { registerCancel, clearOnSuccess } from '../blocks.js';
 
@@ -137,7 +139,7 @@ router.post('/:id/cancel', (req, res) => {
   let penalty = null;
   if (!byStaff && !alreadyCancelled) penalty = registerCancel(o.phone, o.user);
 
-  if (!alreadyCancelled) notifyStaffStatus(updated, o.status, byStaff ? req.user.role : '');
+  if (!alreadyCancelled) notifyOpsStatus(updated);
 
   res.json(Object.assign(updated, penalty ? {
     warn: penalty.message,
@@ -202,8 +204,9 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
      Bloklamaydi — bot o'chiq yoki xato bo'lsa jim o'tadi. */
   if ('status' in patch && patch.status !== existing.status) {
     notifyCustomerStatus(updated, existing.status);
-    /* Ikkinchi tomon (restoran ↔ kuryer) va adminlar ham Telegramда ko'radi */
-    notifyStaffStatus(updated, existing.status, req.user.role);
+    /* Restoran ↔ kuryer bir-birini O'Z PANELIDA ko'radi (bot ularga yozmaydi).
+       Operatorlar guruhi bo'lsa — yakuniy bosqichlar u yerга ham boradi. */
+    notifyOpsStatus(updated);
     /* Muvaffaqiyatli yakun — mijozning bekor qilish hisobi tozalanadi */
     if (patch.status === 'done') clearOnSuccess(updated.phone);
   }

@@ -3,16 +3,16 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v8 — tg-link.js (panelni Telegram botga ulash) qo'shildi; kuryer panelidan
-   daromad va QR olib tashlandi; adminда "Bloklangan raqamlar" bo'limi paydo
-   bo'ldi. Eski kesh bu fayllarni bilmaydi — versiya oshirildi.
-   (v7 — hours.js; v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
-/* v9 — manzil/telefon HAR BUYURTMADA so'raladi (sayt, kabinet, mini ilova bir xil). */
-const CACHE = 'yetkaz-v12';
+/* v13 — bot FAQAT MIJOZ uchun: panellarni Telegramga ulash butunlay olib
+   tashlandi (tg-link.js o'chirildi). Kuryer/restoran o'z sayt panelida ishlaydi.
+   (v12 — buyurtma manbasi: Telegram/Sayt; v9 — manzil/telefon har buyurtmada;
+    v8 — kuryer panelidan daromad va QR olib tashlandi + bloklangan raqamlar;
+    v7 — hours.js; v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
+const CACHE = 'yetkaz-v13';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
-  '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/tg-link.js',
+  '/assets/js/safe.js', '/assets/js/hours.js',
   '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
   '/assets/js/pwa-install.js',

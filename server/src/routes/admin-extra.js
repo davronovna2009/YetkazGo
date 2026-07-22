@@ -1,100 +1,14 @@
-/* ===== Qo'shimcha API =====
-   1) /api/tg/*     — panelni (restoran/kuryer/admin) Telegram botga ulash
-   2) /api/blocked  — bloklangan telefon raqamlari (ADMIN boshqaradi) */
+/* ===== /api/blocked — bloklangan telefon raqamlari (ADMIN boshqaradi) =====
+   Telegramga ulash API si OLIB TASHLANDI: bot faqat MIJOZ uchun ishlaydi,
+   xodimlar (restoran/kuryer/admin) o'z sayt panelida ishlaydi. */
 import { Router } from 'express';
-import { randomBytes } from 'node:crypto';
-import { db } from '../db.js';
 import { requireRole } from '../auth.js';
-import { botUsername, BOT_ENABLED } from '../bot.js';
 import {
   listBlocks, unblockPhone, blockPhone, forgetPhone,
   PAUSE_MIN, BLOCK_AT, WARN_AT, SPAM_MAX, SPAM_WINDOW_MIN,
 } from '../blocks.js';
 
 const router = Router();
-
-/* ================= TELEGRAMGA ULASH ================= */
-
-/* Chalkashmaydigan belgilar (0/O, 1/I yo'q) — kodni qo'lда yozish oson bo'lsin */
-const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-function makeCode() {
-  const b = randomBytes(8);
-  let s = '';
-  for (let i = 0; i < 8; i++) s += ALPHABET[b[i] % ALPHABET.length];
-  return s;
-}
-
-/* Shu foydalanuvchi allaqachon ulanganmi? */
-function currentChat(role, login) {
-  try {
-    if (role === 'restoran') {
-      const r = db.prepare('SELECT tg_chat_id FROM restaurants WHERE login = ?').get(login);
-      return (r && r.tg_chat_id) || '';
-    }
-    if (role === 'kuryer') {
-      const c = db.prepare('SELECT tg_chat_id FROM couriers WHERE login = ?').get(login);
-      return (c && c.tg_chat_id) || '';
-    }
-    if (role === 'admin') {
-      const a = db.prepare('SELECT chat_id FROM tg_admins WHERE login = ?').get(login);
-      return (a && a.chat_id) || '';
-    }
-  } catch (e) { /* jim */ }
-  return '';
-}
-
-/* Telegramga ulash FAQAT ADMIN uchun.
-   Restoran va kuryer panellarida bu bo'lim olib tashlandi — ular buyurtmani
-   o'z panelidan ko'radi va bot ULARSIZ ham to'liq ishlayveradi. */
-
-/* GET /api/tg/status — panel "ulanganmi?" deb so'raydi */
-router.get('/tg/status', requireRole('admin'), (req, res) => {
-  res.json({
-    botEnabled: BOT_ENABLED,
-    botUsername: botUsername(),
-    linked: !!currentChat(req.user.role, req.user.login),
-  });
-});
-
-/* POST /api/tg/link — bir martalik ulash kodi (va deep-link havolasi) */
-router.post('/tg/link', requireRole('admin'), (req, res) => {
-  if (!BOT_ENABLED) return res.status(503).json({ error: 'Telegram bot sozlanmagan (TG_TOKEN yo`q)' });
-  const { role, login, name } = req.user;
-
-  /* Eski ishlatilmagan kodlarni tozalaymiz — bitta egaда bitta faol kod */
-  try { db.prepare('DELETE FROM tg_links WHERE role = ? AND login = ?').run(role, login); } catch (e) {}
-  /* 1 soatdan eski kodlar ham keraksiz */
-  try { db.prepare("DELETE FROM tg_links WHERE created_at < datetime('now','-1 hour')").run(); } catch (e) {}
-
-  const code = makeCode();
-  try {
-    db.prepare('INSERT INTO tg_links (code, role, login, name) VALUES (?,?,?,?)')
-      .run(code, role, login, String(name || login));
-  } catch (e) {
-    return res.status(500).json({ error: 'Kod yaratilmadi' });
-  }
-
-  const uname = botUsername();
-  res.json({
-    code,
-    botUsername: uname,
-    url: uname ? `https://t.me/${uname}?start=link_${code}` : '',
-    linked: !!currentChat(role, login),
-  });
-});
-
-/* POST /api/tg/unlink — Telegram ulanishini uzadi */
-router.post('/tg/unlink', requireRole('admin'), (req, res) => {
-  const { role, login } = req.user;
-  try {
-    if (role === 'restoran') db.prepare("UPDATE restaurants SET tg_chat_id = '' WHERE login = ?").run(login);
-    else if (role === 'kuryer') db.prepare("UPDATE couriers SET tg_chat_id = '' WHERE login = ?").run(login);
-    else db.prepare('DELETE FROM tg_admins WHERE login = ?').run(login);
-  } catch (e) {
-    return res.status(500).json({ error: 'Uzib bo`lmadi' });
-  }
-  res.json({ ok: true, linked: false });
-});
 
 /* ================= BLOKLANGAN RAQAMLAR (ADMIN) ================= */
 

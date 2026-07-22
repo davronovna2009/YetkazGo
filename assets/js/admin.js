@@ -186,7 +186,6 @@
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
     if(view==="blocked") loadBlocked();
-    if(view==="settings") renderAdminTg();
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
   }
@@ -285,10 +284,6 @@
     });
   }
 
-  /* Admin Telegramini ulash (umumiy widget — assets/js/tg-link.js) */
-  function renderAdminTg(){
-    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("aTgArea", STORE, toast);
-  }
 
   /* =========================================================
      DASHBOARD

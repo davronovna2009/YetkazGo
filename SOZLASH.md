@@ -95,25 +95,24 @@ Deploy tugagach quyidagilarni **tartib bilan** tekshiring:
 
 ---
 
-## Panellarni Telegramga ulash (restoran / kuryer / admin)
+## Bot kim uchun
 
-Buyurtma faqat saytda emas, **botда ham** kelishi uchun har bir panel egasi
-o'z Telegramini bir marta ulaydi:
+Bot **faqat MIJOZ** bilan ishlaydi — boshqa hech kim uchun emas:
 
-1. Panelга kiring → **Sozlamalar** → **✈️ Telegram bot**
-2. **«Telegramga ulash»** tugmasi → sayt 8 belgili kod va havola beradi
-3. **«Telegramда ochish»** tugmasini bosing (yoki kodni botga xabar qilib yuboring)
-4. Panelда **«✅ Telegram ulangan»** yozuvi chiqadi
+| Kim | Qayerda ishlaydi |
+|---|---|
+| 👤 Mijoz | **Telegram bot** — restoran tanlaydi, mini ilovada buyurtma beradi, holatini kuzatadi, qabul qilganini tasdiqlaydi yoki bekor qiladi |
+| 🏪 Restoran | **Sayt paneli** (`/restoran.html`) — buyurtma darhol ko`rinadi |
+| 🛵 Kuryer | **Sayt paneli** (`/kuryer.html`) — buyurtmalar va vaqt ogohlantirishlari shu yerда |
+| 🛡 Admin | **Sayt paneli** (`/admin.html`) |
 
-Shundan keyin:
+Restoran va kuryer botga **ulanmaydi** va bot ularga yozmaydi. Ilgari xodimlar ham
+botga ulanardi va kuryer ma`lumoti mijoz oqimiga aralashib ketardi — shuning uchun
+butunlay ajratildi.
 
-| Kim | Nima keladi | Telegramdagi tugmalar |
-|---|---|---|
-| 🏪 Restoran | Yangi buyurtma (to'liq tarkibi bilan) | Tayyorlanmoqda → Tayyor → Bekor qilish |
-| 🛵 Kuryer | Yangi buyurtma + **vaqt ogohlantirishlari** | Yo'lga chiqdim → Yetkazdim |
-| 🛡 Admin | Yangi buyurtma, bekor qilish, kechikish, bloklangan raqamlar | — |
-
-`TG_CHAT_OPS` guruhi ham admin qatorida — barcha buyurtmalar unga tushaveradi.
+**`TG_CHAT_OPS` (ixtiyoriy)** — operatorlar GURUHI. Bu shaxsiy chat emas, kuzatuv
+kanali: yangi buyurtma, bekor qilish, kechikish va bloklangan raqamlar u yerга tushadi.
+Berilmasa — hech narsa yuborilmaydi, bot normal ishlayveradi.
 
 ---
 
@@ -145,9 +144,9 @@ ogohlantiriladi, muddat o'tsa — to'rtinchi xabar:
 | 3 | 2 daqiqa qolganda |
 | ⛔ | Vaqt tugadi, buyurtma hali yetkazilmagan |
 
-Ogohlantirish **ikki joyда** ko'rinadi: kuryer panelining tepasida (qizil banner
-+ har bir buyurtmada sanoq) va Telegram botда. Har bir daraja bitta buyurtma
-uchun bir marta yuboriladi.
+Ogohlantirish **kuryer panelida** ko'rinadi: tepada qizil banner + har bir
+buyurtmada sanoq (`⏱ 8 daqiqa qoldi`). Bot kuryerga yozmaydi — u faqat mijoz
+uchun. Vaqt tugab ketsa, `TG_CHAT_OPS` guruhi bo'lsa, u yerга ham xabar boradi.
 
 ---
 
