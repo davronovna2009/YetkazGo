@@ -67,7 +67,7 @@
           <div class="panel">
             <div class="panel-head"><h3>🔔 Yangi buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi</span></div>
             <div class="panel-body tbl-wrap" style="max-height:560px;overflow-y:auto">
-              <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Holat</th></tr></thead>
+              <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Qayerdan</th><th>Holat</th></tr></thead>
               <tbody id="dashOrdersBody"></tbody></table>
             </div>
           </div>
@@ -91,7 +91,7 @@
           <div class="panel">
             <div class="panel-head"><h3>Kelgan buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi · 3 daqiqa ichida rad etish mumkin</span></div>
             <div class="panel-body tbl-wrap">
-              <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Holat</th></tr></thead>
+              <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Qayerdan</th><th>Holat</th></tr></thead>
               <tbody id="rOrdersBody"></tbody></table>
             </div>
           </div>
@@ -244,18 +244,6 @@
             </div>
           </div>
 
-          <!-- Telegram bot — buyurtmalar botда ham keladi -->
-          <div class="settings-group">
-            <div class="settings-group-title">✈️ Telegram bot</div>
-            <div class="setting-item column" style="padding:14px 16px">
-              <div class="setting-label">
-                <span class="setting-name">Restoranni Telegramga ulash</span>
-                <span class="setting-desc">Yangi buyurtma botга keladi va uni to'g'ridan-to'g'ri Telegramdan qabul qilasiz («Tayyorlanmoqda» → «Tayyor»)</span>
-              </div>
-              <div id="rTgArea" style="width:100%"></div>
-            </div>
-          </div>
-
           <!-- Restoran ma'lumotlari (saytda ko'rinadi) -->
           <div class="settings-group">
             <div class="settings-group-title">🏪 Restoran ma'lumotlari (saytda ko'rinadi)</div>
@@ -375,7 +363,6 @@
   <script src="assets/js/store.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
   <script src="assets/js/data.js"></script>
-  <script src="assets/js/tg-link.js"></script>
   <script src="assets/js/restoran.js"></script>
   <script src="assets/js/notify.js"></script>
   <script src="assets/js/pwa-install.js"></script>

@@ -36,6 +36,8 @@ export function rowToOrder(r) {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
     status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
+    /* Buyurtma qayerdan kelgan — panellarda ko'rsatiladi ('sayt' | 'telegram') */
+    source: r.source || (r.tg_chat_id ? 'telegram' : 'sayt'),
     paid: r.paid ? 1 : 0, paid_at: r.paid_at || '',
     items: parseItems(r.items_json),
     created_at: r.created_at, done_at: r.done_at || '',
@@ -125,13 +127,17 @@ export function createOrder(b = {}) {
   const eta = Math.max(5, Math.min(120, Number(b.eta) || 15));
   const tgChatId = b.tgChatId ? String(b.tgChatId) : '';
 
+  /* Manba: Telegram chat_id bo'lsa — botning mini ilovasidan, aks holda saytdan.
+     Panellar shuni "🤖 Telegram" / "🌐 Sayt" deb ko'rsatadi. */
+  const source = tgChatId ? 'telegram' : 'sayt';
+
   const info = db.prepare(
-    `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json, tg_chat_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json, tg_chat_id, source)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
     priced.amount, String(b.addr || ''), String(b.pay || 'card'),
-    courier, 'new', eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines), tgChatId
+    courier, 'new', eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines), tgChatId, source
   );
 
   const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);

@@ -43,8 +43,12 @@ function currentChat(role, login) {
   return '';
 }
 
+/* Telegramga ulash FAQAT ADMIN uchun.
+   Restoran va kuryer panellarida bu bo'lim olib tashlandi — ular buyurtmani
+   o'z panelidan ko'radi va bot ULARSIZ ham to'liq ishlayveradi. */
+
 /* GET /api/tg/status — panel "ulanganmi?" deb so'raydi */
-router.get('/tg/status', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
+router.get('/tg/status', requireRole('admin'), (req, res) => {
   res.json({
     botEnabled: BOT_ENABLED,
     botUsername: botUsername(),
@@ -53,7 +57,7 @@ router.get('/tg/status', requireRole('restoran', 'kuryer', 'admin'), (req, res) 
 });
 
 /* POST /api/tg/link — bir martalik ulash kodi (va deep-link havolasi) */
-router.post('/tg/link', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
+router.post('/tg/link', requireRole('admin'), (req, res) => {
   if (!BOT_ENABLED) return res.status(503).json({ error: 'Telegram bot sozlanmagan (TG_TOKEN yo`q)' });
   const { role, login, name } = req.user;
 
@@ -80,7 +84,7 @@ router.post('/tg/link', requireRole('restoran', 'kuryer', 'admin'), (req, res) =
 });
 
 /* POST /api/tg/unlink — Telegram ulanishini uzadi */
-router.post('/tg/unlink', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
+router.post('/tg/unlink', requireRole('admin'), (req, res) => {
   const { role, login } = req.user;
   try {
     if (role === 'restoran') db.prepare("UPDATE restaurants SET tg_chat_id = '' WHERE login = ?").run(login);

@@ -272,5 +272,7 @@ export function initSchema() {
     "ALTER TABLE phone_blocks ADD COLUMN source TEXT DEFAULT 'auto'",
     // Admin blokni ochgan payt — spam qoidasi shundan oldingi buyurtmalarni sanamaydi
     "ALTER TABLE phone_blocks ADD COLUMN unblocked_at TEXT DEFAULT ''",
+    // Buyurtma QAYERDAN kelgan: 'sayt' yoki 'telegram' (panellarda ko'rsatiladi)
+    "ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'sayt'",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

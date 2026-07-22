@@ -668,13 +668,14 @@ async function submit(){
   const mb = tg.MainButton;
   try { mb.setText('Yuborilmoqda...'); mb.disable(); mb.showProgress(true); } catch(e){}
 
-  let data = null, errText = '';
+  let data = null, errText = '', status = 0;
   try {
     const r = await fetch('/api/tg/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    status = r.status;
     data = await r.json().catch(() => null);
     if (!r.ok) errText = (data && data.error) || ('Xatolik (' + r.status + ')');
   } catch (e) {
@@ -686,6 +687,11 @@ async function submit(){
 
   if (errText){
     notify('error');
+    /* Raqam BLOKLANGAN (403) yoki vaqtincha cheklangan (429) — bu yakuniy
+       javob, tugmani qaytarish mantiqsiz. Alohida ekran ko'rsatamiz.
+       Saytdagi bloklangan raqam bu yerda ham ishlamaydi: ikkalasi ham
+       AYNAN bitta tekshiruvdan o'tadi (server/src/blocks.js). */
+    if (status === 403 || status === 429){ showBlocked(errText, status === 403); return; }
     try { mb.setText('✅ Buyurtmani tasdiqlash'); mb.enable(); } catch(e){}
     alertMsg(errText);
     return;
@@ -700,6 +706,25 @@ async function submit(){
   try { localStorage.removeItem(CART_KEY); } catch(e){}
   try { tg.disableClosingConfirmation(); } catch(e){}
   showAccepted(data);
+}
+
+/* Bloklangan / vaqtincha cheklangan raqam ekrani.
+   Bloklangan raqam SAYTДА ham, MINI ILOVAДА ham, botда ham ishlamaydi —
+   tekshiruv bitta joyда (server/src/blocks.js), shuning uchun chetlab
+   o'tib bo'lmaydi. */
+function showBlocked(msg, hard){
+  try { tg.MainButton.hide(); tg.BackButton.hide(); } catch(e){}
+  document.body.innerHTML = html`
+    <div class="nope" style="text-align:center;padding:40px 22px">
+      <div style="font-size:64px">${hard ? '⛔' : '⏳'}</div>
+      <h2 style="margin:14px 0 8px;color:#C8102E">
+        ${hard ? 'Raqamingiz bloklangan' : 'Vaqtincha cheklangansiz'}
+      </h2>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.55">${msg}</p>
+      <p style="color:#9a9a9a;font-size:13px;margin-top:18px">
+        ${hard ? 'Blokni administrator ochadi.' : 'Cheklov tugagach qayta urinib ko\'ring.'}
+      </p>
+    </div>`;
 }
 
 /* "Tasdiqlandi — kuting" ekrani, so'ng ilova o'zi yopiladi */

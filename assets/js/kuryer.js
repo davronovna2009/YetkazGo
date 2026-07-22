@@ -51,6 +51,14 @@
              done:{t:"Yetkazildi",p:"ok",next:null,btn:null},
              cancelled:{t:"Bekor qilingan",p:"red",next:null,btn:null}};
 
+  /* Buyurtma QAYERDAN kelgan — Telegram mini ilovasidanmi yoki saytdanmi
+     (server `source` maydonini yozadi: server/src/orders-core.js) */
+  function srcBadge(o){
+    var tg=(o&&o.source)==="telegram";
+    return '<span class="pill '+(tg?"blue":"ok")+'" title="'+(tg?"Telegram bot orqali":"Sayt orqali")+'">'
+      +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
+  }
+
   /* ===== YETKAZISH MUDDATI =====
      Buyurtmaга `eta` (daqiqa) beriladi. Muddat tugay deb qolganda kuryer
      UCH marta ogohlantiriladi, muddat o'tsa — to'rtinchi (kechikish) xabari.
@@ -175,6 +183,7 @@
           <div style="font-weight:700">${esc(o.item)} <span class="pill ${s.p}" style="margin-left:6px">${s.t}</span></div>
           <div style="color:var(--grey);font-size:14px">${esc(o.user)}${o.phone?` · 📞 ${esc(o.phone)}`:""}</div>
           <div style="color:var(--grey);font-size:13px">📍 ${esc(o.addr)} · ${money(o.amount)} so'm</div>
+          <div style="margin-top:5px">${srcBadge(o)}</div>
           ${kTimeBadge(o)}
         </div>
         ${right}
@@ -217,6 +226,7 @@
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${o.pay==="cash"?"💵 Naqd":"💳 Karta"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Sana / vaqt</span><b>${fmtDateTime(o)}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Restoran</span><b>${esc(o.rest)||"-"}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Qayerdan</span><b>${srcBadge(o)}</b></div>
         ${o.reason?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Bekor sababi</span><b style="color:#C8102E;text-align:right">${esc(o.reason)}</b></div>`:""}
       </div>
       ${s.btn?`<button class="set-save" id="ordModalAdv" style="width:100%;margin-top:16px;padding:13px">${s.btn}</button>`:""}
@@ -269,7 +279,7 @@
     const hv=$("#kHoursView"), lg=$("#kSetLogin");
     if(hv) hv.textContent=courierHoursText();
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
-    renderStatusPanel(); renderLeaveArea(); updateStatusBadge(); renderTgArea();
+    renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
     try{
       var me=(typeof STORE!=="undefined"&&STORE.fetchCourierMe)? await STORE.fetchCourierMe():null;
@@ -372,12 +382,6 @@
       var b=document.querySelector(".tb-badge"); if(b){ b.textContent="● Online"; b.style.color="#16a34a"; }
       toast("Ishga qaytdingiz ✓ — buyurtmalar yana sizga tushadi"); loadOrders(); renderAll(); }
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
-  }
-
-  /* ===== TELEGRAM BOTGA ULASH =====
-     Umumiy UI: YZ_TG.render(hostId, storeObj, toastFn) — barcha panelда bir xil. */
-  function renderTgArea(){
-    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("kTgArea", STORE, toast);
   }
 
   /* Ish vaqti FAQAT admin tomonidan belgilanadi — kuryer o'zgartira olmaydi. */

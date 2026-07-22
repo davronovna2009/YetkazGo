@@ -293,6 +293,14 @@
   /* =========================================================
      DASHBOARD
      ========================================================= */
+  /* Buyurtma QAYERDAN kelgan — Telegram mini ilovasidanmi yoki saytdanmi.
+     Server `source` maydonini yozadi (server/src/orders-core.js). */
+  function srcBadge(x){
+    var tg=(x&&x.source)==="telegram";
+    return '<span class="pill '+(tg?"blue":"ok")+'" title="'+(tg?"Telegram bot orqali":"Sayt orqali")+'">'
+      +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
+  }
+
   const OSM={new:["Yangi","warn"],accepted:["Tayyorlanmoqda","warn"],ready:["Tayyor","blue"],ontheway:["Yo'lda","blue"],arrived:["Yetkazildi (tasdiq)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
   function renderLiveOrders(){
     const o=(typeof STORE!=="undefined")?STORE.orders():[];
@@ -300,8 +308,8 @@
     const tb=$("#liveOrders"); if(tb){
       tb.innerHTML=o.length?o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
-        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
-      }).join("") : `<tr><td colspan="6" style="color:var(--grey);padding:18px">Buyurtma yo'q.</td></tr>`;
+        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
+      }).join("") : `<tr><td colspan="7" style="color:var(--grey);padding:18px">Buyurtma yo'q.</td></tr>`;
       $$("#liveOrders [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ openOrderModal(o.find(function(t){return t.id==row.dataset.oid;})); }); });
     }
     // Mobile kartalar
@@ -313,6 +321,7 @@
           <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji}</div><div><div class="lo-item">${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
           <div class="lo-row"><span class="lo-key">Mijoz</span><span class="lo-val">${esc(x.user)}</span></div>
           <div class="lo-row"><span class="lo-key">Kuryer</span><span class="lo-val">${esc(x.courier)}</span></div>
+          <div class="lo-row"><span class="lo-key">Qayerdan</span><span class="lo-val">${srcBadge(x)}</span></div>
           <div class="lo-row lo-price"><span class="lo-key">Summa</span><span class="lo-val money">${money(x.amount)} so'm</span></div>
         </div>`;
       }).join("");
@@ -336,6 +345,7 @@
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
         omr("Manzil",esc(o.addr)||"-")+omr("Restoran",esc(o.rest)||"-")+omr("Kuryer (yetkazmoqda)",esc(o.courier)||"-")+
+        omr("Qayerdan kelgan",srcBadge(o))+
         omr("Buyurtma narxi",money(o.amount)+" so'm")+omr("Yetkazish narxi",money(o.delivery||0)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+omr("Sana / vaqt",fmtDateTime(o))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div></div>";

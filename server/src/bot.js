@@ -210,7 +210,8 @@ function orderCard(order, lines, title) {
     `📍 Manzil: ${esc(order.addr) || '—'}\n` +
     `🛵 Kuryer: <b>${esc(order.courier) || 'tayinlanmagan'}</b>\n` +
     `💳 To'lov: ${order.pay === 'cash' ? '💵 Naqd' : '💳 Karta'}\n` +
-    `⏱ Yetkazish muddati: <b>${Number(order.eta) || 15} daqiqa</b>`
+    `⏱ Yetkazish muddati: <b>${Number(order.eta) || 15} daqiqa</b>\n` +
+    `📲 Qayerdan: <b>${order.source === 'telegram' ? 'Telegram bot' : 'Sayt'}</b>`
   );
 }
 

@@ -79,7 +79,7 @@
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Mening taomlarim",income:"Daromad hisoboti",promo:"E'lon va chegirma",settings:"Sozlamalar"};
-    if(view==="settings"){ fillSettings(); renderRestTg(); renderRestPhotoCard(); }
+    if(view==="settings"){ fillSettings(); renderRestPhotoCard(); }
     $("#tbTitle").textContent=t[view]||"";
     $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
@@ -539,6 +539,13 @@
     var m=Math.floor(left/60000), s=Math.floor((left%60000)/1000);
     return m+":"+String(s).padStart(2,"0");
   }
+  /* Buyurtma QAYERDAN kelgan — Telegram mini ilovasidanmi yoki saytdanmi
+     (server `source` maydonini yozadi: server/src/orders-core.js) */
+  function srcBadge(x){
+    var tg=(x&&x.source)==="telegram";
+    return '<span class="pill '+(tg?"blue":"ok")+'" title="'+(tg?"Telegram bot orqali":"Sayt orqali")+'">'
+      +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
+  }
   function rActions(x){
     var b=function(act,label,bg){ return "<button class=\"r-act\" data-act=\""+act+"\" data-id=\""+x.id+"\" style=\"border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;margin:2px;background:"+bg+";color:#fff\">"+label+"</button>"; };
     /* Faqat rad etish — va faqat 3 daqiqalik oyna ichida */
@@ -553,8 +560,8 @@
     tb.innerHTML=o.length?o.map(function(x){ const s=RSM[x.status]||["?","warn"];
       var ph=orderPhoto(x);
       var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+(x.emoji||"🍽️")+"</span>";
-      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
-      :"<tr><td colspan=5 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
+      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div></td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
+      :"<tr><td colspan=6 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
     $$("#"+tbId+" .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
     $$("#"+tbId+" [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
   }
@@ -677,13 +684,6 @@
     set("#setCloseH", be.closeH!=null?be.closeH:23);
     renderHoursPreview();
   }
-  /* Telegramga ulash (umumiy widget — assets/js/tg-link.js).
-     Faqat "Sozlamalar" ochilganда chiziladi: har polling'да qayta chizilса,
-     ko'rsatilgan ulash kodi yo'qolib ketardi. */
-  function renderRestTg(){
-    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("rTgArea", STORE, toast);
-  }
-
   /* Sozlamalarda ish vaqtining JONLI ko'rinishi — restoran egasi o'zgartirgan
      zahoti "hozir ochiq/yopiq" ni ko'radi (mijoz aynan shuni ko'radi). */
   function renderHoursPreview(){
