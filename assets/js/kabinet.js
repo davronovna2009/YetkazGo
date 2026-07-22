@@ -595,7 +595,15 @@
     koPay="card";
     const fee=koDeliveryFee();
     const kt3=typeof KT==="function"?KT:function(k){return k;};
-    var savedAddr=USER.address||""; try{ savedAddr=savedAddr||localStorage.getItem("yz_user_addr")||""; }catch(e){}
+    /* Manzil va telefon HAR BUYURTMADA so'raladi (sayt va Telegram mini ilovasi
+       ham AYNAN shunday) — maydonlar oxirgi qiymat bilan to'ldirilgan bo'ladi. */
+    var savedAddr=USER.address||"", savedPhone=USER.phone||"";
+    try{
+      savedAddr = savedAddr || localStorage.getItem("yz_user_addr") || "";
+      savedPhone = savedPhone || localStorage.getItem("yz_user_phone") || "";
+    }catch(e){}
+    /* Oldingi buyurtmaning GPS nuqtasi yangi manzilga yopishib qolmasin */
+    USER.geo=null;
     $("#koContent").innerHTML=`
       <div class="ko-wave-head">
         <h2>${kt3('buyurtma_title')||'📋 Buyurtma'}</h2>
@@ -609,7 +617,7 @@
       </div>
       <div class="set-field" style="margin-bottom:10px">
         <label>${kt3('tel')||'Telefon raqam'}</label>
-        <input id="koPhone" placeholder="+998 90 000 00 00" value="${USER.phone||''}" type="tel" autocomplete="tel" />
+        <input id="koPhone" placeholder="+998 90 000 00 00" value="${savedPhone}" type="tel" autocomplete="tel" />
         <div class="ko-err" id="koPhoneErr" style="display:none;color:var(--red);font-size:12px;margin-top:3px">To'g'ri raqam kiriting: +998 XX XXX XX XX</div>
       </div>
       <div class="set-field" style="margin-bottom:10px">
@@ -660,6 +668,13 @@
     if(nameVal)  USER.name=nameVal;
     if(phoneVal) USER.phone=(window.YZ_PHONE?YZ_PHONE.pretty(phoneVal):phoneVal);
     USER.address=addr;
+    /* Keyingi safar (saytда ham, kabinetда ham) shu qiymatlar tayyor chiqadi —
+       kalitlar app.js bilan BIR XIL. */
+    try{
+      localStorage.setItem("yz_user_addr", addr);
+      localStorage.setItem("yz_user_phone", USER.phone||"");
+      localStorage.setItem("yz_user_name", USER.name||"");
+    }catch(e){}
     const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=(Math.random()<0.5?10:20);
     const orderLocalId=Date.now();
     const savedCart=cart.map(i=>({...i}));   // server rad etsa — savatni qaytaramiz

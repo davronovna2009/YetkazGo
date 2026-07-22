@@ -579,6 +579,26 @@ function maskPhone(el){
   el.value = out;
 }
 
+/* ===== Kontakt maydonlari =====
+   Manzil va telefon HAR BUYURTMADA so'raladi (sayt va kabinet ham AYNAN shunday),
+   lekin maydonlar oxirgi kiritilgan qiymat bilan to'ldirib qo'yiladi — mijoz
+   o'zgarmagan bo'lsa faqat "Davom etish" bosadi. Kalitlar saytdagi bilan bir xil. */
+const CONTACT_KEY = { phone:'yz_user_phone', addr:'yz_user_addr' };
+function fillContact(){
+  try {
+    const ph = localStorage.getItem(CONTACT_KEY.phone) || '';
+    const ad = localStorage.getItem(CONTACT_KEY.addr) || '';
+    if (ph && !$('fPhone').value) { $('fPhone').value = ph; maskPhone($('fPhone')); }
+    if (ad && !$('fAddr').value) $('fAddr').value = ad;
+  } catch(e){}
+}
+function rememberContact(){
+  try {
+    localStorage.setItem(CONTACT_KEY.phone, prettyPhone($('fPhone').value));
+    localStorage.setItem(CONTACT_KEY.addr, $('fAddr').value.trim());
+  } catch(e){}
+}
+
 function validateForm(){
   let ok = true;
   const p = $('fPhone'), a = $('fAddr');
@@ -633,6 +653,7 @@ function submit(){
   }
   notify('success');
   try { tg.disableClosingConfirmation(); } catch(e){}
+  rememberContact();                   // keyingi buyurtmada tayyor chiqadi
   localStorage.removeItem(CART_KEY);   // savat yuborildi — tozalaymiz
   tg.sendData(JSON.stringify(payload)); // <- shu chaqiruv mini saytni O'ZI yopadi
 }
@@ -708,6 +729,7 @@ $('errBtn').addEventListener('click', () => location.reload());
   }
 
   loadCart();
+  fillContact();     // manzil/telefon maydonlarini oxirgi qiymat bilan to'ldiramiz
   try {
     await loadMenu();
     if (!INFO){

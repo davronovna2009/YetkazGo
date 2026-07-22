@@ -729,16 +729,36 @@
     try{ window.location.href=acc.target; }catch(e){}
   }
 
+  /* ===== Oxirgi kiritilgan kontakt — faqat MAYDONNI OLDINDAN TO'LDIRISH uchun =====
+     Manzil kaliti kabinet bilan BIR XIL ("yz_user_addr") — mijoz saytda yozgan
+     manzilini kabinetда ham, kabinetда yozganini saytда ham tayyor ko'radi. */
+  const CK = { name:"yz_user_name", phone:"yz_user_phone", addr:"yz_user_addr" };
+  function lastContact(){
+    const get=(k)=>{ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } };
+    return { name:user.name||get(CK.name), phone:user.phone||get(CK.phone), addr:user.address||get(CK.addr) };
+  }
+  function rememberContact(name,phone,addr){
+    try{ localStorage.setItem(CK.name,name); localStorage.setItem(CK.phone,phone); localStorage.setItem(CK.addr,addr); }catch(e){}
+  }
+
+  /* Yetkazish ma'lumotlari oynasi — HAR BUYURTMADA ochiladi (kabinet va Telegram
+     mini ilovasi ham AYNAN shunday ishlaydi). Maydonlar oxirgi qiymat bilan
+     to'ldirilgan bo'ladi: mijoz manzil o'zgarmagan bo'lsa faqat tasdiqlaydi,
+     o'zgargan bo'lsa — shu yerда tuzatadi. */
   function openAuth(next){
+    const last=lastContact();
+    /* Eski GPS nuqtasini tozalaymiz: bu safar mijoz boshqa manzil yozishi mumkin,
+       o'tgan buyurtmaning koordinatasi yangisiga yopishib qolmasin. */
+    user.geo=null;
     openModal(`
       <h2>${I18N.t("login_title")}</h2>
-      <p class="modal-sub">${I18N.t("login_sub")}</p>
+      <p class="modal-sub">Yetkazish manzili va telefon raqamini tasdiqlang</p>
       <div class="field" id="f-name"><label>${I18N.t("lbl_name")}</label>
-        <input id="in-name" value="${user.name}" placeholder="${I18N.t("ph_name")}"><div class="err">${I18N.t("err_name")}</div></div>
+        <input id="in-name" value="${esc(last.name)}" placeholder="${I18N.t("ph_name")}"><div class="err">${I18N.t("err_name")}</div></div>
       <div class="field" id="f-phone"><label>${I18N.t("lbl_phone")}</label>
-        <input id="in-phone" type="tel" value="${user.phone}" placeholder="${I18N.t("ph_phone")}"><div class="err">${I18N.t("err_phone")}</div></div>
+        <input id="in-phone" type="tel" value="${esc(last.phone)}" placeholder="${I18N.t("ph_phone")}" autocomplete="tel"><div class="err">${I18N.t("err_phone")}</div></div>
       <div class="field" id="f-addr"><label>${I18N.t("lbl_address")}</label>
-        <input id="in-addr" value="${user.address}" placeholder="${I18N.t("ph_address")}"><div class="err">${I18N.t("err_address")}</div></div>
+        <input id="in-addr" value="${esc(last.addr)}" placeholder="${I18N.t("ph_address")}" autocomplete="street-address"><div class="err">${I18N.t("err_address")}</div></div>
       <button type="button" class="btn btn-outline btn-block" id="geoBtn" style="margin-bottom:10px">📍 Joylashuvimni aniqlash</button>
       <button class="btn btn-primary btn-block" id="authNext">${I18N.t("continue")}</button>`);
     const geoBtn=$("#geoBtn"); if(geoBtn) geoBtn.addEventListener("click",()=>detectLocation($("#in-addr"), geoBtn));
@@ -753,6 +773,7 @@
       setErr("#f-addr", addr.length<4);
       if(!ok) return;
       user.name=name; user.phone=(window.YZ_PHONE?YZ_PHONE.pretty(phone):phone); user.address=addr;
+      rememberContact(user.name, user.phone, user.address);
       if(typeof next==="function") next();
     });
   }
@@ -1396,7 +1417,10 @@
       return;
     }
     closeCart();
-    if(!user.name) openAuth(()=>openOrder()); else openOrder();
+    /* HAR BUYURTMADA manzil va telefon so'raladi — mijoz bir marta kiritib
+       qo'ygan eski manzilga buyurtma ketib qolmasin. Maydonlar oldingi qiymat
+       bilan to'ldirilgan, shuning uchun o'zgarmasa bitta tugma yetadi. */
+    openAuth(()=>openOrder());
   }
 
   /* ---------- DRAWER ---------- */
