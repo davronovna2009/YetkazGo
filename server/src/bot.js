@@ -11,6 +11,9 @@
 import { Router } from 'express';
 import { db } from './db.js';
 import { createOrder, OrderError } from './orders-core.js';
+/* Bekor qilish hisobi — botdan bekor qilish ham AYNAN saytdagi qoidalarga
+   bo'ysunadi (2-marta ogohlantirish + pauza, 3-marta blok). */
+import { registerCancel } from './blocks.js';
 import { TG_TOKEN, TG_CHAT_OPS, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
@@ -133,6 +136,16 @@ const STATUS_TEXT = {
   cancelled: { ico: '❌', t: 'Bekor qilindi' },
 };
 
+/* Mijoz buyurtmani bekor qila oladigan bosqichlar — sayt bilan AYNAN bir xil
+   (server/src/routes/orders.js: /:id/cancel). Kuryer yo'lga chiqqach bo'lmaydi. */
+const CANCELLABLE = ['new', 'accepted', 'ready'];
+
+/* Mijoz uchun tugmalar: bekor qilish (mumkin bo'lsa) */
+function customerKeyboard(order) {
+  if (!order || !CANCELLABLE.includes(order.status)) return null;
+  return { inline_keyboard: [[{ text: '❌ Buyurtmani bekor qilish', callback_data: `cancel:${order.id}` }]] };
+}
+
 /* ---------- Buyurtma holati o'zgarganда mijozga xabar ----------
    orders.js shu funksiyani chaqiradi. Bot o'chiq bo'lsa — darrov qaytadi. */
 export function notifyCustomerStatus(order, prevStatus) {
@@ -166,7 +179,9 @@ export function notifyCustomerStatus(order, prevStatus) {
     if (order.status === 'done') {
       text += '\n\nYoqimli ishtaha! 😋 Bizni tanlaganingiz uchun rahmat.';
     }
-    return send(chatId, text);
+    /* Hali bekor qilsa bo'ladigan bosqich — tugmani birga yuboramiz */
+    const kb = customerKeyboard(order);
+    return send(chatId, text, kb ? { reply_markup: kb } : undefined);
   } catch (e) {
     console.warn('[BOT] holat xabari yuborilmadi:', e.message);
   }
@@ -489,7 +504,20 @@ async function onMyOrders(chatId) {
     const st = STATUS_TEXT[r.status] || { ico: '•', t: r.status };
     return `${st.ico} <b>#${r.id}</b> · ${esc(r.rest)}\n   ${esc(r.item)} — ${money(r.amount)} so'm\n   <i>${esc(st.t)}</i>`;
   }).join('\n\n');
-  await send(chatId, `📦 <b>So'nggi buyurtmalaringiz</b>\n\n${list}`, { reply_markup: mainKeyboard() });
+
+  /* Hali bekor qilsa bo'ladigan buyurtmalar uchun tugma */
+  const cancellable = rows.filter((r) => CANCELLABLE.includes(r.status));
+  const extra = cancellable.length
+    ? {
+        reply_markup: {
+          inline_keyboard: cancellable.map((r) => [
+            { text: `❌ #${r.id} — bekor qilish`, callback_data: `cancel:${r.id}` },
+          ]),
+        },
+      }
+    : { reply_markup: mainKeyboard() };
+
+  await send(chatId, `📦 <b>So'nggi buyurtmalaringiz</b>\n\n${list}`, extra);
 }
 
 /* ---------- "✅ Qabul qildim" tugmasi (arrived -> done) ---------- */
@@ -523,12 +551,66 @@ async function onConfirmCallback(cb) {
   await send(chatId, `🎉 <b>Buyurtma #${id} yakunlandi</b>\nYoqimli ishtaha! 😋 Bizni tanlaganingiz uchun rahmat.`);
 }
 
+/* ---------- "❌ Buyurtmani bekor qilish" (mijoz) ----------
+   Saytdagi POST /api/orders/:id/cancel bilan AYNAN bir xil qoidalar:
+     • faqat new/accepted/ready bosqichida (kuryer yo'lga chiqqach — yo'q)
+     • faqat SHU buyurtmani bergan chat bekor qila oladi
+     • bekor qilish hisobi oshadi: 2-marta ogohlantirish + 5 daqiqa pauza,
+       3-marta raqam avtomatik bloklanadi (blocks.js) */
+async function onCancelCallback(cb) {
+  const chatId = cb.message && cb.message.chat && cb.message.chat.id;
+  const id = Number(String(cb.data || '').split(':')[1]);
+  const answer = (text) => tg('answerCallbackQuery', { callback_query_id: cb.id, text, show_alert: false });
+
+  if (!id) return answer('Buyurtma topilmadi');
+  const o = one('SELECT * FROM orders WHERE id = ?', id);
+  if (!o) return answer('Buyurtma topilmadi');
+
+  /* EGALIK: faqat buyurtma egasi bekor qiladi */
+  if (String(o.tg_chat_id) !== String(chatId)) return answer('Bu buyurtma sizniki emas');
+
+  if (o.status === 'cancelled') return answer('Bu buyurtma allaqachon bekor qilingan');
+  if (!CANCELLABLE.includes(o.status)) {
+    return answer('Bu bosqichda bekor qilib bo`lmaydi — kuryer yo`lda');
+  }
+
+  try {
+    db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(id);
+  } catch (e) {
+    return answer('Xatolik — qaytadan urinib ko`ring');
+  }
+
+  /* Jazо hisobi — sayt bilan bitta manba (blocks.js) */
+  const penalty = registerCancel(o.phone, o.user);
+
+  await answer('Buyurtma bekor qilindi');
+  /* Tugmani olib tashlaymiz — ikkinchi marta bosilmasin */
+  try {
+    await tg('editMessageReplyMarkup', {
+      chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] },
+    });
+  } catch (e) {}
+
+  let text = `❌ <b>Buyurtma #${id} bekor qilindi</b>`;
+  if (penalty && penalty.message) {
+    text += penalty.level >= 2
+      ? `\n\n${esc(penalty.message)}`
+      : `\n\n<i>${esc(penalty.message)}</i>`;
+  }
+  await send(chatId, text, { reply_markup: mainKeyboard() });
+
+  /* Restoran, kuryer va adminlar ham bilsin */
+  const updated = one('SELECT * FROM orders WHERE id = ?', id);
+  notifyStaffStatus(updated, o.status, '');
+}
+
 /* ---------- Kelgan yangilanishni qayta ishlash ---------- */
 async function handleUpdate(u) {
   try {
     if (u.callback_query) {
       const data = String(u.callback_query.data || '');
       if (data.startsWith('confirm:')) return await onConfirmCallback(u.callback_query);
+      if (data.startsWith('cancel:')) return await onCancelCallback(u.callback_query);
       if (data.startsWith('st:')) return await onStatusCallback(u.callback_query);
       return await tg('answerCallbackQuery', { callback_query_id: u.callback_query.id });
     }
@@ -557,7 +639,9 @@ async function handleUpdate(u) {
       return await send(chatId,
         'ℹ️ <b>Yordam</b>\n\n' +
         '🏪 <b>Restoran tanlash</b> — restoranlar ro`yxati. Tugmani bossangiz o`sha restoran menyusi ochiladi va shu yerдан buyurtma berasiz\n' +
-        '📦 <b>Buyurtmalarim</b> — so`nggi buyurtmalar va ularning holati\n\n' +
+        '📦 <b>Buyurtmalarim</b> — so`nggi buyurtmalar, holati va <b>bekor qilish</b> tugmasi\n\n' +
+        '❌ <b>Bekor qilish</b> — kuryer yo`lga chiqqunicha mumkin. Diqqat: buyurtmani ' +
+        'qayta-qayta bekor qilsangiz raqamingiz vaqtincha cheklanadi, keyin bloklanadi.\n\n' +
         '🟢 — restoran hozir ochiq, 🔴 — yopiq (yonida ish vaqti yozilgan)\n\n' +
         'Buyurtma yetib kelganда shu yerда <b>✅ Qabul qildim</b> tugmasi chiqadi — bosishni unutmang.\n' +
         (PUBLIC_URL ? `\n🌐 Sayt: ${PUBLIC_URL}` : ''),
@@ -675,8 +759,9 @@ botRouter.post('/api/tg/order', async (req, res) => {
     + `💳 To'lov: ${o.pay === 'cash' ? '💵 Naqd' : '💳 Karta'}\n`
     + (o.courier ? `🛵 Kuryer: <b>${esc(o.courier)}</b>\n` : '')
     + `⏱ Taxminiy vaqt: <b>${Number(o.eta) || 15} daqiqa</b>\n\n`
-    + "Iltimos, kuting — restoran buyurtmani tayyorlay boshladi. Holat o'zgarishi haqida shu yerда xabar beramiz.",
-    { reply_markup: mainKeyboard() });
+    + "Iltimos, kuting — restoran buyurtmani tayyorlay boshladi. Holat o'zgarishi haqida shu yerда xabar beramiz.\n\n"
+    + '<i>Fikringiz o`zgarsa — quyidagi tugma bilan bekor qilishingiz mumkin (kuryer yo`lga chiqqunicha).</i>',
+    { reply_markup: customerKeyboard(o) || mainKeyboard() });
 
   /* 3) Mini ilovaga javob — u "Tasdiqlandi" ekranini ko'rsatib yopiladi */
   res.status(201).json({
