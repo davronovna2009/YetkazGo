@@ -412,6 +412,33 @@
     window.addEventListener('resize', function(){
       if(window.innerWidth > 768) closeMobNav();
     });
+
+    /* ---- Header menyusi: qaysi bo'lim ko'rinayotgan bo'lsa, o'sha tugma faol ----
+       Havolalar endi tugma qolipida (styles.css .main-nav a) — faol bo'lim
+       to'ldirilgan tugma ko'rinishida bo'ladi. */
+    var navLinks = [].slice.call(document.querySelectorAll('#mainNav a[href^="#"], #mobileMainNav a[href^="#"]'));
+    if(navLinks.length){
+      var setActive = function(id){
+        navLinks.forEach(function(a){
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      };
+      var sections = ['dishes','restaurants','reviews','about']
+        .map(function(id){ return document.getElementById(id); }).filter(Boolean);
+      var spy = function(){
+        var best = '', top = window.innerHeight * 0.35;
+        sections.forEach(function(s){
+          var r = s.getBoundingClientRect();
+          if(r.top <= top && r.bottom > top) best = s.id;
+        });
+        setActive(best);
+      };
+      window.addEventListener('scroll', spy, { passive:true });
+      navLinks.forEach(function(a){
+        a.addEventListener('click', function(){ setActive((a.getAttribute('href')||'').slice(1)); });
+      });
+      spy();
+    }
   });
   </script>
 </body>

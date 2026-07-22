@@ -819,7 +819,22 @@
     if(restoreCart && restoreCart.length){ cart = restoreCart.map(i=>({...i})); updateCart(); updateAllCards(); }
     renderTrackerBanner(); renderCartOrders();
     closeModal();
+    /* Telefon raqami bloklangan (403) yoki vaqtincha cheklangan (429) —
+       bu muhim xabar, toast juda tez yo'qoladi. Modalда to'liq ko'rsatamiz. */
+    const st = err && err.status;
+    if(st===403 || st===429){ showRestrictionModal(err.message, st===403); return; }
     toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
+  }
+
+  /* Cheklov/blok oynasi — mijoz sababini aniq bilishi uchun */
+  function showRestrictionModal(message, blocked){
+    openModal(`<div style="text-align:center">
+      <div style="font-size:46px">${blocked?"⛔":"⏳"}</div>
+      <h2 style="margin:8px 0;color:#C8102E">${blocked?"Raqamingiz bloklangan":"Vaqtincha cheklangansiz"}</h2>
+      <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(message||"")}</p>
+      <button class="btn btn-primary btn-block" id="rxOk" style="margin-top:10px">Tushundim</button>
+    </div>`);
+    const ok=document.getElementById("rxOk"); if(ok) ok.addEventListener("click",closeModal);
   }
 
   /* Local buyurtmaga mos backend yozuvini topadi — avval aniq id bo'yicha,
@@ -1126,14 +1141,33 @@
     const beId = order.backendId || (be && be.id);
     /* Server rad etsa (masalan kuryer allaqachon yo'lda) — mahalliy ro'yxatdan
        O'CHIRMAYMIZ, aks holda mijozда yo'qoladi-yu, panellarда faol qolaveradi. */
+    let res=null;
     if(beId && typeof STORE!=="undefined" && STORE.cancelOrder){
-      try{ await STORE.cancelOrder(beId); }
+      try{ res = await STORE.cancelOrder(beId); }
       catch(e){ toast((e && e.data && e.data.error) || "Buyurtmani bekor qilib bo'lmadi","error"); return; }
     }
     if(orderTimers[orderId]){ clearInterval(orderTimers[orderId]); delete orderTimers[orderId]; }
     saveOrders(loadOrders().filter(o=>o.id!==orderId));
     renderTrackerBanner(); renderCartOrders();
-    toast("Buyurtma bekor qilindi","success");
+
+    /* Server bekor qilishlar sonini hisoblaydi: 2-marta — ogohlantirish va
+       5 daqiqalik cheklov, 3-marta — raqam bloklanadi. Xabar to'g'ridan
+       serverdan keladi (assets/js/store.js -> /api/orders/:id/cancel). */
+    if(res && res.warn && res.warnLevel>=2){ showCancelWarnModal(res); return; }
+    toast((res && res.warn) || "Buyurtma bekor qilindi","success");
+  }
+
+  /* Ogohlantirish / blok oynasi (2- va 3-bekor qilish) */
+  function showCancelWarnModal(res){
+    const blocked=!!res.blocked;
+    openModal(`<div style="text-align:center">
+      <div style="font-size:46px">${blocked?"⛔":"⚠️"}</div>
+      <h2 style="margin:8px 0;color:#C8102E">${blocked?"Raqamingiz bloklandi":"Ogohlantirish!"}</h2>
+      <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(res.warn||"")}</p>
+      ${blocked?"":`<p style="font-size:13px;color:#888;margin-top:6px">Bekor qilishlar soni: <b>${res.cancels||0}</b></p>`}
+      <button class="btn btn-primary btn-block" id="cwOk" style="margin-top:10px">Tushundim</button>
+    </div>`);
+    const ok=document.getElementById("cwOk"); if(ok) ok.addEventListener("click",closeModal);
   }
 
   /* ============================================================

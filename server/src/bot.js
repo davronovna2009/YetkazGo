@@ -11,12 +11,16 @@
 import { Router } from 'express';
 import { db } from './db.js';
 import { createOrder, OrderError } from './orders-core.js';
-import { TG_TOKEN, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
+import { TG_TOKEN, TG_CHAT_OPS, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
 import { createHash } from 'node:crypto';
 
 const API = TG_TOKEN ? `https://api.telegram.org/bot${TG_TOKEN}` : '';
 export const BOT_ENABLED = Boolean(TG_TOKEN);
+
+/* Bot username — panellardagi "Telegramga ulash" havolasi uchun (startBot to'ldiradi) */
+let BOT_USERNAME = '';
+export function botUsername() { return BOT_USERNAME; }
 
 /* Webhook manzilini taxmin qilib bo'lmasligi uchun — tokendan hosil qilingan yo'l */
 const WEBHOOK_PATH = TG_TOKEN
@@ -168,10 +172,243 @@ export function notifyCustomerStatus(order, prevStatus) {
   }
 }
 
+/* ================= XODIMLAR (restoran / kuryer / admin) TELEGRAMDA =================
+   Saytdagi panellarga qo'shimcha: buyurtma AYNAN shu botда ham keladi va
+   holatni to'g'ridan-to'g'ri Telegramdan o'zgartirsa bo'ladi. */
+
+const one = (sql, ...p) => { try { return db.prepare(sql).get(...p) || null; } catch (e) { return null; } };
+const many = (sql, ...p) => { try { return db.prepare(sql).all(...p); } catch (e) { return []; } };
+
+function restChat(name) {
+  const r = one('SELECT tg_chat_id FROM restaurants WHERE name = ?', String(name || ''));
+  return (r && r.tg_chat_id) || '';
+}
+function courierChat(name) {
+  const c = one('SELECT tg_chat_id FROM couriers WHERE name = ?', String(name || ''));
+  return (c && c.tg_chat_id) || '';
+}
+function adminChats() {
+  const rows = many('SELECT chat_id FROM tg_admins');
+  const list = rows.map((r) => String(r.chat_id)).filter(Boolean);
+  /* Operatorlar guruhi ham adminlar qatorida (TG_CHAT_OPS) */
+  if (TG_CHAT_OPS && !list.includes(String(TG_CHAT_OPS))) list.push(String(TG_CHAT_OPS));
+  return list;
+}
+
+/* Buyurtma kartochkasi — hamma xodimga bir xil ko'rinadi */
+function orderCard(order, lines, title) {
+  const items = (lines && lines.length)
+    ? lines.map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`).join('\n')
+    : `  • ${esc(order.item) || '—'}`;
+  return (
+    `${title}\n\n` +
+    `🍽 <b>Tarkibi:</b>\n${items}\n\n` +
+    `💰 Jami: <b>${money(order.amount)} so'm</b>\n` +
+    `🏪 Restoran: <b>${esc(order.rest) || '—'}</b>\n` +
+    `👤 Mijoz: ${esc(order.user) || '—'}\n` +
+    `📞 Telefon: ${esc(order.phone) || '—'}\n` +
+    `📍 Manzil: ${esc(order.addr) || '—'}\n` +
+    `🛵 Kuryer: <b>${esc(order.courier) || 'tayinlanmagan'}</b>\n` +
+    `💳 To'lov: ${order.pay === 'cash' ? '💵 Naqd' : '💳 Karta'}\n` +
+    `⏱ Yetkazish muddati: <b>${Number(order.eta) || 15} daqiqa</b>`
+  );
+}
+
+/* Rolga qarab keyingi bosqich tugmalari (saytdagi panel bilan bir xil) */
+function staffKeyboard(order, role) {
+  const b = (text, st) => ({ text, callback_data: `st:${order.id}:${st}` });
+  if (role === 'restoran') {
+    if (order.status === 'new') return { inline_keyboard: [[b('👨‍🍳 Tayyorlanmoqda', 'accepted')], [b('❌ Bekor qilish', 'cancelled')]] };
+    if (order.status === 'accepted') return { inline_keyboard: [[b('✅ Tayyor', 'ready')]] };
+    return null;
+  }
+  if (role === 'kuryer') {
+    if (['new', 'accepted', 'ready'].includes(order.status)) return { inline_keyboard: [[b("🛵 Yo'lga chiqdim", 'ontheway')]] };
+    if (order.status === 'ontheway') return { inline_keyboard: [[b('📍 Yetkazdim', 'arrived')]] };
+    return null;
+  }
+  return null;
+}
+
+/* Yangi buyurtma — restoran + kuryer + admin(lar). Sayt va bot AYNAN shuni chaqiradi. */
+export function notifyNewOrder(order, lines) {
+  try {
+    if (!BOT_ENABLED || !order) return;
+    const body = orderCard(order, lines, `🆕 <b>YANGI BUYURTMA #${order.id}</b>`);
+
+    const rc = restChat(order.rest);
+    if (rc) send(rc, body, { reply_markup: staffKeyboard(order, 'restoran') || undefined });
+
+    const cc = courierChat(order.courier);
+    if (cc) send(cc, body, { reply_markup: staffKeyboard(order, 'kuryer') || undefined });
+
+    for (const chat of adminChats()) send(chat, body);
+  } catch (e) {
+    console.warn('[BOT] yangi buyurtma xabari yuborilmadi:', e.message);
+  }
+}
+
+/* Holat o'zgardi — mijozdan tashqari XODIMLARGA ham bildiramiz */
+export function notifyStaffStatus(order, prevStatus, actor) {
+  try {
+    if (!BOT_ENABLED || !order) return;
+    const st = STATUS_TEXT[order.status];
+    if (!st) return;
+    let text = `${st.ico} <b>Buyurtma #${order.id}</b> — ${esc(st.t)}\n`
+             + `🏪 ${esc(order.rest) || '—'} · 🛵 ${esc(order.courier) || '—'} · ${money(order.amount)} so'm`;
+    if (order.status === 'cancelled' && order.reason) text += `\n\nSabab: <i>${esc(order.reason)}</i>`;
+
+    const rc = restChat(order.rest);
+    if (rc && actor !== 'restoran') send(rc, text, { reply_markup: staffKeyboard(order, 'restoran') || undefined });
+
+    const cc = courierChat(order.courier);
+    if (cc && actor !== 'kuryer') send(cc, text, { reply_markup: staffKeyboard(order, 'kuryer') || undefined });
+
+    /* Adminlarga faqat muhim bosqichlar — spam bo'lmasin */
+    if (['cancelled', 'done'].includes(order.status)) {
+      for (const chat of adminChats()) send(chat, text);
+    }
+  } catch (e) {
+    console.warn('[BOT] xodim xabari yuborilmadi:', e.message);
+  }
+}
+
+/* Kuryerga "vaqt kam qoldi" / "vaqt tugadi" ogohlantirishi (alerts.js chaqiradi) */
+export function notifyCourierDeadline(order, level, minutesLeft) {
+  try {
+    if (!BOT_ENABLED || !order) return;
+    const cc = courierChat(order.courier);
+    const text = level >= 4
+      ? `⛔️ <b>VAQT TUGADI — buyurtma #${order.id}</b>\n\n`
+        + `Yetkazish muddati o'tib ketdi, buyurtma hali yetkazilmagan.\n`
+        + `📍 ${esc(order.addr) || '—'}\n📞 ${esc(order.phone) || '—'}\n\n`
+        + `Iltimos, mijoz bilan darhol bog'laning va yetkazing.`
+      : `⏰ <b>${level}-ogohlantirish — buyurtma #${order.id}</b>\n\n`
+        + `Yetkazishga <b>${minutesLeft} daqiqa</b> qoldi!\n`
+        + `📍 ${esc(order.addr) || '—'}\n📞 ${esc(order.phone) || '—'}\n🍽 ${esc(order.item) || '—'}`;
+    if (cc) send(cc, text);
+    /* Vaqt tugagan bo'lsa — adminlar ham bilsin */
+    if (level >= 4) {
+      for (const chat of adminChats()) {
+        send(chat, `⛔️ <b>Kechikish</b> — buyurtma #${order.id}\n🛵 ${esc(order.courier) || '—'} · 🏪 ${esc(order.rest) || '—'}`);
+      }
+    }
+  } catch (e) {
+    console.warn('[BOT] kechikish xabari yuborilmadi:', e.message);
+  }
+}
+
+/* Raqam bloklanganда adminlarga xabar */
+export function notifyPhoneBlocked(pretty, name, cancels) {
+  try {
+    if (!BOT_ENABLED) return;
+    const text = '⛔️ <b>Raqam bloklandi</b>\n\n'
+      + `📞 <b>${esc(pretty)}</b>${name ? ` (${esc(name)})` : ''}\n`
+      + `Sabab: ${cancels} marta buyurtma bekor qilingan.\n\n`
+      + "Admin panel → <b>Bloklangan raqamlar</b> bo'limidan ochishingiz mumkin.";
+    for (const chat of adminChats()) send(chat, text);
+  } catch (e) { /* jim */ }
+}
+
+/* ---------- Panelni Telegramga ulash (bir martalik kod) ---------- */
+function linkByCode(code, chatId, tgName) {
+  const c = String(code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{6,12}$/.test(c)) return null;
+  const link = one('SELECT * FROM tg_links WHERE code = ?', c);
+  if (!link) return null;
+  /* Kod bir martalik — ishlatilgach o'chadi */
+  try { db.prepare('DELETE FROM tg_links WHERE code = ?').run(c); } catch (e) {}
+
+  const chat = String(chatId);
+  try {
+    if (link.role === 'restoran') {
+      db.prepare('UPDATE restaurants SET tg_chat_id = ? WHERE login = ?').run(chat, link.login);
+    } else if (link.role === 'kuryer') {
+      db.prepare('UPDATE couriers SET tg_chat_id = ? WHERE login = ?').run(chat, link.login);
+    } else if (link.role === 'admin') {
+      db.prepare('INSERT OR REPLACE INTO tg_admins (chat_id, login, name) VALUES (?,?,?)')
+        .run(chat, link.login, String(tgName || ''));
+    } else return null;
+  } catch (e) {
+    console.warn('[BOT] ulash xatosi:', e.message);
+    return null;
+  }
+  return link;
+}
+
+async function onLinkCode(chatId, code, tgName) {
+  const link = linkByCode(code, chatId, tgName);
+  if (!link) {
+    return send(chatId, '❌ Kod noto`g`ri yoki allaqachon ishlatilgan. Panelдан yangi kod oling.', { reply_markup: mainKeyboard() });
+  }
+  const role = { restoran: '🏪 Restoran', kuryer: '🛵 Kuryer', admin: '🛡 Administrator' }[link.role] || link.role;
+  return send(chatId,
+    `✅ <b>Ulandi!</b>\n\n${role}: <b>${esc(link.name || link.login)}</b>\n\n`
+    + 'Endi yangi buyurtmalar va holat o`zgarishlari shu chatga keladi. '
+    + 'Buyurtma tugmalari orqali holatni to`g`ridan-to`g`ri shu yerдан o`zgartirasiz.',
+    { reply_markup: mainKeyboard() });
+}
+
+/* ---------- Xodim Telegramdan holatni o'zgartirdi (st:<id>:<status>) ---------- */
+const NEXT_OK = {
+  restoran: { new: ['accepted', 'cancelled'], accepted: ['ready', 'cancelled'], ready: ['cancelled'] },
+  kuryer: { new: ['ontheway'], accepted: ['ontheway'], ready: ['ontheway'], ontheway: ['arrived'] },
+};
+
+async function onStatusCallback(cb) {
+  const chatId = cb.message && cb.message.chat && cb.message.chat.id;
+  const answer = (text) => tg('answerCallbackQuery', { callback_query_id: cb.id, text, show_alert: false });
+  const parts = String(cb.data || '').split(':');
+  const id = Number(parts[1]);
+  const want = String(parts[2] || '');
+  if (!id || !want) return answer('Buyurtma topilmadi');
+
+  const o = one('SELECT * FROM orders WHERE id = ?', id);
+  if (!o) return answer('Buyurtma topilmadi');
+
+  /* EGALIK: bu chat shu buyurtmaning restorani yoki kuryerimi? */
+  let role = '';
+  if (String(restChat(o.rest)) === String(chatId)) role = 'restoran';
+  else if (String(courierChat(o.courier)) === String(chatId)) role = 'kuryer';
+  if (!role) return answer('Bu buyurtma sizga tegishli emas');
+
+  const allowed = (NEXT_OK[role] || {})[o.status] || [];
+  if (!allowed.includes(want)) {
+    return answer(`Bu bosqichda bo'lmaydi (hozir: ${(STATUS_TEXT[o.status] || {}).t || o.status})`);
+  }
+
+  try {
+    const extra = want === 'arrived' ? ", arrived_at = datetime('now')" : '';
+    db.prepare(`UPDATE orders SET status = ?${extra} WHERE id = ?`).run(want, id);
+  } catch (e) {
+    return answer('Xatolik — qaytadan urinib ko`ring');
+  }
+  const updated = one('SELECT * FROM orders WHERE id = ?', id);
+  await answer('Bajarildi ✓');
+  /* Bosilgan tugmani olib tashlaymiz — ikki marta bosilmasin */
+  try {
+    await tg('editMessageReplyMarkup', {
+      chat_id: chatId, message_id: cb.message.message_id, reply_markup: { inline_keyboard: [] },
+    });
+  } catch (e) {}
+
+  const st = STATUS_TEXT[want] || {};
+  await send(chatId, `${st.ico || '✓'} <b>Buyurtma #${id}</b> — ${esc(st.t || want)}`,
+    { reply_markup: staffKeyboard(updated, role) || undefined });
+
+  /* Mijozga va ikkinchi tomonga xabar (halqa bo'lmasligi uchun `role` beriladi) */
+  notifyCustomerStatus(updated, o.status);
+  notifyStaffStatus(updated, o.status, role);
+}
+
 /* ---------- /start ----------
    Xush kelibsizdan keyin DARROV restoran ro'yxati chiqadi — mijoz bitta
    tugma bosib o'sha restoran menyusiga tushadi. */
-async function onStart(chatId, name) {
+async function onStart(chatId, name, payload) {
+  /* Deep-link: t.me/<bot>?start=link_ABC123 — panelni shu chatga ulaydi */
+  const p = String(payload || '').trim();
+  if (p.startsWith('link_')) return onLinkCode(chatId, p.slice(5), name);
+
   const text =
     `Assalomu alaykum, <b>${esc(name || 'mehmon')}</b>! 👋\n\n` +
     'Men <b>Yetkaz.uz</b> botiman — Xatirchi tumani bo\'ylab taom yetkazib beramiz. 🛵\n\n' +
@@ -210,6 +447,9 @@ async function onWebAppData(msg) {
     console.warn('[BOT] buyurtma rad etildi:', reason);
     return send(chatId, `❌ <b>Buyurtma qabul qilinmadi</b>\n${esc(reason)}`, { reply_markup: mainKeyboard() });
   }
+
+  /* Restoran + kuryer + adminlarga — saytdan berilgan buyurtma bilan BIR XIL */
+  notifyNewOrder(created.order, created.lines);
 
   const o = created.order;
   const lines = (created.lines || [])
@@ -288,6 +528,7 @@ async function handleUpdate(u) {
     if (u.callback_query) {
       const data = String(u.callback_query.data || '');
       if (data.startsWith('confirm:')) return await onConfirmCallback(u.callback_query);
+      if (data.startsWith('st:')) return await onStatusCallback(u.callback_query);
       return await tg('answerCallbackQuery', { callback_query_id: u.callback_query.id });
     }
 
@@ -300,7 +541,15 @@ async function handleUpdate(u) {
     const text = String(msg.text || '').trim();
     if (!text) return;
 
-    if (text === '/start' || text.startsWith('/start')) return await onStart(chatId, msg.from && msg.from.first_name);
+    if (text === '/start' || text.startsWith('/start')) {
+      return await onStart(chatId, msg.from && msg.from.first_name, text.slice(6).trim());
+    }
+    /* Panel bergan ulash kodi (masalan "K7Q2M9") — deep-link ishlamaganда qo'lда */
+    if (/^\/?(ulash\s+)?[A-Za-z0-9]{8}$/.test(text)) {
+      const code = text.replace(/^\/?(ulash\s+)?/i, '');
+      const link = one('SELECT 1 FROM tg_links WHERE code = ?', code.toUpperCase());
+      if (link) return await onLinkCode(chatId, code, msg.from && msg.from.first_name);
+    }
     if (text === '🏪 Restoran tanlash' || text === '/restoranlar') return await onChooseRest(chatId);
     if (text === '📦 Buyurtmalarim' || text === '/buyurtmalarim') return await onMyOrders(chatId);
     if (text === 'ℹ️ Yordam' || text === '/yordam' || text === '/help') {
@@ -342,6 +591,7 @@ export async function startBot() {
     console.warn('[BOT] token noto`g`ri ko`rinadi — bot ishga tushmadi');
     return;
   }
+  BOT_USERNAME = username;   // panellardagi "Telegramga ulash" havolasi uchun
 
   if (!PUBLIC_URL) {
     console.warn('[BOT] PUBLIC_URL yo`q — webhook o`rnatilmadi. Render`да RENDER_EXTERNAL_URL o`zi keladi;');

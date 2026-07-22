@@ -79,7 +79,7 @@
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Mening taomlarim",income:"Daromad hisoboti",promo:"E'lon va chegirma",settings:"Sozlamalar"};
-    if(view==="settings") fillSettings();
+    if(view==="settings"){ fillSettings(); renderRestTg(); }
     $("#tbTitle").textContent=t[view]||"";
     $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
@@ -676,6 +676,13 @@
     set("#setCloseH", be.closeH!=null?be.closeH:23);
     renderHoursPreview();
   }
+  /* Telegramga ulash (umumiy widget — assets/js/tg-link.js).
+     Faqat "Sozlamalar" ochilganда chiziladi: har polling'да qayta chizilса,
+     ko'rsatilgan ulash kodi yo'qolib ketardi. */
+  function renderRestTg(){
+    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("rTgArea", STORE, toast);
+  }
+
   /* Sozlamalarda ish vaqtining JONLI ko'rinishi — restoran egasi o'zgartirgan
      zahoti "hozir ochiq/yopiq" ni ko'radi (mijoz aynan shuni ko'radi). */
   function renderHoursPreview(){

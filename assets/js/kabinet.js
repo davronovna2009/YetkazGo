@@ -164,12 +164,17 @@
         }
       }catch(e){}
       /* Server rad etsa (kuryer yo'lda va h.k.) — mahalliy holatni O'ZGARTIRMAYMIZ */
+      let res=null;
       if(beId && STORE.cancelOrder){
-        try{ await STORE.cancelOrder(beId); }
+        try{ res = await STORE.cancelOrder(beId); }
         catch(e){ toast((e && e.data && e.data.error) || "Buyurtmani bekor qilib bo'lmadi","error"); return; }
       }
       if(o) o.status="cancelled";
-      close(); renderProfil(); toast("Buyurtma bekor qilindi","success");
+      close(); renderProfil();
+      /* Server bekor qilishlar sonini hisoblaydi: 2-marta ogohlantirish +
+         5 daqiqalik cheklov, 3-marta raqam bloklanadi (server/src/blocks.js) */
+      if(res && res.warn && res.warnLevel>=2) showKabWarn(res);
+      else toast((res && res.warn) || "Buyurtma bekor qilindi","success");
     });
   }
 
@@ -684,6 +689,9 @@
     try{ koTimers.forEach(t=>clearInterval(t)); koTimers=[]; }catch(e){}
     const m=$("#koModal"), b=$("#koBackdrop");
     if(m) m.classList.remove("open"); if(b) b.classList.remove("open");
+    /* Bloklangan (403) yoki vaqtincha cheklangan (429) raqam — to'liq oynada */
+    const st=err&&err.status;
+    if(st===403||st===429){ showKabWarn({ warn:err.message, blocked:st===403 }); return; }
     toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
   }
   /* REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s yangilaydi).
@@ -748,6 +756,21 @@
     document.body.appendChild(ov);
     const close=()=>{ ov.remove(); };
     ov.querySelector("#kabCancOk").addEventListener("click",close);
+    ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
+  }
+
+  /* Bekor qilish ogohlantirishi / blok xabari (server/src/blocks.js qoidalari) */
+  function showKabWarn(res){
+    const blocked=!!res.blocked;
+    let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
+    ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">'+(blocked?"⛔":"⚠️")+'</div>'+
+      '<div class="arrived-title" style="color:#C8102E">'+(blocked?"Raqamingiz bloklandi":"Ogohlantirish!")+'</div>'+
+      '<div class="arrived-msg">'+esc(res.warn||"")+'</div>'+
+      '<button class="btn btn-primary" id="kabWarnOk">Tushundim</button></div>';
+    document.body.appendChild(ov);
+    const close=()=>{ ov.remove(); };
+    ov.querySelector("#kabWarnOk").addEventListener("click",close);
     ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
   }
 

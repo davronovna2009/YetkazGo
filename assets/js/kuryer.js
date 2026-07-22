@@ -5,8 +5,7 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
-  let PER=0; // bitta yetkazish haqi — admin shartnomada belgilaydi (kuryer fee)
-  const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
+  /* Daromad bo'limi olib tashlangan — kuryer haqi (fee) endi panelда ko'rsatilmaydi */
 
   /* Parollar bu yerda saqlanmaydi — kirish backend orqali (xeshlangan) tekshiriladi */
   const COURIERS=[];
@@ -28,7 +27,7 @@
     if(acc && acc.target){ try{ location.href=acc.target; }catch(e){} return; }
     $("#loginErr").textContent="Login yoki parol xato.";
   }
-  function enter(c){ CUR=c; PER=(c.fee)||0; loadOrders(); todayDone=0; $("#loginWrap").style.display="none"; $("#app").classList.add("show");
+  function enter(c){ CUR=c; loadOrders(); todayDone=0; $("#loginWrap").style.display="none"; $("#app").classList.add("show");
     $("#sbName").textContent=c.name; renderAll();
     loadCourierState().then(updateStatusBadge);
     /* Realtime: boshqa rol buyurtma/status o'zgartirsa darhol yangilanadi */
@@ -39,7 +38,7 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const t={dash:"Mening panelim",orders:"Faol buyurtmalar",income:"Daromad",settings:"Sozlamalar"};
+    const t={dash:"Buyurtmalar",orders:"Faol buyurtmalar",settings:"Sozlamalar"};
     if(view==="settings") fillCourierSettings();
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
@@ -52,38 +51,99 @@
              done:{t:"Yetkazildi",p:"ok",next:null,btn:null},
              cancelled:{t:"Bekor qilingan",p:"red",next:null,btn:null}};
 
-  /* Daromad davri: kunlik/haftalik/oylik/yillik */
-  let kIncomePeriod="oylik";
-  function kOrderTime(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
-  function kInPeriod(o,p){
-    var t=kOrderTime(o); if(!t) return p==="oylik";
-    /* "Kunlik" = bugun (Toshkent kalendar kuni), oxirgi 24 soat emas */
-    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
-    var d=(Date.now()-t)/86400000;
-    if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31;
+  /* ===== YETKAZISH MUDDATI =====
+     Buyurtmaга `eta` (daqiqa) beriladi. Muddat tugay deb qolganda kuryer
+     UCH marta ogohlantiriladi, muddat o'tsa — to'rtinchi (kechikish) xabari.
+     Chegaralar SERVER bilan bir xil (server/src/alerts.js: alertLevel) —
+     shu sababli Telegramдаги va paneldagi ogohlantirish mos tushadi. */
+  const KACTIVE=["new","accepted","ready","ontheway"];
+  function kDeadline(o){
+    var t=YZ_TIME.stamp((o&&o.created_at)||""); if(!t) return 0;
+    var eta=Math.max(5,Math.min(120,Number(o&&o.eta)||15));
+    return t+eta*60000;
   }
+  function kMinutesLeft(o){
+    var d=kDeadline(o); if(!d) return null;
+    /* ceil — server (alerts.js) bilan bir xil: 40 soniya qolganда "vaqt tugadi" demaydi */
+    return Math.ceil((d-Date.now())/60000);
+  }
+  function kLevel(o){
+    var m=kMinutesLeft(o); if(m===null) return 0;
+    var eta=Math.max(5,Math.min(120,Number(o&&o.eta)||15));
+    if(m<=0) return 4;
+    if(m<=2) return 3;
+    if(m<=5) return 2;
+    if(m<=Math.max(6,Math.round(eta/2))) return 1;
+    return 0;
+  }
+  /* Har bir daraja bitta buyurtma uchun BIR MARTA ko'rsatiladi (qayta yuklashда ham) */
+  const KSEEN_KEY="yz_kur_alerts";
+  function kSeen(){ try{ return JSON.parse(localStorage.getItem(KSEEN_KEY)||"{}"); }catch(e){ return {}; } }
+  function kMarkSeen(id,level){
+    try{ var s=kSeen(); s[id]=Math.max(level,s[id]||0); localStorage.setItem(KSEEN_KEY,JSON.stringify(s)); }catch(e){}
+  }
+  /* Muddat qatori — buyurtma kartochkasida ko'rinadi */
+  function kTimeBadge(o){
+    if(KACTIVE.indexOf(o.status)<0) return "";
+    var m=kMinutesLeft(o); if(m===null) return "";
+    var lv=kLevel(o);
+    var col=lv>=4?"#b91c1c":lv>=3?"#dc2626":lv>=2?"#d97706":lv>=1?"#ca8a04":"#16a34a";
+    var bg =lv>=4?"#fef2f2":lv>=3?"#fef2f2":lv>=2?"#fffbeb":lv>=1?"#fefce8":"#f0fdf4";
+    var txt=m<=0?("⛔ Vaqt tugadi ("+Math.abs(m)+" daq. kechikish)"):("⏱ "+m+" daqiqa qoldi");
+    return '<div style="margin-top:6px;display:inline-block;background:'+bg+';color:'+col+';border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800">'+txt+'</div>';
+  }
+  /* Ogohlantirishlarni tekshirish — toast + tepadagi banner */
+  function checkDeadlines(){
+    var seen=kSeen(), boxItems=[];
+    ORDERS.forEach(function(o){
+      if(KACTIVE.indexOf(o.status)<0) return;
+      var lv=kLevel(o); if(!lv) return;
+      var m=kMinutesLeft(o);
+      if(lv>=2) boxItems.push({o:o,lv:lv,m:m});
+      if((seen[o.id]||0)>=lv) return;
+      kMarkSeen(o.id,lv);
+      if(lv>=4) toast("⛔ Buyurtma #"+o.id+" — VAQT TUGADI! Mijozga tezda yetkazing.");
+      else toast("⏰ "+lv+"-ogohlantirish: buyurtma #"+o.id+" — "+Math.max(0,m)+" daqiqa qoldi!");
+      try{ if(navigator.vibrate) navigator.vibrate(lv>=4?[200,80,200]:[120]); }catch(e){}
+    });
+    renderDeadlineBanner(boxItems);
+  }
+  function renderDeadlineBanner(items){
+    var el=document.getElementById("kDeadlineAlerts"); if(!el) return;
+    if(!items.length){ el.innerHTML=""; return; }
+    items.sort(function(a,b){ return b.lv-a.lv; });
+    el.innerHTML=items.map(function(it){
+      var late=it.lv>=4;
+      return '<div class="panel" style="margin-bottom:12px;border:2px solid '+(late?"#dc2626":"#f59e0b")+'">'+
+        '<div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+        '<span style="font-size:28px">'+(late?"⛔":"⏰")+'</span>'+
+        '<div style="flex:1;min-width:180px">'+
+          '<b style="color:'+(late?"#b91c1c":"#b45309")+'">'+(late?"Vaqt tugadi — buyurtma #"+it.o.id:"Vaqt kam qoldi — buyurtma #"+it.o.id)+'</b>'+
+          '<div style="color:var(--grey);font-size:13px;margin-top:2px">'+
+            (late?("Muddat "+Math.abs(it.m)+" daqiqa oldin tugadi. Mijoz kutmoqda — darhol yetkazing."):("Yetkazishga <b>"+Math.max(0,it.m)+" daqiqa</b> qoldi."))+
+            ' 📍 '+esc(it.o.addr||"—")+'</div>'+
+        '</div>'+
+        (it.o.phone?'<a href="tel:'+encodeURIComponent(it.o.phone)+'" class="set-save" style="text-decoration:none;padding:9px 14px">📞 Qo\'ng\'iroq</a>':"")+
+        '</div></div>';
+    }).join("");
+  }
+
   function renderDash(){
     const c=CUR;
     /* Real: faqat yetkazilgan (done) buyurtmalar hisoblanadi, 0 dan boshlanadi */
     const doneAll=ORDERS.filter(o=>o.status==="done");
     const doneCount=doneAll.length;
     const active=ORDERS.filter(o=>o.status!=="done"&&o.status!=="cancelled").length;
-    const periodDone=doneAll.filter(o=>kInPeriod(o,kIncomePeriod));
-    const earn=periodDone.length*PER;
-    const kpLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[kIncomePeriod];
-    const kseg=(k,t)=>`<button class="k-inc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
+    const late=ORDERS.filter(o=>KACTIVE.indexOf(o.status)>=0 && kLevel(o)>=4).length;
     /* Real reyting — mijozlar bergan kuryer baholari o'rtachasi */
     var _rv=(typeof STORE!=="undefined"?STORE.reviews():[]).filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
     const rating=_rv.length?(_rv.reduce(function(s,r){return s+(r.rating||0);},0)/_rv.length).toFixed(1):(c.rating||0);
+    /* Daromad ko'rsatkichi olib tashlandi — panelда faqat buyurtma ma'lumoti */
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💵</div><b>${money(earn)}</b><span>Daromad (${kpLabel}, so'm)</span>
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap">${kseg("kunlik","Kunlik")}${kseg("haftalik","Haftalik")}${kseg("oylik","Oylik")}${kseg("yillik","Yillik")}</div></div>
-      <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan (jami)</span></div>
       <div class="scard c3"><div class="si">🚀</div><b>${active}</b><span>Faol buyurtma</span></div>
+      <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan (jami)</span></div>
+      <div class="scard c1"><div class="si">⏰</div><b>${late}</b><span>Kechikkan</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${rating||"—"}</b><span>Reyting</span></div>`;
-    $$("#statCards .k-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); kIncomePeriod=b.dataset.kp; renderDash(); }); });
-    $("#revChart").innerHTML='<p style="color:var(--grey);font-size:13px;padding:16px">Daromad grafigi real yetkazilgan buyurtmalar asosida to\'ladi.</p>';
-    $("#restNote").innerHTML=`Bitta yetkazish haqi: <b>${PER?money(PER)+" so'm":"belgilanmagan"}</b> · Yetkazilgan: <b>${doneCount}</b> · Daromad: <b>${money(earn)} so'm</b>`;
     /* Mijoz izohlari (barcha panelda ko'rinadi) */
     var host=$("#statCards");
     if(host && host.parentNode){
@@ -115,6 +175,7 @@
           <div style="font-weight:700">${esc(o.item)} <span class="pill ${s.p}" style="margin-left:6px">${s.t}</span></div>
           <div style="color:var(--grey);font-size:14px">${esc(o.user)}${o.phone?` · 📞 ${esc(o.phone)}`:""}</div>
           <div style="color:var(--grey);font-size:13px">📍 ${esc(o.addr)} · ${money(o.amount)} so'm</div>
+          ${kTimeBadge(o)}
         </div>
         ${right}
       </div></div>`;
@@ -129,7 +190,7 @@
     const o=ORDERS.find(x=>x.id==id); if(!o) return;
     const s=STT[o.status]; if(!s || !s.next) return;
     if(typeof STORE!=="undefined") STORE.updateOrder(id,{status:s.next});
-    loadOrders(); renderOrders(); renderDash(); renderIncome();
+    loadOrders(); renderOrders(); renderDash(); checkDeadlines();
   }
 
   /* Buyurtma to'liq ma'lumot modali (mobil + desktop).
@@ -173,51 +234,10 @@
   /* App ortga: modal ochiq bo'lsa back uni yopadi (sahifadan chiqmaydi) */
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });
 
-  function renderIncome(){
-    /* REAL: yetkazilgan (done) buyurtmalar soniga qarab (dashboard bilan bir xil manba) */
-    const doneAll=ORDERS.filter(o=>o.status==="done");
-    const doneCount=doneAll.length;
-    const monthCnt=doneAll.filter(o=>kInPeriod(o,"oylik")).length;
-    const weekCnt=doneAll.filter(o=>kInPeriod(o,"haftalik")).length;
-    const dayCnt=doneAll.filter(o=>kInPeriod(o,"kunlik")).length;
-    const month=monthCnt*PER, week=weekCnt*PER, day=dayCnt*PER;
-    $("#incomeBody").innerHTML=`
-      <div class="stat-grid">
-        <div class="scard c3"><div class="si">📅</div><b>${money(day)}</b><span>Bugun</span></div>
-        <div class="scard c2"><div class="si">🗓️</div><b>${money(week)}</b><span>Haftalik</span></div>
-        <div class="scard c1"><div class="si">💵</div><b>${money(month)}</b><span>Oylik</span></div>
-      </div>
-      <div class="panel"><div class="panel-head"><h3>Daromad qanday hisoblanadi</h3></div><div class="panel-body">
-        <div class="fin-row"><span>Bitta yetkazish haqi (sayt to'laydi)</span><b>${PER?money(PER)+" so'm":"belgilanmagan"}</b></div>
-        <div class="fin-row"><span>Bu oyda yetkazilgan</span><b>${money(monthCnt)} ta</b></div>
-        <div class="fin-row"><span>Jami yetkazilgan</span><b>${money(doneCount)} ta</b></div>
-        <div class="fin-row tot"><span>Jami oylik daromad</span><b>${money(month)} so'm</b></div>
-        <p style="color:var(--grey);font-size:13px;margin-top:10px">Daromad masofaga emas, yetkazilgan buyurtmalar soniga qarab hisoblanadi. To'lovni yetkaz.uz amalga oshiradi.</p>
-      </div></div>`;
-  }
+  /* Daromad bo'limi va to'lov QR-kodi paneli OLIB TASHLANDI —
+     kuryer paneli faqat buyurtmalarга qaratilgan. */
 
-  /* Kuryerning DOIMIY to'lov QR-kodi (mijoz eshikда skanerlaydi -> to'lovni tasdiqlaydi) */
-  let __payQR=null;
-  async function renderPayQR(){
-    var host=document.getElementById("view-dash"); if(!host) return;
-    var box=document.getElementById("kPayQR");
-    if(!box){ box=document.createElement("div"); box.id="kPayQR"; box.className="panel"; box.style.marginTop="16px"; host.insertBefore(box, host.firstChild); }
-    /* Bir marta yuklaymiz — keyingi render'larда qayta so'ralmaydi */
-    if(__payQR){ paintPayQR(box,__payQR); return; }
-    box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body" style="text-align:center"><p style="color:var(--grey);font-size:13px">QR yuklanmoqda...</p></div>';
-    var r=(typeof STORE!=="undefined"&&STORE.fetchMyPayQR)? await STORE.fetchMyPayQR():null;
-    if(r && (r.qr||r.url)){ __payQR=r; paintPayQR(box,r); }
-    else box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body"><p style="color:var(--grey);font-size:13px">QR yuklab bo\'lmadi — internetни tekshiring.</p></div>';
-  }
-  function paintPayQR(box,r){
-    box.innerHTML='<div class="panel-head"><h3>💳 To\'lov QR-kodim</h3></div><div class="panel-body" style="text-align:center">'+
-      '<p style="color:var(--grey);font-size:13px;margin-bottom:12px">Mijoz eshigingizда to\'lovni shu QR orqali tasdiqlaydi.</p>'+
-      (r.qr?'<img src="'+r.qr+'" alt="To\'lov QR" style="width:220px;height:220px;max-width:80%;border-radius:12px;border:1px solid var(--line)">':'')+
-      '<p style="font-size:12px;color:var(--grey);margin-top:10px;word-break:break-all">'+esc(r.url||"")+'</p>'+
-      '</div>';
-  }
-
-  function renderAll(){ renderDash(); renderOrders(); renderIncome(); updateStatusBadge(); renderPayQR(); }
+  function renderAll(){ renderDash(); renderOrders(); updateStatusBadge(); checkDeadlines(); }
 
   /* ===== SOZLAMALAR: ish vaqti, ishdan javob (leave), login/parol ===== */
   let kState = { onLeave:false, leaveReason:"", leaveStatus:"none", openH:8, closeH:22 };
@@ -249,7 +269,7 @@
     const hv=$("#kHoursView"), lg=$("#kSetLogin");
     if(hv) hv.textContent=courierHoursText();
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
-    renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
+    renderStatusPanel(); renderLeaveArea(); updateStatusBadge(); renderTgArea();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
     try{
       var me=(typeof STORE!=="undefined"&&STORE.fetchCourierMe)? await STORE.fetchCourierMe():null;
@@ -354,6 +374,12 @@
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
 
+  /* ===== TELEGRAM BOTGA ULASH =====
+     Umumiy UI: YZ_TG.render(hostId, storeObj, toastFn) — barcha panelда bir xil. */
+  function renderTgArea(){
+    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("kTgArea", STORE, toast);
+  }
+
   /* Ish vaqti FAQAT admin tomonidan belgilanadi — kuryer o'zgartira olmaydi. */
   async function saveCourierLogin(){
     var v=(($("#kSetLogin")||{}).value||"").trim();
@@ -434,6 +460,11 @@
     el.querySelector("#yzOnClose").addEventListener("click",function(){ el.remove(); });
     el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
   }
-  document.addEventListener("DOMContentLoaded",function(){ var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); } yzUpdateOnline(); setInterval(yzUpdateOnline,30000); });
+  document.addEventListener("DOMContentLoaded",function(){
+    var b=document.querySelector(".tb-badge"); if(b){ b.style.cursor="pointer"; b.addEventListener("click",yzOnlineModal); }
+    yzUpdateOnline(); setInterval(yzUpdateOnline,30000);
+    /* Muddat sanog'i — har 30 soniyada yangilanadi (server ham parallel tekshiradi) */
+    setInterval(function(){ if(!CUR) return; try{ checkDeadlines(); renderOrders(); renderDash(); }catch(e){} },30000);
+  });
 
 })();

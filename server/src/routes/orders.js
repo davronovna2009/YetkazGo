@@ -2,11 +2,12 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
-import { TG_TOKEN, TG_CHAT_OPS } from '../config.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
 import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone } from '../orders-core.js';
-/* Mijozga Telegramда holat xabarini yuborish (bot o'chiq bo'lsa — jim o'tadi) */
-import { notifyCustomerStatus } from '../bot.js';
+/* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi) */
+import { notifyCustomerStatus, notifyNewOrder, notifyStaffStatus, notifyPhoneBlocked } from '../bot.js';
+/* Telefon raqami cheklovlari — ketma-ket bekor qilishga qarshi */
+import { registerCancel, clearOnSuccess } from '../blocks.js';
 
 const router = Router();
 
@@ -25,50 +26,8 @@ const ALLOWED = ['status', 'reason', 'courier', 'eta', 'time'];
 /* Buyurtma bosqichlari — boshqa qiymat bazaga tushmasin */
 const STATUSES = ['new', 'accepted', 'ready', 'ontheway', 'arrived', 'done', 'cancelled'];
 
-/* --- MarkdownV2 maxsus belgilarini ekranlash (Telegram crash bo'lmasligi uchun) --- */
-function mdEscape(s) {
-  return String(s == null ? '' : s).replace(/[_*\[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
-}
-
-/* --- Yangi buyurtma -> Telegram guruhiga chiroyli xabarnoma (fire-and-forget) --- */
-async function notifyTelegram(order, lines) {
-  if (!TG_TOKEN || !TG_CHAT_OPS) return;   // sozlanmagan bo'lsa — jim o'tamiz
-  const e = mdEscape;
-  const amount = e(Number(order.amount || 0).toLocaleString('ru-RU') + " so'm");
-  const pay = order.pay === 'cash' ? '💵 Naqd' : '💳 Karta';
-  /* Tarkib — restoran AYNAN nima pishirishni bilishi uchun (yorliq o'zi yetarli emas) */
-  const items = (lines || []).length
-    ? (lines || []).map((l) => {
-        const disc = l.pct ? ` \\(\\-${e(l.pct)}%\\)` : '';
-        return `  • ${e(l.emoji)} ${e(l.name)} × ${e(l.qty)} — ${e(Number(l.sum).toLocaleString('ru-RU'))}${disc}`;
-      }).join('\n')
-    : `  • ${e(order.item) || '—'}`;
-  const text =
-    `🆕 *YANGI BUYURTMA* \\#${e(order.id)}\n\n` +
-    `🍽️ *Tarkibi:*\n${items}\n` +
-    `💰 *Jami:* ${amount}\n` +
-    `🏪 *Restoran:* ${e(order.rest) || '—'}\n` +
-    `👤 *Mijoz:* ${e(order.user) || '—'}\n` +
-    `📞 *Telefon:* ${e(order.phone) || '—'}\n` +
-    `📍 *Manzil:* ${e(order.addr) || '—'}\n` +
-    `🛵 *Kuryer:* ${e(order.courier) || 'tayinlanmagan'}\n` +
-    `💳 *To'lov:* ${e(pay)}`;
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TG_CHAT_OPS,
-        text,
-        parse_mode: 'MarkdownV2',
-        disable_web_page_preview: true,
-      }),
-    });
-    if (!r.ok) console.warn('[TG] javob xato:', r.status, await r.text().catch(() => ''));
-  } catch (err) {
-    console.warn('[TG] yuborib bo`lmadi:', err.message);
-  }
-}
+/* Yangi buyurtma xabarnomasi (restoran + kuryer + admin/operator guruhi) —
+   butun mantiq bot.js da: sayt va bot AYNAN bir xil xabar yuboradi. */
 
 /* GET /api/orders — ROL bo'yicha qat'iy cheklangan (PII leak yopilgan) */
 router.get('/', authRequired, (req, res) => {
@@ -116,7 +75,7 @@ router.post('/', (req, res) => {
   }
 
   /* Telegram xabarnomasini bloklamasdan yuboramiz (tarkibi bilan) */
-  notifyTelegram(created.order, created.lines);
+  notifyNewOrder(created.order, created.lines);
 
   /* Javobда token QAYTADI — frontend uni localStorage'da saqlab, keyin
      bekor qilish/qabul qilishda yuboradi. */
@@ -147,19 +106,47 @@ function canMutate(order, req) {
   return false;
 }
 
-/* POST /api/orders/:id/cancel — mijoz buyurtmani bekor qiladi (token yoki xodim talab qilinadi) */
+/* POST /api/orders/:id/cancel — mijoz buyurtmani bekor qiladi (token yoki xodim talab qilinadi).
+
+   MIJOZ bekor qilganда telefon raqami bo'yicha hisob yuritiladi (blocks.js):
+     1-marta — ogohlantirishsiz
+     2-marta — ogohlantirish + 5 daqiqaga buyurtma berish cheklanadi
+     3-marta — raqam bloklanadi (admin panelidan ochiladi)
+   XODIM (admin/restoran/kuryer) bekor qilsa — mijoz jazolanmaydi. */
+const STAFF_ROLES = ['admin', 'restoran', 'kuryer'];
+
 router.post('/:id/cancel', (req, res) => {
   const id = Number(req.params.id);
   const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
   if (!canMutate(o, req)) return res.status(403).json({ error: 'Ruxsat yo`q' });
 
+  const alreadyCancelled = o.status === 'cancelled';
   if (['new', 'accepted', 'ready'].includes(o.status)) {
     db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(id);
-  } else if (o.status !== 'cancelled') {
+  } else if (!alreadyCancelled) {
     return res.status(409).json({ error: 'Bu bosqichda bekor qilib bo`lmaydi (kuryer yo`lda)' });
   }
-  res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+
+  const updated = rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id));
+  const byStaff = req.user && STAFF_ROLES.includes(req.user.role);
+
+  /* Hisob FAQAT haqiqiy bekor qilishда oshadi (takroriy so'rov jazolamaydi) */
+  let penalty = null;
+  if (!byStaff && !alreadyCancelled) {
+    penalty = registerCancel(o.phone, o.user);
+    if (penalty.blocked) notifyPhoneBlocked(o.phone, o.user, penalty.cancels);
+  }
+
+  if (!alreadyCancelled) notifyStaffStatus(updated, o.status, byStaff ? req.user.role : '');
+
+  res.json(Object.assign(updated, penalty ? {
+    warn: penalty.message,
+    warnLevel: penalty.level,       // 1 = eslatma, 2 = ogohlantirish+pauza, 3 = blok
+    cancels: penalty.cancels,
+    blocked: penalty.blocked,
+    pausedSeconds: penalty.pausedSeconds,
+  } : {}));
 });
 
 /* POST /api/orders/:id/received — mijoz "qabul qildim" deydi (arrived -> done) */
@@ -170,7 +157,11 @@ router.post('/:id/received', (req, res) => {
   if (!canMutate(o, req)) return res.status(403).json({ error: 'Ruxsat yo`q' });
 
   // Mijoz tasdiqlaganda — aniq yetkazilgan vaqtni yozamiz (done_at, UTC)
-  if (o.status === 'arrived') db.prepare("UPDATE orders SET status = 'done', done_at = datetime('now') WHERE id = ?").run(id);
+  if (o.status === 'arrived') {
+    db.prepare("UPDATE orders SET status = 'done', done_at = datetime('now') WHERE id = ?").run(id);
+    /* Buyurtma muvaffaqiyatli yakunlandi — bekor qilish hisobi nolga qaytadi */
+    clearOnSuccess(o.phone);
+  }
   res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 });
 
@@ -212,6 +203,10 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
      Bloklamaydi — bot o'chiq yoki xato bo'lsa jim o'tadi. */
   if ('status' in patch && patch.status !== existing.status) {
     notifyCustomerStatus(updated, existing.status);
+    /* Ikkinchi tomon (restoran ↔ kuryer) va adminlar ham Telegramда ko'radi */
+    notifyStaffStatus(updated, existing.status, req.user.role);
+    /* Muvaffaqiyatli yakun — mijozning bekor qilish hisobi tozalanadi */
+    if (patch.status === 'done') clearOnSuccess(updated.phone);
   }
   res.json(rowToOrder(updated));
 });
@@ -233,7 +228,10 @@ export function autoConfirmArrived() {
     if (!due.length) return;
     db.prepare(`UPDATE orders SET status = 'done', done_at = datetime('now') WHERE ${WHERE}`).run();
     console.log(`[AUTO] ${due.length} ta buyurtma ${AUTO_CONFIRM_MIN} daqiqadan keyin avtomatik tasdiqlandi`);
-    for (const o of due) notifyCustomerStatus({ ...o, status: 'done', auto: true }, 'arrived');
+    for (const o of due) {
+      notifyCustomerStatus({ ...o, status: 'done', auto: true }, 'arrived');
+      clearOnSuccess(o.phone);
+    }
   } catch (e) {
     console.warn('[AUTO] avtomatik tasdiq xatosi:', e.message);
   }

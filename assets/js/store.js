@@ -324,6 +324,34 @@ const STORE = (function () {
       }
     },
 
+    /* ---- TELEGRAMGA ULASH (restoran / kuryer / admin paneli) ----
+       Panel bir martalik kod oladi, egasi botga yuboradi va o'sha chat
+       buyurtmalarni Telegramда ola boshlaydi. */
+    tgStatus() { return api("/tg/status", { auth: true }).catch(() => null); },
+    tgLink() {
+      return api("/tg/link", { method: "POST", auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    tgUnlink() {
+      return api("/tg/unlink", { method: "POST", auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+
+    /* ---- BLOKLANGAN RAQAMLAR (faqat admin) ---- */
+    fetchBlocked() { return api("/blocked", { auth: true }).catch(() => ({ list: [], rules: {} })); },
+    unblockPhone(phone) {
+      return api("/blocked/unblock", { method: "POST", body: { phone }, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    blockPhone(phone, reason) {
+      return api("/blocked/block", { method: "POST", body: { phone, reason }, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    forgetPhone(phone) {
+      return api("/blocked", { method: "DELETE", body: { phone }, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+
     /* ---- RASM YUKLASH (base64 -> server, qisqa URL qaytaradi) ---- */
     async uploadImage(dataUrl) {
       try { const r = await api("/upload", { method: "POST", body: { dataUrl }, auth: true }); return (r && r.url) || ""; }

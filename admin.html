@@ -42,6 +42,7 @@
       <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
       <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
       <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
+      <a class="sb-link" data-view="blocked"><span class="ic">🚫</span><span class="ic-label">Bloklangan raqamlar</span></a>
       <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
     </nav>
     <div class="sb-foot">
@@ -180,8 +181,47 @@
         </div>
       </section>
 
+      <!-- ===== BLOKLANGAN RAQAMLAR ===== -->
+      <section class="view" id="view-blocked">
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head"><h3>🚫 Buyurtmani bekor qilish cheklovlari</h3></div>
+          <div class="panel-body" id="blockRules" style="font-size:14px;color:var(--grey)"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head"><h3>➕ Raqamni qo'lда bloklash</h3></div>
+          <div class="panel-body">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input id="blockPhoneInput" type="tel" placeholder="+998 90 000 00 00"
+                     style="flex:1;min-width:190px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit" />
+              <button class="add-action-btn" id="blockAddBtn">Bloklash</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Ro'yxat</h3>
+            <button class="add-action-btn" id="blockRefreshBtn">↻ Yangilash</button>
+          </div>
+          <div class="panel-body" id="blockedList"></div>
+        </div>
+      </section>
+
       <!-- ===== SOZLAMALAR ===== -->
       <section class="view" id="view-settings">
+
+        <!-- Telegram bot -->
+        <div class="settings-group">
+          <div class="settings-group-title">✈️ Telegram bot</div>
+          <div class="setting-item column">
+            <div class="setting-label">
+              <span class="setting-name">Admin Telegramini ulash</span>
+              <span class="setting-desc">Yangi buyurtmalar, kechikishlar va bloklangan raqamlar haqida botда xabar keladi</span>
+            </div>
+            <div id="aTgArea" style="width:100%"></div>
+          </div>
+        </div>
 
         <!-- Administrator profili -->
         <div class="settings-group">
@@ -531,6 +571,7 @@
   <script src="assets/js/courier-anim.js"></script>
   <script src="assets/js/store.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
+<script src="assets/js/tg-link.js"></script>
 <script src="assets/js/admin.js"></script>
 <script src="assets/js/admin-reset.js"></script>
 <script src="assets/js/pwa-install.js"></script>

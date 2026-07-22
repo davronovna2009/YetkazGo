@@ -158,6 +158,49 @@ export function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- ===== Telefon raqami cheklovlari (buyurtmani ketma-ket bekor qilish) =====
+    -- Qoida: 1-bekor — ogohlantirishsiz yoziladi; 2-bekor — ogohlantirish va
+    -- 5 daqiqaga cheklov; 3-bekor — raqam BLOKLANADI (adminda "Bloklangan
+    -- raqamlar" bo'limida chiqadi va faqat admin ochadi).
+    CREATE TABLE IF NOT EXISTS phone_blocks (
+      phone       TEXT PRIMARY KEY,          -- faqat raqamlar: 998XXXXXXXXX
+      pretty      TEXT DEFAULT '',           -- ko'rinish uchun: +998 XX XXX XX XX
+      cancels     INTEGER DEFAULT 0,         -- ketma-ket bekor qilishlar soni
+      blocked     INTEGER DEFAULT 0,         -- 1 = butunlay bloklangan
+      until       TEXT DEFAULT '',           -- vaqtinchalik cheklov tugash payti (UTC)
+      last_name   TEXT DEFAULT '',           -- oxirgi buyurtmadagi ism
+      reason      TEXT DEFAULT '',
+      last_cancel TEXT DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ===== Telegram ulanishlari =====
+    -- Panel (restoran/kuryer/admin) bir martalik kod hosil qiladi, egasi botga
+    -- yuboradi va shu chat buyurtmalarni Telegramда oladi.
+    CREATE TABLE IF NOT EXISTS tg_links (
+      code       TEXT PRIMARY KEY,
+      role       TEXT NOT NULL,              -- restoran | kuryer | admin
+      login      TEXT NOT NULL,
+      name       TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Admin(lar) Telegram chatlari — yangi buyurtma va bloklash xabarlari uchun
+    CREATE TABLE IF NOT EXISTS tg_admins (
+      chat_id    TEXT PRIMARY KEY,
+      login      TEXT DEFAULT '',
+      name       TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Kuryerga yuborilgan "vaqt kam qoldi" ogohlantirishlari — takrorlanmasin
+    CREATE TABLE IF NOT EXISTS order_alerts (
+      order_id   INTEGER NOT NULL,
+      level      INTEGER NOT NULL,           -- 1,2,3 = ogohlantirish; 4 = vaqt tugadi
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (order_id, level)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
     CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
     CREATE INDEX IF NOT EXISTS idx_orders_user    ON orders(user);
@@ -220,5 +263,8 @@ export function initSchema() {
     "ALTER TABLE added_dishes ADD COLUMN weight TEXT DEFAULT ''",        // vazn/miqdor (masalan "500 g" / "3 dona")
     "ALTER TABLE added_dishes ADD COLUMN ingredients TEXT DEFAULT ''",   // tarkibi (ichidagi mahsulotlar)
     "ALTER TABLE added_dishes ADD COLUMN descr TEXT DEFAULT ''",         // tavsif / ta'mi
+    // Restoran/kuryer Telegram chat_id — buyurtma xabarlari botда keladi
+    "ALTER TABLE restaurants ADD COLUMN tg_chat_id TEXT DEFAULT ''",
+    "ALTER TABLE couriers ADD COLUMN tg_chat_id TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

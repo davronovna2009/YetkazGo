@@ -95,6 +95,62 @@ Deploy tugagach quyidagilarni **tartib bilan** tekshiring:
 
 ---
 
+## Panellarni Telegramga ulash (restoran / kuryer / admin)
+
+Buyurtma faqat saytda emas, **botда ham** kelishi uchun har bir panel egasi
+o'z Telegramini bir marta ulaydi:
+
+1. Panelга kiring → **Sozlamalar** → **✈️ Telegram bot**
+2. **«Telegramga ulash»** tugmasi → sayt 8 belgili kod va havola beradi
+3. **«Telegramда ochish»** tugmasini bosing (yoki kodni botga xabar qilib yuboring)
+4. Panelда **«✅ Telegram ulangan»** yozuvi chiqadi
+
+Shundan keyin:
+
+| Kim | Nima keladi | Telegramdagi tugmalar |
+|---|---|---|
+| 🏪 Restoran | Yangi buyurtma (to'liq tarkibi bilan) | Tayyorlanmoqda → Tayyor → Bekor qilish |
+| 🛵 Kuryer | Yangi buyurtma + **vaqt ogohlantirishlari** | Yo'lga chiqdim → Yetkazdim |
+| 🛡 Admin | Yangi buyurtma, bekor qilish, kechikish, bloklangan raqamlar | — |
+
+`TG_CHAT_OPS` guruhi ham admin qatorida — barcha buyurtmalar unga tushaveradi.
+
+---
+
+## Buyurtmani bekor qilish cheklovi
+
+Bitta **telefon raqami** bo'yicha hisob yuritiladi:
+
+| Bekor qilish | Nima bo'ladi |
+|---|---|
+| 1-marta | Faqat qayd etiladi |
+| 2-marta | Ogohlantirish + **5 daqiqaga** buyurtma berish cheklanadi |
+| 3-marta | Raqam **bloklanadi** |
+
+Bloklangan raqam **Admin panel → 🚫 Bloklangan raqamlar** bo'limida chiqadi;
+faqat admin **«Blokni ochish»** tugmasi bilan ochadi. Buyurtma muvaffaqiyatli
+yakunlansa (mijoz «Qabul qildim» bosса) — hisob **nolga qaytadi**.
+
+---
+
+## Yetkazish muddati ogohlantirishlari
+
+Buyurtmaga berilgan vaqt (`eta`) tugay deb qolganda kuryer **3 marta**
+ogohlantiriladi, muddat o'tsa — to'rtinchi xabar:
+
+| Daraja | Qachon |
+|---|---|
+| 1 | Vaqtning yarmi qolganda |
+| 2 | 5 daqiqa qolganda |
+| 3 | 2 daqiqa qolganda |
+| ⛔ | Vaqt tugadi, buyurtma hali yetkazilmagan |
+
+Ogohlantirish **ikki joyда** ko'rinadi: kuryer panelining tepasida (qizil banner
++ har bir buyurtmada sanoq) va Telegram botда. Har bir daraja bitta buyurtma
+uchun bir marta yuboriladi.
+
+---
+
 ## Ishlash mantig'i (qisqacha)
 
 ```

@@ -19,7 +19,9 @@ import miscRoutes from './routes/misc.js';
 import uploadRoutes, { imageRouter } from './routes/upload.js';
 import { migrateUploadsToDb } from './migrate-images.js';
 import resetRoutes from './routes/reset.js';
+import adminExtraRoutes from './routes/admin-extra.js';
 import { botRouter, startBot } from './bot.js';
+import { startDeadlineAlerts } from './alerts.js';
 
 /* Birinchi ishga tushganda bazani seed qilamiz */
 seed();
@@ -27,6 +29,8 @@ seed();
 ensureAdminSecure();
 /* "Yetkazildi" holatida osilib qolgan buyurtmalarni 30 daqiqadan keyin yopamiz */
 startAutoConfirm();
+/* Yetkazish muddati tugayotgan buyurtmalar — kuryerga 3 ta ogohlantirish + kechikish */
+startDeadlineAlerts();
 /* Diskda qolgan eski rasmlarni bazaga ko'chiramiz (bir martalik, xavfsiz) */
 migrateUploadsToDb();
 
@@ -97,6 +101,7 @@ app.use('/api/announcements', announcementsRoutes);
 app.use('/api', dishesRoutes);   // /api/overrides, /api/dishes, /api/discounts
 app.use('/api', miscRoutes);     // /api/bootstrap, /api/restaurants, /api/couriers
 app.use('/api', resetRoutes);    // /api/admin/reset — saytni tozalash rejasi
+app.use('/api', adminExtraRoutes);  // /api/tg/* (Telegramga ulash), /api/blocked (bloklangan raqamlar)
 
 /* Noma'lum API yo'li */
 app.use('/api', (_req, res) => res.status(404).json({ error: 'API yo`li topilmadi' }));

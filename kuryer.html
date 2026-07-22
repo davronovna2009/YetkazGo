@@ -34,9 +34,8 @@
     <aside class="sidebar" id="sidebar">
       <div class="sb-logo"><span style="font-size:22px;flex-shrink:0">🛵</span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Kuryer</span></div>
       <nav class="sb-nav">
-        <a class="sb-link active" data-view="dash"><span class="ic">📊</span> Mening panelim</a>
-        <a class="sb-link" data-view="orders"><span class="ic">📦</span> Faol buyurtmalar</a>
-        <a class="sb-link" data-view="income"><span class="ic">💵</span> Daromad</a>
+        <a class="sb-link active" data-view="dash"><span class="ic">📦</span> Buyurtmalar</a>
+        <a class="sb-link" data-view="orders"><span class="ic">🛵</span> Faol buyurtmalar</a>
         <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
       </nav>
       <div class="sb-foot"><div>yetkaz.uz jamoasi</div><button id="logoutBtn">← Chiqish</button></div>
@@ -46,31 +45,26 @@
       <div class="topbar">
         <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
         <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
-        <h2 id="tbTitle">Mening panelim</h2>
+        <h2 id="tbTitle">Buyurtmalar</h2>
         <div class="tb-right"><span class="tb-badge">● Online</span></div>
       </div>
       <div class="content">
+        <!-- ===== ASOSIY EKRAN: BUYURTMALAR =====
+             Kuryer kirgan zahoti eng kerakli narsani ko'radi — buyurtmalar.
+             Daromad bo'limi va QR paneli olib tashlangan (admin qarori). -->
         <section class="view show" id="view-dash">
+          <!-- Kechikayotgan buyurtmalar ogohlantirishi — eng tepada -->
+          <div id="kDeadlineAlerts"></div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>📦 Buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:12px">Yo'lga chiqdim → Yetkazdim</span></div>
+            <div class="panel-body"><div id="dashOrdersBody"></div></div>
+          </div>
           <div class="stat-grid" id="statCards"></div>
-          <!-- Kuryer kirgan zahoti buyurtmalarni ko'radi — eng tepada -->
-          <div class="panel">
-            <div class="panel-head"><h3>📦 Faol buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:12px">Yo'lga chiqdim → Yetkazdim</span></div>
-            <div class="panel-body" style="max-height:560px;overflow-y:auto"><div id="dashOrdersBody"></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h3>Oylik daromad (mln so'm)</h3><span style="color:var(--grey);font-size:12px">So'nggi 6 oy</span></div>
-            <div class="panel-body"><div class="chart" id="revChart"></div></div>
-          </div>
-          <div class="panel"><div class="panel-body" id="restNote" style="font-size:13px;color:var(--grey)"></div></div>
         </section>
 
         <section class="view" id="view-orders">
           <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Buyurtma holatini yangilab boring: <b>Yo'lga chiqdim → Yetkazdim</b></p>
           <div id="ordersBody"></div>
-        </section>
-
-        <section class="view" id="view-income">
-          <div id="incomeBody"></div>
         </section>
 
         <!-- SOZLAMALAR -->
@@ -84,6 +78,15 @@
             <div class="panel-body">
               <p style="color:var(--grey);font-size:13px;margin-bottom:10px">Ish vaqtingizni <b>admin</b> belgilaydi. Shu vaqt oralig'ida buyurtmalar sizga tushadi.</p>
               <div id="kHoursView" style="font-size:24px;font-weight:800;color:var(--red,#C8102E)">—</div>
+            </div>
+          </div>
+
+          <!-- Telegram bot ulanishi — buyurtmalar Telegramда ham keladi -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3>✈️ Telegram bot</h3></div>
+            <div class="panel-body">
+              <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Telegramni ulasangiz — yangi buyurtmalar, holat o'zgarishlari va <b>vaqt kam qoldi</b> ogohlantirishlari botга keladi. Buyurtmani to'g'ridan-to'g'ri Telegramdan boshqarasiz.</p>
+              <div id="kTgArea"></div>
             </div>
           </div>
 
@@ -139,6 +142,7 @@
   <script src="assets/js/courier-anim.js"></script>
   <script src="assets/js/store.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
+  <script src="assets/js/tg-link.js"></script>
   <script src="assets/js/kuryer.js"></script>
   <script src="assets/js/notify.js"></script>
   <script src="assets/js/pwa-install.js"></script>

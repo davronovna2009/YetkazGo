@@ -3,15 +3,15 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v7 — hours.js (Asia/Tashkent bo'yicha ish vaqti va sana/soat) qo'shildi.
-   Eski keshdagi sahifalar hours.js ni bilmaydi va panellar "YZ_TIME aniqlanmagan"
-   xatosiga uchraydi, shuning uchun versiya oshirildi: eski kesh tozalanadi.
-   (v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
-const CACHE = 'yetkaz-v7';
+/* v8 — tg-link.js (panelni Telegram botga ulash) qo'shildi; kuryer panelidan
+   daromad va QR olib tashlandi; adminда "Bloklangan raqamlar" bo'limi paydo
+   bo'ldi. Eski kesh bu fayllarni bilmaydi — versiya oshirildi.
+   (v7 — hours.js; v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
+const CACHE = 'yetkaz-v8';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
-  '/assets/js/safe.js', '/assets/js/hours.js',
+  '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/tg-link.js',
   '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
   '/assets/js/pwa-install.js',

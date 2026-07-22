@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { db } from './db.js';
 import { priceOrder, PriceError } from './pricing.js';
 import { courierIsOpen } from './hours.js';
+import { phoneStatus } from './blocks.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
@@ -96,6 +97,11 @@ export function createOrder(b = {}) {
     throw new OrderError('Telefon raqamini to`g`ri kiriting: +998 XX XXX XX XX', 400);
   }
   const phone = prettyPhone(b.phone);
+
+  /* Ketma-ket bekor qilish uchun cheklov/blok (blocks.js).
+     429 — "juda ko'p urinish", 403 — bloklangan raqam. */
+  const st = phoneStatus(phone);
+  if (!st.ok) throw new OrderError(st.message, st.blocked ? 403 : 429);
 
   let priced;
   try {

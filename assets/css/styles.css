@@ -173,39 +173,51 @@ a {
   color: var(--red)
 }
 
+/* ===== HEADER MENYUSI — tugmalar bilan BIR XIL va bir tekis =====
+   Ilgari havolalar oddiy matn edi: balandligi tugmalarnikidan farq qilib,
+   oralig'i ham notekis ko'rinardi. Endi har bir havola tugma qolipida
+   (pill, bir xil balandlik va padding) va ular teng oraliqда joylashadi. */
 .main-nav {
   display: flex;
-  gap: 22px;
-  margin-left: 12px;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
   flex: 1
 }
 
 .main-nav a {
-  font-weight: 600;
-  color: var(--ink);
-  position: relative;
-  padding: 4px 0;
+  /* .btn bilan bir xil qolip — balandlik va shakl mos tushadi */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  font-weight: 700;
   font-size: 14px;
-  white-space: nowrap
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  transition: .18s
 }
 
 .main-nav a:hover {
-  color: var(--red)
+  color: var(--red);
+  background: rgba(200, 16, 46, .07);
+  border-color: rgba(200, 16, 46, .22)
 }
 
-.main-nav a::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 0;
-  height: 2px;
+.main-nav a:active {
+  transform: scale(.96)
+}
+
+/* Faol bo'lim — tugmadek to'ldirilgan holat */
+.main-nav a.active {
+  color: #fff;
   background: var(--red);
-  transition: .2s
-}
-
-.main-nav a:hover::after {
-  width: 100%
+  border-color: var(--red)
 }
 
 .header-actions {
@@ -277,12 +289,14 @@ a {
 
   /* logo rasmi qoladi */
   .main-nav {
-    gap: 13px;
+    gap: 4px;
     margin-left: 6px
   }
 
   .main-nav a {
-    font-size: 13px
+    font-size: 13px;
+    height: 34px;
+    padding: 0 11px
   }
 
   .header-actions {
@@ -621,8 +635,11 @@ a {
   .main-nav a {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
     font-size: 17px;
+    /* Desktopdagi pill o'lchamlarini bekor qilamiz — bu yerda to'liq enli qator */
+    height: auto;
     padding: 14px 16px;
     border-radius: 12px;
     font-weight: 700;
@@ -680,8 +697,11 @@ a {
   #mobileMainNav a {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
     font-size: 17px;
+    /* Desktopdagi pill balandligini bekor qilamiz (u .main-nav a dan meros) */
+    height: auto;
     padding: 14px 16px;
     border-radius: 12px;
     font-weight: 700;
@@ -711,20 +731,8 @@ a {
     display: none !important
   }
 
-  .main-nav a::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -2px;
-    width: 0;
-    height: 2px;
-    background: var(--red);
-    transition: .2s
-  }
-
-  .main-nav a:hover::after {
-    width: 100%
-  }
+  /* Eski "tag chizig'i" (::after) olib tashlandi — menyu endi tugma qolipida
+     (yuqoridagi .main-nav a), chiziq uning ustida ortiqcha ko'rinardi. */
 }
 
 /* ========== PROMO BAR ========== */

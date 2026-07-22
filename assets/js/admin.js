@@ -181,12 +181,98 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",settings:"Sozlamalar"};
+    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
+    if(view==="blocked") loadBlocked();
+    if(view==="settings") renderAdminTg();
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
+  }
+
+  /* =========================================================
+     BLOKLANGAN RAQAMLAR
+     Mijoz buyurtmani ketma-ket bekor qilsa, sayt uni avval ogohlantiradi
+     (5 daqiqaga cheklaydi), uchinchisida esa raqamni BLOKLAYDI. Bloklangan
+     raqam faqat SHU yerдан ochiladi.
+     ========================================================= */
+  let BLOCKED=[], BLOCK_RULES={pauseMin:5,blockAt:3};
+
+  async function loadBlocked(){
+    if(typeof STORE==="undefined" || !STORE.fetchBlocked) return;
+    const host=$("#blockedList"); if(host && !BLOCKED.length) host.innerHTML='<p style="color:#9a8d83;padding:16px">Yuklanmoqda...</p>';
+    const r=await STORE.fetchBlocked();
+    BLOCKED=(r&&r.list)||[]; BLOCK_RULES=(r&&r.rules)||BLOCK_RULES;
+    renderBlocked();
+  }
+
+  function renderBlocked(){
+    const rules=$("#blockRules");
+    if(rules){
+      rules.innerHTML=
+        '<div style="display:flex;flex-direction:column;gap:6px">'+
+        '<div>1️⃣ <b>Birinchi bekor qilish</b> — faqat qayd etiladi.</div>'+
+        '<div>2️⃣ <b>Ikkinchi bekor qilish</b> — mijoz ogohlantiriladi va <b>'+(BLOCK_RULES.pauseMin||5)+' daqiqaga</b> buyurtma berish cheklanadi.</div>'+
+        '<div>3️⃣ <b>Uchinchi bekor qilish</b> — raqam <b>bloklanadi</b> va shu ro\'yxatga tushadi.</div>'+
+        '<div style="color:#16a34a">✅ Buyurtma muvaffaqiyatli yakunlansa — hisob nolga qaytadi.</div>'+
+        '</div>';
+    }
+    const host=$("#blockedList"); if(!host) return;
+    if(!BLOCKED.length){
+      host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">Bloklangan yoki ogohlantirilgan raqam yo\'q. 👍</p>';
+      return;
+    }
+    host.innerHTML=BLOCKED.map(function(b){
+      const pill=b.blocked
+        ? '<span class="pill red">⛔ Bloklangan</span>'
+        : (b.pausedSeconds>0
+            ? '<span class="pill warn">⏳ '+Math.ceil(b.pausedSeconds/60)+' daq. cheklangan</span>'
+            : '<span class="pill blue">'+b.cancels+' marta bekor qilgan</span>');
+      return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="flex:1;min-width:180px">'+
+          '<div style="font-weight:800;font-size:15px">📞 '+esc(b.pretty||b.phone)+'</div>'+
+          '<div style="color:var(--grey);font-size:13px">'+(b.name?esc(b.name)+' · ':'')+
+            'Bekor qilishlar: <b>'+b.cancels+'</b>'+(b.lastCancel?' · oxirgisi: '+esc(String(b.lastCancel).slice(0,16)):'')+'</div>'+
+          (b.reason?'<div style="color:#C8102E;font-size:12px;margin-top:2px">'+esc(b.reason)+'</div>':'')+
+        '</div>'+
+        pill+
+        (b.blocked
+          ? '<button class="add-action-btn" data-unblock="'+esc(b.phone)+'" style="background:#16a34a">✅ Blokni ochish</button>'
+          : '<button class="add-action-btn" data-block="'+esc(b.phone)+'" style="background:#C8102E">⛔ Bloklash</button>')+
+        '<button class="add-action-btn" data-forget="'+esc(b.phone)+'" style="background:#9ca3af">🗑 O\'chirish</button>'+
+        '</div>';
+    }).join("");
+
+    $$("#blockedList [data-unblock]").forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        btn.disabled=true;
+        const r=await STORE.unblockPhone(btn.dataset.unblock);
+        if(r && !r.error){ BLOCKED=r.list||[]; renderBlocked(); toast("Blok ochildi ✓"); }
+        else { btn.disabled=false; toast((r&&r.error)||"Xatolik"); }
+      });
+    });
+    $$("#blockedList [data-block]").forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        btn.disabled=true;
+        const r=await STORE.blockPhone(btn.dataset.block,"Admin tomonidan bloklandi");
+        if(r && !r.error){ BLOCKED=r.list||[]; renderBlocked(); toast("Raqam bloklandi"); }
+        else { btn.disabled=false; toast((r&&r.error)||"Xatolik"); }
+      });
+    });
+    $$("#blockedList [data-forget]").forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        btn.disabled=true;
+        const r=await STORE.forgetPhone(btn.dataset.forget);
+        if(r && !r.error){ BLOCKED=r.list||[]; renderBlocked(); toast("Ro'yxatdan o'chirildi"); }
+        else { btn.disabled=false; toast((r&&r.error)||"Xatolik"); }
+      });
+    });
+  }
+
+  /* Admin Telegramini ulash (umumiy widget — assets/js/tg-link.js) */
+  function renderAdminTg(){
+    if(window.YZ_TG && typeof STORE!=="undefined") YZ_TG.render("aTgArea", STORE, toast);
   }
 
   /* =========================================================
@@ -1399,6 +1485,21 @@
       $("#loginWrap").style.display="flex";
       $("#alPass").value="";
       try{location.href="index.html";}catch(e){}
+    });
+
+    // Bloklangan raqamlar bo'limi
+    const blkRefresh=document.getElementById("blockRefreshBtn");
+    if(blkRefresh) blkRefresh.addEventListener("click",loadBlocked);
+    const blkAdd=document.getElementById("blockAddBtn");
+    if(blkAdd) blkAdd.addEventListener("click",async function(){
+      const inp=document.getElementById("blockPhoneInput");
+      const val=(inp&&inp.value||"").trim();
+      if(val.replace(/\D/g,"").length<9){ toast("Telefon raqamini to'liq kiriting"); return; }
+      blkAdd.disabled=true;
+      const r=await STORE.blockPhone(val,"Admin tomonidan bloklandi");
+      blkAdd.disabled=false;
+      if(r && !r.error){ if(inp) inp.value=""; BLOCKED=r.list||[]; renderBlocked(); toast("Raqam bloklandi"); }
+      else toast((r&&r.error)||"Xatolik");
     });
 
     // Restoran qo'shish
