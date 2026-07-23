@@ -37,4 +37,18 @@ router.delete('/', requireRole('restoran', 'admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+/* DELETE /api/announcements/:id — ANIQ id bo'yicha o'chirish (ishonchli).
+   Admin — istalganini; restoran — FAQAT o'zinikini. Frontend har e'londa id
+   bo'yicha o'chirish tugmasi ko'rsatadi (matn bir xil bo'lsa ham adashmaydi). */
+router.delete('/:id', requireRole('restoran', 'admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const a = db.prepare('SELECT * FROM announcements WHERE id = ?').get(id);
+  if (!a) return res.status(404).json({ error: 'E`lon topilmadi' });
+  if (req.user.role === 'restoran' && a.rest !== req.user.name) {
+    return res.status(403).json({ error: 'Bu e`lon sizga tegishli emas' });
+  }
+  db.prepare('DELETE FROM announcements WHERE id = ?').run(id);
+  res.json({ ok: true, id });
+});
+
 export default router;

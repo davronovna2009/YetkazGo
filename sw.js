@@ -3,13 +3,14 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v16 — telefonда bildirishnoma (service worker showNotification + titrash),
-   shubhali buyurtma FAQAT hajm bo'yicha (tez-tez buyurtma qoidasi olib tashlandi),
-   bitta kuryer bo'lsa hamma buyurtma unga.
+/* v17 — hisoblar izolyatsiyasi (akkaunt almashganда maxfiy kesh tozalanadi),
+   admin va restoran e'lonlarni o'chiradi (id bo'yicha).
+   (v16 — telefonда bildirishnoma; shubhali buyurtma FAQAT hajm bo'yicha;
+    bitta kuryer bo'lsa hamma buyurtma unga.
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v16';
+const CACHE = 'yetkaz-v17';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

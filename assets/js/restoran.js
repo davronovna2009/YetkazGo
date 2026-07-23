@@ -449,9 +449,15 @@
     if(discSelIdx!=null && !CUR.dishes[discSelIdx]) discSelIdx=null;
     updateDiscBtn();
 
-    /* Faol aksiyalar paneli */
+    /* Faol aksiyalar paneli — BACKENDDAGI barcha e'lonlar (shu restoranniki).
+       Ilgari faqat CUR.announcements (localStorage, shu brauzer) ko'rinardi:
+       boshqa qurilma/sessiyada joylangan eski e'lonni o'chirib bo'lmasdi.
+       Endi hamma joylangan e'lon ko'rinadi va id bo'yicha ishonchli o'chadi. */
     const activeList=$("#activePromoList"), promoCount=$("#promoCount");
-    const allAnns=CUR.announcements||[];
+    let backendAnns=[];
+    try{ backendAnns=((typeof STORE!=="undefined"&&STORE.announcements)?STORE.announcements():[]).filter(a=>a.rest===CUR.name); }catch(e){}
+    /* Backend bo'sh bo'lса (offline) — localStorage zaxirasi */
+    const allAnns=backendAnns.length?backendAnns:(CUR.announcements||[]);
     if(activeList){
       if(allAnns.length){
         activeList.innerHTML=allAnns.map((a,ai)=>`
@@ -459,24 +465,26 @@
             ${a.img?`<img src="${a.img}" alt="" style="width:46px;height:46px;border-radius:10px;object-fit:cover;flex:none;margin-right:10px">`:""}
             <div class="pai-left">
               <span class="pai-tag">${a.tag||"AKSIYA"}</span>
-              <div class="pai-text">${a.text}</div>
-              <div class="pai-date">${a.date}</div>
+              <div class="pai-text">${esc(a.text)}</div>
+              <div class="pai-date">${esc(a.date||"")}</div>
             </div>
-            <button class="pai-del" data-ai="${ai}">Olib tashlash</button>
+            <button class="pai-del" data-aid="${a.id!=null?esc(String(a.id)):""}" data-atext="${esc(a.text)}">Olib tashlash</button>
           </div>`).join("");
-        activeList.querySelectorAll(".pai-del").forEach(b=>b.addEventListener("click",()=>{
-          const ai=+b.dataset.ai;
-          const delText=(allAnns[ai]||{}).text;
-          CUR.announcements.splice(ai,1);
+        activeList.querySelectorAll(".pai-del").forEach(b=>b.addEventListener("click",async()=>{
+          const id=b.dataset.aid, delText=b.dataset.atext;
+          /* localStorage zaxirasidan ham olib tashlaymiz */
           try{
             const k="yetkaz_announcements";
             const arr=JSON.parse(localStorage.getItem(k)||"[]");
-            const filtered=arr.filter(a=>!(a.rest===CUR.name && a.text===delText));
-            localStorage.setItem(k,JSON.stringify(filtered));
+            localStorage.setItem(k,JSON.stringify(arr.filter(a=>!(a.rest===CUR.name && a.text===delText))));
           }catch(e){}
-          /* Backenddan ham o'chirish (boshqa qurilmalarda ham yo'qolsin) */
-          try{ if(typeof STORE!=="undefined" && STORE.deleteAnnouncement) STORE.deleteAnnouncement({rest:CUR.name, text:delText}); }catch(e){}
-          renderPromo(); toast("E'lon o'chirildi");
+          if(CUR.announcements) CUR.announcements=CUR.announcements.filter(a=>a.text!==delText);
+          /* Backenddan o'chirish — id bo'lса ishonchli, bo'lmasa matn bo'yicha */
+          try{
+            if(id && typeof STORE!=="undefined" && STORE.deleteAnnouncementById) await STORE.deleteAnnouncementById(id);
+            else if(typeof STORE!=="undefined" && STORE.deleteAnnouncement) STORE.deleteAnnouncement({rest:CUR.name, text:delText});
+          }catch(e){}
+          renderPromo(); toast("E'lon o'chirildi ✓");
         }));
       } else {
         activeList.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha aksiya yo\'q.</p>';

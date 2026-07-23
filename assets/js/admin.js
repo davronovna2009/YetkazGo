@@ -198,7 +198,7 @@
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
     if(view==="complaints") loadComplaints();
-    if(view==="settings") fillOwnerSettings();
+    if(view==="settings"){ fillOwnerSettings(); renderAnnList(); }
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
   }
@@ -1791,6 +1791,36 @@
     /* Backendга — barcha mijozlarда (bosh sahifа/kabinet) ko'rinishi uchun */
     try{ if(typeof STORE!=="undefined" && STORE.addAnnouncement) STORE.addAnnouncement({rest:"Yetkaz", text:text, tag:"E'LON", emoji:"📢", dish:""}); }catch(e){}
     toast("E'lon saytga joylandi ✓ — bosh sahifада ko'rinadi"); t.value="";
+    setTimeout(renderAnnList, 400);
+  }
+
+  /* Joylangan BARCHA e'lonlar (backenddan) — o'chirish tugmasi bilan.
+     Admin istalgan e'lonni (restoranlarnikini ham) o'chira oladi. */
+  function renderAnnList(){
+    const host=$("#annList"); if(!host) return;
+    const list=(typeof STORE!=="undefined"&&STORE.announcements)?STORE.announcements():[];
+    if(!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha e\'lon yo\'q.</p>'; return; }
+    host.innerHTML=list.map(function(a){
+      const who=a.rest && a.rest!=="Yetkaz" ? ('🏪 '+esc(a.rest)) : '📢 Sayt e\'loni';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">'+
+        (a.img?'<img src="'+esc(a.img)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:22px;flex:none">'+(a.emoji||'📢')+'</span>')+
+        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+who+(a.tag?' · <span style="color:var(--red)">'+esc(a.tag)+'</span>':'')+'</div>'+
+          '<div style="color:var(--grey);font-size:13px;word-break:break-word">'+esc(a.text)+'</div></div>'+
+        (a.id!=null?'<button class="add-action-btn" data-delann="'+esc(String(a.id))+'" style="background:#C8102E;flex:none">🗑 O\'chirish</button>'
+                  :'<button class="add-action-btn" data-delanntext="'+esc(a.text)+'" data-delannrest="'+esc(a.rest||"")+'" style="background:#C8102E;flex:none">🗑 O\'chirish</button>')+
+        '</div>';
+    }).join("");
+    /* id bo'yicha (ishonchli) */
+    host.querySelectorAll('[data-delann]').forEach(function(b){ b.addEventListener('click',async function(){
+      b.disabled=true;
+      const r=(typeof STORE!=="undefined"&&STORE.deleteAnnouncementById)? await STORE.deleteAnnouncementById(b.dataset.delann):null;
+      if(r&&r.error){ b.disabled=false; toast(r.error); } else { toast("E'lon o'chirildi ✓"); renderAnnList(); }
+    }); });
+    /* eski (id'siz) yozuvlar — matn bo'yicha */
+    host.querySelectorAll('[data-delanntext]').forEach(function(b){ b.addEventListener('click',function(){
+      if(typeof STORE!=="undefined"&&STORE.deleteAnnouncement) STORE.deleteAnnouncement({text:b.dataset.delanntext, rest:b.dataset.delannrest||undefined});
+      toast("E'lon o'chirildi ✓"); setTimeout(renderAnnList,300);
+    }); });
   }
 
   function renderAdminReviews(){
@@ -2022,5 +2052,6 @@
     if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} }); }
     const ab=$("#annBtn"); if(ab) ab.addEventListener("click",postAnnounce);
+    renderAnnList();
   });
 })();

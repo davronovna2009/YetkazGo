@@ -498,6 +498,14 @@ const STORE = (function () {
       lsWrite(K.ann, cache.announcements); fire();
       send("/announcements", { method: "DELETE", body: filter });
     },
+    /* ANIQ id bo'yicha o'chirish (admin/restoran) — matn bir xil bo'lsa ham adashmaydi */
+    deleteAnnouncementById(id) {
+      cache.announcements = cache.announcements.filter(a => String(a.id) !== String(id));
+      lsWrite(K.ann, cache.announcements); fire();
+      return api("/announcements/" + id, { method: "DELETE", auth: true })
+        .then(r => { refreshPublic(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
 
     /* ---- AUTH (async — backend tekshiradi) ---- */
     async login(login, pass) {
