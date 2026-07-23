@@ -26,10 +26,9 @@ export const CALL_QTY = 10;          // shundan KO'P dona bo'lsa
 export const CALL_AMOUNT = 300000;   // yoki shundan QIMMAT bo'lsa (so'm)
 
 /* ---- 2) Shubhali (adminга yo'naltiriladigan) buyurtma chegaralari ----
-   MUHIM: bular ANCHA yuqori. Oddiy katta buyurtma (20–30 ta mahsulot) restoranga
-   TO'G'RIDAN-TO'G'RI boradi — u faqat kuryerdan tasdiqlovchi qo'ng'iroq talab
-   qiladi. Adminga esa "juda ko'p, noreal" buyurtmalar tushadi. */
-export const SUSPECT_QTY = 60;            // 60 donadan ko'p mahsulot
+   20 donadan ko'p mahsulot buyurtma qilinsa — avval ADMIN ko'radi. Admin
+   tasdiqlasa restoranga va kuryerga yo'naltiriladi. */
+export const SUSPECT_QTY = 20;            // 20 donadan ko'p mahsulot
 export const SUSPECT_AMOUNT = 3000000;    // 3 mln so'mdan qimmat
 export const SUSPECT_LINES = 30;          // 30 xildan ko'p turli taom
 export const SUSPECT_WINDOW_MIN = 30;     // shu daqiqada

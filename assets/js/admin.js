@@ -182,7 +182,7 @@
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",
-                  suspicious:"Shubhali buyurtmalar",comments:"Izohlar",
+                  suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
                   blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
@@ -190,6 +190,8 @@
     if(view==="blocked") loadBlocked();
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
+    if(view==="complaints") loadComplaints();
+    if(view==="settings") fillOwnerSettings();
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
   }
@@ -312,17 +314,29 @@
   /* =========================================================
      IZOHLAR — admin nazorati (o'chirish + egasiga javob yozish)
      ========================================================= */
-  let cmtOnlyBad=false, cmtQuery="";
+  let cmtFilter="all", cmtQuery="";   // 'all' | 'positive' | 'negative'
+  function allComments(){ try{ return (typeof STORE!=="undefined")?STORE.reviews().slice():[]; }catch(e){ return []; } }
+  /* Ijobiy = 4–5 yulduz, Salbiy = 1–3 yulduz */
+  function isPositive(r){ return (r.rating||0)>=4; }
   function commentsList(){
-    let rv=[];
-    try{ rv=(typeof STORE!=="undefined")?STORE.reviews().slice():[]; }catch(e){ rv=[]; }
-    if(cmtOnlyBad) rv=rv.filter(r=>(r.rating||0)<=3);
+    let rv=allComments();
+    if(cmtFilter==="positive") rv=rv.filter(isPositive);
+    else if(cmtFilter==="negative") rv=rv.filter(r=>!isPositive(r));
     const q=cmtQuery.trim().toLowerCase();
     if(q) rv=rv.filter(r=>[r.name,r.dish,r.text,r.reply].some(v=>String(v||"").toLowerCase().indexOf(q)>=0));
     return rv;
   }
+  function renderCmtTabs(){
+    var host=document.getElementById("cmtTabs"); if(!host) return;
+    var all=allComments();
+    var pos=all.filter(isPositive).length, neg=all.length-pos;
+    var seg=function(k,label,n,col){ return '<button class="ctab" data-ctab="'+k+'" style="border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;background:'+(cmtFilter===k?(col||'var(--red,#C8102E)'):'#f1eef0')+';color:'+(cmtFilter===k?'#fff':'#777')+'">'+label+' <span style="opacity:.85">'+n+'</span></button>'; };
+    host.innerHTML=seg("all","Hammasi",all.length)+seg("positive","😊 Ijobiy",pos,"#16a34a")+seg("negative","😞 Salbiy",neg,"#C8102E");
+    host.querySelectorAll(".ctab").forEach(function(b){ b.addEventListener("click",function(){ cmtFilter=b.dataset.ctab; renderComments(); }); });
+  }
   function renderComments(){
     const host=$("#cmtList"); if(!host) return;
+    renderCmtTabs();
     const rv=commentsList();
     const cnt=$("#cmtCount"); if(cnt) cnt.textContent=rv.length+" ta";
     if(!rv.length){
@@ -509,6 +523,89 @@
 
 
   /* =========================================================
+     SHIKOYATLAR — restoran/kuryerdan adminga
+     ========================================================= */
+  let COMPLAINTS=[], compFilter="new";   // 'new' | 'all' | 'closed'
+  const COMP_TOPIC={mijoz:"👤 Mijoz",kuryer:"🛵 Kuryer",restoran:"🏪 Restoran",tolov:"💳 To'lov",texnik:"🔧 Texnik",boshqa:"📌 Boshqa"};
+  async function loadComplaints(){
+    if(typeof STORE==="undefined" || !STORE.fetchComplaints) return;
+    const list=await STORE.fetchComplaints();
+    COMPLAINTS=Array.isArray(list)?list:[];
+    updateCompBadge(); renderComplaints();
+  }
+  function updateCompBadge(){
+    const b=document.getElementById("compBadge"); if(!b) return;
+    const n=COMPLAINTS.filter(c=>c.status==="new").length;
+    b.textContent=n; b.hidden=n===0;
+  }
+  function renderCompFilters(){
+    const host=$("#compFilters"); if(!host) return;
+    const nNew=COMPLAINTS.filter(c=>c.status==="new").length;
+    const nClosed=COMPLAINTS.filter(c=>c.status==="closed").length;
+    const seg=(k,label,n)=>'<button class="compf" data-cf="'+k+'" style="border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;margin-right:6px;background:'+(compFilter===k?'var(--red,#C8102E)':'#f1eef0')+';color:'+(compFilter===k?'#fff':'#777')+'">'+label+' <span style="opacity:.85">'+n+'</span></button>';
+    host.innerHTML=seg("new","🔴 Yangi",nNew)+seg("all","Hammasi",COMPLAINTS.length)+seg("closed","✅ Yopilgan",nClosed);
+    host.querySelectorAll(".compf").forEach(b=>b.addEventListener("click",()=>{ compFilter=b.dataset.cf; renderComplaints(); }));
+  }
+  function renderComplaints(){
+    renderCompFilters();
+    const host=$("#compList"); if(!host) return;
+    let list=COMPLAINTS.slice();
+    if(compFilter==="new") list=list.filter(c=>c.status!=="closed");
+    else if(compFilter==="closed") list=list.filter(c=>c.status==="closed");
+    const cnt=$("#compCount"); if(cnt) cnt.textContent=list.length+" ta";
+    if(!list.length){ host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">Shikoyat yo\'q. 👍</p>'; return; }
+    host.innerHTML=list.map(function(c){
+      const roleBadge=c.role==="kuryer"?'<span class="pill blue">🛵 Kuryer</span>':'<span class="pill ok">🏪 Restoran</span>';
+      const stPill=c.status==="closed"?'<span class="pill ok">✅ Yopilgan</span>':(c.status==="seen"?'<span class="pill warn">👁 Ko\'rilgan</span>':'<span class="pill red">🔴 Yangi</span>');
+      return '<div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px"'+(c.status==="new"?' style="border-color:#fecaca"':'')+'>'+
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
+          '<b>'+esc(c.name||c.login)+'</b>'+roleBadge+'<span class="pill warn">'+(COMP_TOPIC[c.topic]||c.topic)+'</span>'+stPill+
+          (c.orderId?'<span style="color:var(--grey);font-size:12px">buyurtma #'+c.orderId+'</span>':'')+
+        '</div>'+
+        '<div style="font-size:14px;margin:6px 0;white-space:pre-wrap">'+esc(c.text)+'</div>'+
+        '<div style="color:var(--grey);font-size:12px">'+esc(fmtDateTime(c))+'</div>'+
+        (c.reply?'<div style="background:#eff6ff;border-left:3px solid #2563eb;border-radius:8px;padding:8px 11px;margin-top:8px;font-size:13px"><b style="color:#1d4ed8">↩ Sizning javobingiz:</b> '+esc(c.reply)+'</div>':'')+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+          '<button class="add-action-btn" data-creply="'+c.id+'" style="background:#2563eb">'+(c.reply?"✏️ Javobni tahrirlash":"↩ Javob yozish")+'</button>'+
+          (c.status!=="closed"?'<button class="add-action-btn" data-cclose="'+c.id+'" style="background:#16a34a">✅ Yopish</button>':'<button class="add-action-btn" data-copen="'+c.id+'" style="background:#d97706">↺ Qayta ochish</button>')+
+          '<button class="add-action-btn" data-cdel="'+c.id+'" style="background:#9ca3af">🗑 O\'chirish</button>'+
+        '</div></div>';
+    }).join("");
+    $$("#compList [data-creply]").forEach(b=>b.addEventListener("click",()=>openCompReply(COMPLAINTS.find(x=>x.id==b.dataset.creply))));
+    $$("#compList [data-cclose]").forEach(b=>b.addEventListener("click",async()=>{ await STORE.setComplaintStatus(b.dataset.cclose,"closed"); loadComplaints(); toast("Shikoyat yopildi ✓"); }));
+    $$("#compList [data-copen]").forEach(b=>b.addEventListener("click",async()=>{ await STORE.setComplaintStatus(b.dataset.copen,"seen"); loadComplaints(); }));
+    $$("#compList [data-cdel]").forEach(b=>b.addEventListener("click",()=>{
+      confirmModal({icon:"🗑",title:"Shikoyatni o'chirish",desc:"Bu shikoyat butunlay o'chiriladi.",confirmLabel:"Ha, o'chirish",onConfirm:async()=>{ await STORE.deleteComplaint(b.dataset.cdel); loadComplaints(); toast("O'chirildi"); }});
+    }));
+  }
+  function openCompReply(c){
+    if(!c) return;
+    var el=document.getElementById("compReplyModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="compReplyModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px;max-height:90vh;overflow:auto">'+
+      '<h3 style="margin:0 0 6px">↩ Shikoyatga javob</h3>'+
+      '<div style="background:#faf7f8;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px"><b>'+esc(c.name||c.login)+' ('+(c.role==="kuryer"?"kuryer":"restoran")+')</b><div style="margin-top:4px;white-space:pre-wrap">'+esc(c.text)+'</div></div>'+
+      '<textarea id="compReplyText" rows="4" placeholder="Javobingiz..." style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:14px;resize:vertical;font-family:inherit"></textarea>'+
+      '<div style="display:flex;gap:10px;margin-top:12px">'+
+        '<button id="compRepCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
+        '<button id="compRepOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Javobni yuborish</button>'+
+      '</div></div>';
+    document.body.appendChild(el);
+    var ta=el.querySelector("#compReplyText"); ta.value=c.reply||""; ta.focus();
+    el.querySelector("#compRepCancel").addEventListener("click",()=>el.remove());
+    el.addEventListener("click",e=>{ if(e.target===el) el.remove(); });
+    el.querySelector("#compRepOk").addEventListener("click",async function(){
+      var v=ta.value.trim(); if(!v){ ta.style.borderColor="#C8102E"; return; }
+      this.disabled=true;
+      const r=await STORE.replyComplaint(c.id, v);
+      el.remove();
+      if(r && !r.error) toast("Javob yuborildi ✓"); else toast((r&&r.error)||"Xatolik");
+      loadComplaints();
+    });
+  }
+
+  /* =========================================================
      DASHBOARD
      ========================================================= */
   /* Buyurtma QAYERDAN kelgan — Telegram mini ilovasidanmi yoki saytdanmi.
@@ -617,19 +714,38 @@
       <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span></div></div>
       <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span></div></div>`;
     $$("#statCards .a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderDash(); }); });
-    /* REAL komissiya grafigi — so'nggi 6 oy (done buyurtmalar komissiyasi bo'yicha) */
+    /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab ko'tariladi/tushadi.
+       Davr tugmasi (kunlik/haftalik/oylik/yillik) komissiya kartasining ichida;
+       o'zgartirilsa diagramma ham shu davrga moslashadi:
+         kunlik  -> so'nggi 7 kun (kunma-kun)
+         haftalik-> so'nggi 8 hafta
+         oylik   -> so'nggi 6 oy
+         yillik  -> so'nggi 5 yil */
     (function(){
       const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-      const now=new Date(); const slots=[];
-      for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],sum:0}); }
-      done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth(); const sl=slots.find(x=>x.y===y&&x.m===mo); if(sl) sl.sum+=commOf(o); });
+      const WD=["Yak","Dush","Sesh","Chor","Pay","Jum","Shan"];
+      const now=new Date();
+      const slots=[];
+      const ms=o=>YZ_TIME.stamp((o&&o.created_at)||"");
+      if(aIncomePeriod==="kunlik"){
+        for(let i=6;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i); slots.push({label:WD[dt.getDay()]+" "+dt.getDate(),key:dt.getFullYear()+"-"+dt.getMonth()+"-"+dt.getDate(),sum:0,match:o=>{const d=new Date(ms(o));return d.getFullYear()===dt.getFullYear()&&d.getMonth()===dt.getMonth()&&d.getDate()===dt.getDate();}}); }
+      } else if(aIncomePeriod==="haftalik"){
+        for(let i=7;i>=0;i--){ const start=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i*7-now.getDay()); const s=start.getTime(), e=s+7*86400000; slots.push({label:(start.getMonth()+1)+"/"+start.getDate(),sum:0,match:o=>{const t=ms(o);return t>=s&&t<e;}}); }
+      } else if(aIncomePeriod==="yillik"){
+        for(let i=4;i>=0;i--){ const y=now.getFullYear()-i; slots.push({label:String(y),sum:0,match:o=>{const mm=String(o.created_at||"").match(/^(\d{4})/);return mm&&+mm[1]===y;}}); }
+      } else {
+        for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({label:MON[dt.getMonth()],y:dt.getFullYear(),m:dt.getMonth(),sum:0,match:o=>{const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/);return mm&&+mm[1]===dt.getFullYear()&&(+mm[2]-1)===dt.getMonth();}}); }
+      }
+      done.forEach(function(o){ const sl=slots.find(x=>x.match(o)); if(sl) sl.sum+=commOf(o); });
       const max=Math.max.apply(null,slots.map(x=>x.sum).concat([1]));
       const el=$("#revChart"); if(!el) return;
-      el.style.cssText="display:flex;align-items:flex-end;gap:10px;padding:12px 6px;height:180px";
-      el.innerHTML=slots.map(function(x){ return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
+      el.style.cssText="display:flex;align-items:flex-end;gap:8px;padding:12px 6px;height:180px;overflow-x:auto";
+      el.innerHTML=slots.map(function(x){ return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
         '<div style="font-size:11px;font-weight:700;color:#8a7f76">'+(x.sum?mln(x.sum).replace(" mln",""):"0")+'</div>'+
         '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--red,#C8102E),#ff7a5c);height:'+Math.max(4,Math.round(x.sum/max*130))+'px"></div>'+
-        '<small style="font-size:11px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+        '<small style="font-size:10px;color:#8a7f76;white-space:nowrap">'+x.label+'</small></div>'; }).join("");
+      /* Diagramma sarlavhasidagi davr yorlig'i */
+      const badge=document.querySelector("#view-dash .panel-badge"); if(badge) badge.textContent={kunlik:"7 kun",haftalik:"8 hafta",oylik:"6 oy",yillik:"5 yil"}[aIncomePeriod]||"6 oy";
     })();
     /* Real: top restoranlar haqiqiy buyurtmalar bo'yicha */
     const rAgg={};
@@ -645,7 +761,80 @@
     if(note){ const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0); const totalSite=done.reduce((s,o)=>s+commOf(o),0);
       note.innerHTML=`Jami aylanma (tasdiqlangan): <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`; }
     renderAdminTopCustomers(live);
-    renderLowRatedRests();
+    renderSourceStats(live);
+  }
+
+  /* ===== BOT va SAYT reytingi (admin dashboard) =====
+     Necha foiz buyurtma Telegram botdan, necha foiz saytdan kelgan + pastda
+     o'sha manba bo'yicha mijozlar. Mijoz ustiga bosilsa — to'liq ma'lumot. */
+  function renderSourceStats(live){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var box=document.getElementById("adminSrcStats");
+    if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminSrcStats"; box.style.marginTop="16px"; host.appendChild(box); }
+    var orders=(live||[]).filter(function(o){return o.status!=="cancelled";});
+    var tg=orders.filter(function(o){return o.source==="telegram";});
+    var web=orders.filter(function(o){return o.source!=="telegram";});
+    var total=orders.length||1;
+    var tgP=Math.round(tg.length/total*100), webP=100-(orders.length?tgP:0);
+    if(!orders.length){ tgP=0; webP=0; }
+    box.innerHTML=srcStatsHtml("🤖 Bot va 🌐 sayt reytingi", tg.length, web.length, tgP, webP, srcCustomers(orders));
+    bindSrcCustomers(box, orders);
+  }
+  /* Manba bo'yicha bo'lingan mijozlar (telefon bo'yicha) */
+  function srcCustomers(orders){
+    var map={};
+    orders.forEach(function(o){
+      var d=String(o.phone||"").replace(/\D/g,"")||(String(o.user||"").toLowerCase()+"|"+String(o.addr||"").toLowerCase());
+      if(!map[d]) map[d]={name:o.user||"—",phone:o.phone||"—",addr:o.addr||"",tg:0,web:0};
+      if(o.source==="telegram") map[d].tg++; else map[d].web++;
+    });
+    return Object.values(map).map(function(c){ c.count=c.tg+c.web; c.src=c.tg>c.web?"telegram":"sayt"; return c; })
+      .sort(function(a,b){return b.count-a.count;});
+  }
+  /* Umumiy HTML — admin va restoran panellari bir xil ko'rinishда ishlatadi */
+  function srcStatsHtml(title, tgN, webN, tgP, webP, custs){
+    var bar='<div style="display:flex;height:16px;border-radius:9px;overflow:hidden;margin:10px 0 6px;background:#f1eef0">'+
+        (tgP>0?'<div style="width:'+tgP+'%;background:#2563eb"></div>':'')+
+        (webP>0?'<div style="width:'+webP+'%;background:#16a34a"></div>':'')+'</div>';
+    var legend='<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:6px">'+
+        '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:#2563eb;display:inline-block"></span>🤖 Telegram: <b>'+tgP+'%</b> ('+tgN+' ta)</span>'+
+        '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:#16a34a;display:inline-block"></span>🌐 Sayt: <b>'+webP+'%</b> ('+webN+' ta)</span>'+
+      '</div>';
+    var list=custs.length
+      ? '<div style="max-height:360px;overflow-y:auto;margin-top:8px">'+custs.map(function(c,i){
+          return '<div class="src-cust" data-srcph="'+esc(String(c.phone||"").replace(/\D/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer">'+
+            '<span style="width:24px;height:24px;border-radius:50%;background:'+(c.src==="telegram"?"#2563eb":"#16a34a")+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">'+(c.src==="telegram"?"🤖":"🌐")+'</span>'+
+            '<div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:12px">📞 '+esc(c.phone)+'</div></div>'+
+            '<div style="text-align:right;font-size:12px;white-space:nowrap"><b>'+c.count+' ta</b><div style="color:var(--grey)">🤖'+c.tg+' · 🌐'+c.web+'</div></div>'+
+          '</div>'; }).join("")+'</div>'
+      : '<p style="color:var(--grey);font-size:13px;margin-top:6px">Hozircha buyurtma yo\'q.</p>';
+    return '<div class="panel-head"><h3>'+title+'</h3><span style="color:var(--grey);font-size:13px">'+(tgN+webN)+' buyurtma</span></div><div class="panel-body">'+bar+legend+
+      '<div style="font-size:12px;color:var(--grey);margin-top:10px;font-weight:700">Manba bo\'yicha mijozlar (ustiga bosing):</div>'+list+'</div>';
+  }
+  function bindSrcCustomers(box, orders){
+    box.querySelectorAll(".src-cust").forEach(function(el){
+      el.addEventListener("click",function(){
+        var d=el.dataset.srcph; if(!d) return;
+        /* Mijoz kartochkasi — foydalanuvchilar bo'limidagi bilan bir xil */
+        var u=allUsers().find(function(x){return String(x.phone||"").replace(/\D/g,"")===d;});
+        if(u){ openUser(u.id); return; }
+        /* Ro'yxatda bo'lmasa — o'sha telefon bo'yicha oddiy modal */
+        openPhoneCustomer(d, orders);
+      });
+    });
+  }
+  /* Foydalanuvchilar ro'yxatida bo'lmagan mijoz uchun tez modal */
+  function openPhoneCustomer(dig, orders){
+    var mine=orders.filter(function(o){return String(o.phone||"").replace(/\D/g,"")===dig;});
+    if(!mine.length) return;
+    var name=mine[0].user||"Mijoz", phone=mine[0].phone||"—";
+    var spent=mine.reduce(function(s,o){return s+(o.amount||0);},0);
+    var hist=mine.map(function(o){ var st=OSM[o.status]||[o.status,"warn"];
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>'+(o.emoji||"🍽️")+' '+esc(o.item)+'</b><span class="pill '+st[1]+'">'+st[0]+'</span></div><div style="color:var(--grey);font-size:12px;margin-top:4px">'+fmtDateTime(o)+' · '+money(o.amount)+" so'm · "+esc(o.rest||"—")+'</div></div>'; }).join("");
+    infoModal("🕶️ "+esc(name)+" (mehmon)",
+      '<div style="display:flex;flex-direction:column;gap:8px;font-size:14px;margin-bottom:12px">'+
+      omr("Telefon","📞 "+esc(phone))+omr("Buyurtmalar",mine.length+" ta")+omr("Jami sarflagan",money(spent)+" so'm")+
+      '</div><h4 style="margin:8px 0">Buyurtmalar tarixi</h4>'+hist);
   }
   /* Bir xillik: telefon (yoki ism+manzil) bo'yicha eng ko'p buyurtma bergan mijozlar */
   function adminTopCustomers(orders, n){
@@ -672,23 +861,8 @@
       (list.length?'<div style="max-height:500px;overflow-y:auto">'+list.map(function(c,i){ var rc=Object.keys(c.rests).length; return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+(rc?' · '+rc+' restoran':'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join("")+'</div>':'<p style="color:var(--grey)">Hozircha buyurtma yo\'q.</p>')+
       '</div>';
   }
-  /* Reyting bo'yicha ENG PAST restoranlar — admin past reytinglilarni ham ko'radi */
-  function renderLowRatedRests(){
-    var host=document.getElementById("view-dash"); if(!host) return;
-    var box=document.getElementById("adminLowRests");
-    if(!box){ box=document.createElement("div"); box.className="panel"; box.id="adminLowRests"; box.style.marginTop="16px"; host.appendChild(box); }
-    /* Faqat REYTINGGA ega (baholangan) restoranlar — yangi 0-reytinglilar ro'yxatni egallamasin */
-    var list=(RESTS||[]).slice().filter(function(r){ return r && r.name && (r.rating||0)>0; })
-      .sort(function(a,b){ return (a.rating||0)-(b.rating||0); }).slice(0,5);
-    box.innerHTML='<div class="panel-head"><h3>📉 Eng past reytingli restoranlar</h3></div><div class="panel-body">'+
-      (list.length?list.map(function(r){
-        var rt=(r.rating!=null?r.rating:0);
-        var col=rt<3?'#dc2626':(rt<4?'#d97706':'#16a34a');
-        return '<div data-lowrest="'+r.id+'" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="font-size:18px">'+(r.emoji||'🏪')+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(r.name)+'</div><div style="color:var(--grey);font-size:13px">'+money(r.orders||0)+' buyurtma</div></div><b class="star" style="color:'+col+';white-space:nowrap">★ '+rt+'</b></div>';
-      }).join(""):'<p style="color:var(--grey)">Hozircha restoran yo\'q.</p>')+
-      '</div>';
-    box.querySelectorAll('[data-lowrest]').forEach(function(el){ el.addEventListener('click',function(){ openRest(+el.dataset.lowrest); }); });
-  }
+  /* (Eng past reytingli restoranlar bo'limi olib tashlandi — endi u faqat TOP
+     restoranlar ro'yxatida ko'rinadi: eng pastda turgani = eng past reytingli.) */
 
   /* =========================================================
      RESTORANLAR — render (desktop jadval + mobile karta)
@@ -814,22 +988,22 @@
     }
   }
 
-  /* Ro'yxatdan o'tgan (backend) foydalanuvchilar */
-  let LIVE_USERS=[];
+  /* Foydalanuvchilar: ro'yxatdan O'TGANLAR va O'TMAY buyurtma berganlar (mehmon).
+     Backend ikki guruhni alohida qaytaradi (/api/users). */
+  let LIVE_USERS=[], GUEST_USERS=[];
+  let userTab="registered";   // 'registered' | 'guest'
   function loadLiveUsers(){
     if(typeof STORE==="undefined" || !STORE.fetchUsers) return;
-    STORE.fetchUsers().then(list=>{
-      if(!Array.isArray(list)) return;
-      /* Statistikani BUYURTMALARDAN hisoblaymiz. Ilgari 0 qotirib qo'yilgan edi:
-         jadvalda "0 buyurtma" ko'rinib turardi-yu, ichiga kirsangiz haqiqiy
-         tarix chiqardi — ikkisi bir-biriga mos kelmasdi. */
+    STORE.fetchUsers().then(data=>{
+      /* Eski format (massiv) bilan ham ishlaydi */
+      const reg = Array.isArray(data) ? data : (data && data.registered) || [];
+      const guests = (data && data.guests) || [];
       const all=(typeof STORE!=="undefined")?(STORE.orders()||[]):[];
       const revs=(typeof STORE!=="undefined"&&STORE.reviews)?(STORE.reviews()||[]):[];
-      LIVE_USERS=list.map(u=>{
+      LIVE_USERS=reg.map(u=>{
         const mine=all.filter(o=>o.user===u.name);
         const done=mine.filter(o=>o.status==="done");
         const spent=done.reduce((s,o)=>s+(o.amount||0)+(o.delivery||0),0);
-        /* Sevimli restoran — eng ko'p buyurtma bergani */
         const cnt={}; mine.forEach(o=>{ if(o.rest) cnt[o.rest]=(cnt[o.rest]||0)+1; });
         const fav=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
         const last=mine[0] ? (YZ_TIME.fmtDate(mine[0].created_at)||u.joined||"—") : (u.joined||"—");
@@ -839,40 +1013,55 @@
           cancelled:mine.filter(o=>o.status==="cancelled").length,
           spent:spent, fav:fav?fav[0]:"—",
           reviews:revs.filter(r=>r.name===u.name).length,
-          last:last, joined:u.joined||"—", reg:true };
+          last:last, joined:u.joined||"—", reg:true, guest:false };
       });
+      /* Mehmonlar — backend telefon bo'yicha yig'ib bergan (id = "g_998...") */
+      GUEST_USERS=guests.map((g,i)=>({
+        id: 200000+i, guestId:g.id, name:g.name||"Mehmon", emoji:"🕶️",
+        phone:g.phone||"", email:"", orders:g.orders||0, done:g.orders||0,
+        cancelled:0, spent:g.spent||0, fav:(g.rests?g.rests+" restoran":"—"),
+        addr:g.addr||"", reviews:0, last:g.last||"—", joined:"—", reg:false, guest:true }));
       renderUsers();
     }).catch(()=>{});
   }
-  function allUsers(){ return LIVE_USERS.concat(USERS); }
+  /* Tanlangan tabga qarab ro'yxat */
+  function currentUsers(){ return userTab==="guest" ? GUEST_USERS : LIVE_USERS.concat(USERS); }
+  function allUsers(){ return LIVE_USERS.concat(GUEST_USERS).concat(USERS); }
+
+  function renderUserTabs(){
+    var host=document.getElementById("userTabs"); if(!host) return;
+    var seg=function(k,label,n){ return '<button class="utab" data-utab="'+k+'" style="border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;margin-right:8px;background:'+(userTab===k?'var(--red,#C8102E)':'#f1eef0')+';color:'+(userTab===k?'#fff':'#777')+'">'+label+' <span style="opacity:.85">'+n+'</span></button>'; };
+    host.innerHTML=seg("registered","✅ Ro'yxatdan o'tgan",LIVE_USERS.length)+seg("guest","🕶️ Ro'yxatsiz (mehmon)",GUEST_USERS.length);
+    host.querySelectorAll(".utab").forEach(function(b){ b.addEventListener("click",function(){ userTab=b.dataset.utab; renderUsers(); }); });
+  }
 
   function renderUsers(){
+    renderUserTabs();
+    const rows=currentUsers();
+    const guestMode=userTab==="guest";
     const tb=$("#userTbody"); if(tb){
-      tb.innerHTML=allUsers().map(u=>`
+      tb.innerHTML=rows.length?rows.map(u=>`
         <tr data-id="${u.id}">
-          <td><div class="tname"><span class="av">${u.emoji}</span>${esc(u.name)}${u.reg?' <span class="pill ok" style="font-size:10px">yangi</span>':''}</div></td>
+          <td><div class="tname"><span class="av">${u.emoji}</span>${esc(u.name)}${u.reg?' <span class="pill ok" style="font-size:10px">ro\'yxatda</span>':' <span class="pill warn" style="font-size:10px">mehmon</span>'}</div></td>
           <td>${money(u.orders)}</td><td class="money">${money(u.spent)}</td>
-          <td>${esc(u.fav)}</td><td>${u.reviews}</td><td>${esc(u.last)}</td>
-        </tr>`).join("");
-      $$("#userTbody tr").forEach(tr=>tr.addEventListener("click",()=>openUser(+tr.dataset.id)));
+          <td>${guestMode?esc(u.phone):esc(u.fav)}</td><td>${guestMode?esc(u.fav):u.reviews}</td><td>${esc(u.last)}</td>
+        </tr>`).join(""):`<tr><td colspan="6" style="color:var(--grey);padding:20px">${guestMode?"Ro'yxatdan o'tmay buyurtma bergan mijoz yo'q.":"Ro'yxatdan o'tgan foydalanuvchi yo'q."}</td></tr>`;
+      $$("#userTbody tr[data-id]").forEach(tr=>tr.addEventListener("click",()=>openUser(+tr.dataset.id)));
     }
     const mc=$("#userCards"); if(mc){
-      mc.innerHTML=allUsers().map(u=>`
+      mc.innerHTML=rows.length?rows.map(u=>`
         <div class="mcard" data-id="${u.id}">
           <div class="mcard-top">
             <span class="mcard-icon">${u.emoji}</span>
-            <div class="mcard-info"><div class="mcard-name">${esc(u.name)}</div><div class="mcard-sub">${esc(u.phone)}</div></div>
-            <span class="pill ok">${u.orders} buyurtma</span>
+            <div class="mcard-info"><div class="mcard-name">${esc(u.name)}${u.guest?' <span class="pill warn" style="font-size:9px">mehmon</span>':''}</div><div class="mcard-sub">${esc(u.phone)}</div></div>
+            <span class="pill ${u.guest?'warn':'ok'}">${u.orders} buyurtma</span>
           </div>
           <div class="mcard-stats">
             <div class="mcard-stat"><span>Sarflagan</span><b class="money">${money(u.spent)}</b></div>
-            <div class="mcard-stat"><span>Sevimli</span><b>${esc(u.fav)}</b></div>
+            <div class="mcard-stat"><span>${u.guest?'Restoran':'Sevimli'}</span><b>${esc(u.fav)}</b></div>
             <div class="mcard-stat"><span>Oxirgi</span><b>${esc(u.last)}</b></div>
           </div>
-        </div>`).join("");
-      /* Mobil kartalar ham bosiladigan bo'lsin — restoran/kuryerda shunday edi,
-         foydalanuvchilarda esa faqat DESKTOP jadvali ulangan edi va telefonda
-         karta bosilganda hech narsa ochilmasdi. */
+        </div>`).join(""):`<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">${guestMode?"Mehmon mijoz yo'q.":"Ro'yxatdan o'tgan foydalanuvchi yo'q."}</p>`;
       mc.querySelectorAll(".mcard").forEach(c=>c.addEventListener("click",()=>openUser(+c.dataset.id)));
     }
     const demand={};
@@ -1162,29 +1351,27 @@
     if(arAgree && !arAgree.checked){ arErr("Shartnoma shartlarini o'qib, roziligingizni belgilang"); return; }
     if(RESTS.find(r=>r.login===login)){ arErr("Bu login allaqachon band!"); return; }
 
-    const newId = Math.max(0,...RESTS.map(r=>r.id)) + 1;
-    const newRest = {
-      id: newId, name, emoji, phone, addr, login, pass,
-      rev: 0, orders: 0, rating: 0, status: "ok",
-      siteCut: 0, restGets: 0,
-      joinedAt: new Date().toLocaleDateString("ru-RU"),
-      commission: commission,
-    };
-    RESTS.push(newRest);
-    recompute();
-    save(SK.rests, RESTS);
-    /* Backendga: akkaunt + katalog restoran yaratish (login va katalogda ko'rinishi uchun) */
-    if(typeof STORE!=="undefined" && STORE.addRestaurant){ STORE.addRestaurant({name,emoji,phone,addr,login,pass,commission, owner, email:f("arEmail"), hours, area:f("arArea"), descr:f("arDescr")}); }
-    closeAddRest();
-    renderAll();
-    toast(`✅ ${name} muvaffaqiyatli qo'shildi!`);
-    // Fieldlarni tozalash
-    ["arName","arEmoji","arPhone","arAddr","arLogin","arPass","arComm"].forEach(id=>{
-      const el=document.getElementById(id);
-      if(el) el.value = id==="arEmoji"?"🏪":id==="arComm"?"18":"";
+    /* SERVER birinchi — restoran akkaunti HAQIQATAN yaratilgach ro'yxatga qo'shamiz
+       (aks holda ishlamaydigan restoran chiqardi). */
+    const btn=document.getElementById("arSubmit"); if(btn) btn.disabled=true;
+    if(typeof STORE==="undefined" || !STORE.addRestaurant){ arErr("Tizim tayyor emas"); if(btn) btn.disabled=false; return; }
+    STORE.addRestaurant({name,emoji,phone,addr,login,pass,commission, owner, email:f("arEmail"), hours, area:f("arArea"), descr:f("arDescr")}).then(function(r){
+      if(btn) btn.disabled=false;
+      if(!r || r.error){ arErr((r&&r.error)||"Restoran qo'shilmadi — qayta urinib ko'ring"); return; }
+      const newId = Math.max(0,...RESTS.map(r=>r.id).concat([0])) + 1;
+      RESTS.push({ id:newId, name, emoji, phone, addr, login,
+        rev:0, orders:0, rating:0, status:"ok", siteCut:0, restGets:0,
+        joinedAt:new Date().toLocaleDateString("ru-RU"), commission });
+      recompute(); save(SK.rests, RESTS);
+      closeAddRest(); renderAll();
+      toast(`✅ ${name} muvaffaqiyatli qo'shildi!`);
+      ["arName","arEmoji","arPhone","arAddr","arLogin","arPass","arComm"].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.value = id==="arEmoji"?"🏪":id==="arComm"?"18":"";
+      });
+      if(document.getElementById("arAgree")) document.getElementById("arAgree").checked=false;
+      document.getElementById("arErr").textContent="";
     });
-    if(document.getElementById("arAgree")) document.getElementById("arAgree").checked=false;
-    document.getElementById("arErr").textContent="";
   }
   function arErr(msg){ const el=document.getElementById("arErr"); if(el) el.textContent=msg; }
 
@@ -1383,23 +1570,24 @@
     if(acAgree && !acAgree.checked){ acErr("Shartnoma shartlarini o'qib, roziligingizni belgilang"); return; }
     if(COURIERS.find(c=>c.login===login)){ acErr("Bu login band!"); return; }
 
-    const newId = Math.max(0,...COURIERS.map(c=>c.id)) + 1;
-    const newCourier = {
-      id:newId, name, emoji:"🛵", phone, rest, login, pass, fee,
-      deliveries:0, rating:0, earn:0, status:"ok",
-      joinedAt: new Date().toLocaleDateString("ru-RU"),
-    };
-    COURIERS.push(newCourier);
-    recompute();
-    save(SK.couriers, COURIERS);
-    /* Backendga: kuryer akkaunti + yozuvi (login + fee uchun) */
-    if(typeof STORE!=="undefined" && STORE.addCourier){ STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail")}); }
-    closeAddCourier();
-    renderAll();
-    toast(`✅ ${name} kuryerlar ro'yxatiga qo'shildi!`);
-    ["acName","acPhone","acFee","acLogin","acPass"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
-    if(document.getElementById("acAgree")) document.getElementById("acAgree").checked=false;
-    document.getElementById("acErr").textContent="";
+    /* SERVER birinchi — akkaunt HAQIQATAN yaratilgach ro'yxatga qo'shamiz.
+       Aks holda "qo'shildi" deb ko'rsatib, aslida ishlamaydigan kuryer chiqardi. */
+    const btn=document.getElementById("acSubmit"); if(btn) btn.disabled=true;
+    if(typeof STORE==="undefined" || !STORE.addCourier){ acErr("Tizim tayyor emas"); if(btn) btn.disabled=false; return; }
+    STORE.addCourier({name,phone,rest,login,pass,fee, transport:f("acTransport"), birthdate:f("acBirth"), address:f("acAddress"), email:f("acEmail")}).then(function(r){
+      if(btn) btn.disabled=false;
+      if(!r || r.error){ acErr((r&&r.error)||"Kuryer qo'shilmadi — qayta urinib ko'ring"); return; }
+      /* Server tasdiqladi — endi lokal ro'yxatga */
+      const newId = Math.max(0,...COURIERS.map(c=>c.id).concat([0])) + 1;
+      COURIERS.push({ id:newId, name, emoji:"🛵", phone, rest, login, fee,
+        deliveries:0, rating:0, earn:0, status:"ok", joinedAt:new Date().toLocaleDateString("ru-RU") });
+      recompute(); save(SK.couriers, COURIERS);
+      closeAddCourier(); renderAll();
+      toast(`✅ ${name} kuryerlar ro'yxatiga qo'shildi!`);
+      ["acName","acPhone","acFee","acLogin","acPass"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+      if(document.getElementById("acAgree")) document.getElementById("acAgree").checked=false;
+      document.getElementById("acErr").textContent="";
+    });
   }
   function acErr(msg){ const el=document.getElementById("acErr"); if(el) el.textContent=msg; }
 
@@ -1432,7 +1620,13 @@
   function openUser(id){
     const u=allUsers().find(x=>x.id===id); if(!u) return;
     setHead(u.emoji,u.name,u.phone);
-    const orders=((typeof STORE!=="undefined")?STORE.orders():[]).filter(function(o){return o.user===u.name;});
+    /* Mehmon mijoz — buyurtmalari TELEFON bo'yicha topiladi (ismi har xil yozilishi
+       mumkin). Ro'yxatdagi foydalanuvchi — ism bo'yicha (avvalgidek). */
+    const uDig=String(u.phone||"").replace(/\D/g,"");
+    const orders=((typeof STORE!=="undefined")?STORE.orders():[]).filter(function(o){
+      if(u.guest) return uDig && String(o.phone||"").replace(/\D/g,"")===uDig;
+      return o.user===u.name;
+    });
     const spent=orders.filter(function(o){return o.status==="done";}).reduce(function(s,o){return s+(o.amount||0)+(o.delivery||0);},0);
     const hist=orders.length?orders.map(function(o){
       const st=OSM[o.status]||[o.status,"warn"];
@@ -1550,6 +1744,23 @@
     const ses=(typeof STORE!=="undefined")?STORE.session():null; if(!ses) return;
     const set=(id,v)=>{ const el=document.getElementById(id); if(el && !el.value) el.value=(v||""); };
     set("setName",ses.name); set("setPhone",ses.phone); set("setEmail",ses.email); set("setLogin",ses.login);
+  }
+  /* Sayt egasi raqami — serverdagi qiymatni maydonga qo'yamiz */
+  function fillOwnerSettings(){
+    if(typeof STORE==="undefined" || !STORE.settings) return;
+    const s=STORE.settings()||{};
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el && document.activeElement!==el) el.value=(v||""); };
+    set("setOwnerPhone",s.ownerPhone); set("setOwnerName",s.ownerName);
+  }
+  async function saveOwnerSettings(){
+    const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+    const phone=f("setOwnerPhone");
+    if(phone && window.YZ_PHONE && !YZ_PHONE.valid(phone)){ toast("❌ Telefon raqami noto'g'ri"); return; }
+    const btn=document.getElementById("setOwnerSave"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.updateSettings)? await STORE.updateSettings({ownerPhone:phone, ownerName:f("setOwnerName")}) : null;
+    if(btn) btn.disabled=false;
+    if(r && !r.error) toast("✅ Sayt egasi raqami saqlandi — mijozlar shu raqamni ko'radi");
+    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   async function saveProfile(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -1688,12 +1899,16 @@
     checkPending();
     setInterval(()=>{ checkPending(); renderAll(); }, 60000);
 
+    // Shikoyatlarni davriy yuklaymiz (yangi shikoyat kelsa hisoblagich ko'rinadi)
+    loadComplaints();
+    setInterval(loadComplaints, 20000);
+
     // Realtime: yangi buyurtma/status o'zgarganda jadval va KPI yangilanadi
     if(typeof STORE!=="undefined" && STORE.onChange){
       STORE.onChange(()=>{ try{
         syncEntitiesFromBackend(); renderDash(); renderLiveOrders(); renderRests(); renderCouriers();
         /* Yangi shubhali buyurtma / izoh kelsa — hisoblagich va ochiq bo'lim yangilanadi */
-        updateSuspBadge();
+        updateSuspBadge(); fillOwnerSettings();
         if(document.querySelector("#view-suspicious.show")) renderSuspicious();
         if(document.querySelector("#view-comments.show")) renderComments();
       }catch(e){} });
@@ -1749,13 +1964,9 @@
       try{location.href="index.html";}catch(e){}
     });
 
-    // Izohlar bo'limi — qidiruv va filtrlar
+    // Izohlar bo'limi — qidiruv (ijobiy/salbiy tab renderComments ichida)
     const cs=document.getElementById("cmtSearch");
     if(cs) cs.addEventListener("input",function(){ cmtQuery=cs.value; renderComments(); });
-    const cbad=document.getElementById("cmtFilterBad");
-    if(cbad) cbad.addEventListener("click",function(){ cmtOnlyBad=true; renderComments(); });
-    const call=document.getElementById("cmtFilterAll");
-    if(call) call.addEventListener("click",function(){ cmtOnlyBad=false; renderComments(); });
 
     // Bloklangan raqamlar bo'limi
     const blkRefresh=document.getElementById("blockRefreshBtn");
@@ -1799,7 +2010,9 @@
     loadSettings();
     const sps=$("#setProfileSave"); if(sps) sps.addEventListener("click",saveProfile);
     fillProfile();
-    if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
+    const sos=$("#setOwnerSave"); if(sos) sos.addEventListener("click",saveOwnerSettings);
+    fillOwnerSettings();
+    if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} }); }
     const ab=$("#annBtn"); if(ab) ab.addEventListener("click",postAnnounce);
   });

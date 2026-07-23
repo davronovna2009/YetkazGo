@@ -154,7 +154,7 @@ Quyidagilardan **birortasi** bo'lsa, buyurtma `status = review` bo'ladi va
 
 | Shart | Chegara |
 |---|---|
-| Jami mahsulot | **60 donadan** ko'p |
+| Jami mahsulot | **20 donadan** ko'p |
 | Summa | **3 000 000 so'mdan** qimmat |
 | Turli taom soni | **30 xildan** ko'p |
 | Bitta raqamdan ketma-ket buyurtma | **30 daqiqada 3 va undan ko'p** |
@@ -169,6 +169,62 @@ ko'radi, mijozga qo'ng'iroq qila oladi va:
 
 > Oddiy katta buyurtma (20–30 ta mahsulot) adminга **tushmaydi** — u to'g'ridan
 > restoranga boradi, faqat kuryerdan tasdiqlovchi qo'ng'iroq talab qilinadi.
+
+---
+
+## Taomga miqdor cheklovi
+
+Restoran har bir taomga **«Bir buyurtmada maksimal dona»** qo'yadi
+(Taom qo'shish bo'limida). Masalan Osh — 15, Somsa — 500. Mijoz undan
+oshiq buyurtma qilsa, unga **sayt egasining raqami** ko'rsatiladi va u
+telefonda tasdiqlagach restoranga o'zi aytadi. Raqam:
+**Admin panel → Sozlamalar → 📞 Sayt egasi raqami** da kiritiladi.
+
+`0` = cheksiz. Chegara serverда majburiy (`server/src/pricing.js`).
+
+## Taom turlari (Taom / Ichimlik / Shirinlik)
+
+Restoran **Taom qo'shish** bo'limida 3 xil tugma tanlaydi — har biriga mos
+maydonlar chiqadi:
+
+| Tur | Qo'shimcha maydonlar |
+|---|---|
+| 🍽️ Taom | Vazn, tarkib, tavsif |
+| 🥤 Ichimlik | Hajmi (0,5 L), turi (gazli/gazsiz/issiq), tavsif |
+| 🍰 Shirinlik | Vazn, allergenlar, tavsif |
+
+Saytda mos kategoriya (Ichimlik / Shirinlik) filtrida ko'rinadi.
+
+## Jonli reyting
+
+Restoran va taom yulduzchalari endi **haqiqiy izohlardan** hisoblanadi
+(`server/src/ratings.js`) — mijoz baho bergani zahoti o'zgaradi. Baho
+bo'lmasa «—» ko'rsatiladi (soxta 4.5 emas).
+
+## Bot va sayt statistikasi
+
+Admin va restoran panelida **«🤖 Bot va 🌐 sayt reytingi»** bo'limi:
+necha foiz buyurtma Telegramдан, necha foizi saytдан kelgani + o'sha
+manba bo'yicha mijozlar. Har qanday mijoz ustiga bosilsa — to'liq
+ma'lumoti va buyurtma tarixi chiqadi.
+
+## Shikoyatlar
+
+Restoran va kuryer o'z panelidagi **«📣 Shikoyat / yordam»** bo'limidan
+adminga murojaat yuboradi. Admin **«Shikoyatlar»** bo'limida ko'radi,
+javob yozadi va yopadi. Xodim faqat O'Z shikoyatlarini ko'radi.
+
+## Izohlar (ijobiy / salbiy)
+
+Admin **«Izohlar»** bo'limida barcha izohni ko'radi, **😊 Ijobiy** (4–5★)
+va **😞 Salbiy** (1–3★) bo'yicha ajratadi, o'chiradi yoki egasiga javob
+yozadi (javob saytda izoh ostida chiqadi).
+
+## Foydalanuvchilar: ro'yxatdan o'tgan / mehmon
+
+Admin **«Foydalanuvchilar»** bo'limida ikki tab: **✅ Ro'yxatdan o'tgan**
+va **🕶️ Ro'yxatsiz (mehmon)** — ro'yxatdan o'tmasdan buyurtma berganlar
+(telefon bo'yicha yig'iladi).
 
 ---
 

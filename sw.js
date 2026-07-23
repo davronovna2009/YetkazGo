@@ -3,17 +3,17 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v14 — buyurtma tarkibi rasm bilan (order-items.js), shubhali buyurtmalar
-   admin tekshiruvi, izohlarni admin boshqaradi, kuryerда 2 ta buyurtma cheklovi
-   va katta buyurtmada tasdiqlovchi qo'ng'iroq.
-   (v13 — bot FAQAT MIJOZ uchun; v12 — buyurtma manbasi: Telegram/Sayt;
-    v9 — manzil/telefon har buyurtmada; v8 — kuryer paneli soddalashtirildi;
-    v7 — hours.js; v6 — narx serverda hisoblanadi + CSP/nonce + safe.js.) */
-const CACHE = 'yetkaz-v14';
+/* v15 — taom cheklovi + 3 xil taom (taom/ichimlik/shirinlik), jonli reyting,
+   bot/sayt statistikasi, ro'yxatdan o'tgan/mehmon mijozlar, karta/naqd hisoboti,
+   kuryer daromadi, shikoyatlar tizimi (complaint-box.js), sayt egasi raqami.
+   (v14 — buyurtma tarkibi rasm bilan; v13 — bot FAQAT MIJOZ uchun;
+    v12 — buyurtma manbasi; v9 — manzil/telefon; v7 — hours.js;
+    v6 — narx serverda + CSP/nonce + safe.js.) */
+const CACHE = 'yetkaz-v15';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
-  '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/order-items.js',
+  '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/order-items.js', '/assets/js/complaint-box.js',
   '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
   '/assets/js/pwa-install.js',

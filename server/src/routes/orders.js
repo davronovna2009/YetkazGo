@@ -249,6 +249,28 @@ router.post('/:id/reject', requireRole('admin'), (req, res) => {
 /* GET /api/orders/rules — panellar chegaralarni ko'rsatishi uchun (ochiq son) */
 router.get('/rules/limits', (_req, res) => res.json(rulesSnapshot()));
 
+/* GET /api/orders/stats/source — "Bot va sayt reytingi":
+   necha foiz buyurtma Telegram botdan, necha foiz saytdan kelgan.
+   Rol bo'yicha cheklangan: restoran O'Z buyurtmalari bo'yicha, admin — hammasi. */
+router.get('/stats/source', requireRole('restoran', 'admin'), (req, res) => {
+  let sql = "SELECT source, tg_chat_id, id, user, phone FROM orders WHERE status <> 'cancelled'";
+  const params = [];
+  if (req.user.role === 'restoran') { sql += ' AND rest = ?'; params.push(req.user.name); }
+  const rows = db.prepare(sql).all(...params);
+
+  let telegram = 0, sayt = 0;
+  for (const o of rows) {
+    const src = o.source || (o.tg_chat_id ? 'telegram' : 'sayt');
+    if (src === 'telegram') telegram++; else sayt++;
+  }
+  const total = telegram + sayt;
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+  res.json({
+    total, telegram, sayt,
+    telegramPct: pct(telegram), saytPct: pct(sayt),
+  });
+});
+
 /* PATCH /api/orders/:id — statusni yangilash va h.k. (FAQAT restoran/kuryer/admin) */
 router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
   const id = Number(req.params.id);

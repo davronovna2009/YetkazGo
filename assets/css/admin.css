@@ -158,6 +158,12 @@ a{color:inherit;text-decoration:none}
    Taomlar rasm lentasi (.yz-it-strip) order-items.js dan keladi. */
 .tbl .o-more{margin-top:3px;font-size:11px;font-weight:800;color:var(--red);letter-spacing:.2px}
 
+/* Taom qo'shish: tur tanlash tugmalari (Taom / Ichimlik / Shirinlik) */
+.nd-kind{border:2px solid var(--line,#eee);background:#fff;border-radius:12px;padding:10px 16px;
+  font-size:14px;font-weight:700;cursor:pointer;color:#777;transition:.12s;font-family:inherit}
+.nd-kind:hover{border-color:#f0c2c8}
+.nd-kind.active{background:var(--red,#C8102E);border-color:var(--red,#C8102E);color:#fff}
+
 /* ===== PILLS / BADGES ===== */
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
 .pill.ok{background:#E8F5EE;color:var(--green)}

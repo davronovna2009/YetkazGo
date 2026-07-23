@@ -5,23 +5,31 @@ import QRCode from 'qrcode';
 import { db } from '../db.js';
 import { requireRole, hashPassword } from '../auth.js';
 import { getOverrides } from './dishes.js';
+import { liveRatings } from '../ratings.js';
+import { publicSettings, setSetting, KEYS } from '../settings.js';
 
 const router = Router();
 
-function restRow(r) {
+/* Restoran/kuryer reytingi — bazadagi qotib qolgan son emas, JONLI hisob
+   (ratings.js: mijozlar bergan izohlar o'rtachasi). */
+function restRow(r, live) {
+  const lr = (live || liveRatings()).rests[r.name];
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr, emoji: r.emoji, kw: r.kw,
-    rating: r.rating, eta: r.eta, dist: r.dist, photo: r.photo, login: r.login,
+    rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
+    eta: r.eta, dist: r.dist, photo: r.photo, login: r.login,
     commission: r.commission != null ? r.commission : 18,
     openH: r.open_h != null ? r.open_h : 9, closeH: r.close_h != null ? r.close_h : 23,
     addr: r.addr || '', owner: r.owner || '', email: r.email || '', descr: r.descr || '', hours: r.hours || '', area: r.area || '',
     active: !!r.active,
   };
 }
-function courRow(c) {
+function courRow(c, live) {
+  const lr = (live || liveRatings()).couriers[c.name];
   return {
     id: c.id, name: c.name, emoji: c.emoji, rest: c.rest, login: c.login,
-    phone: c.phone, deliveries: c.deliveries, rating: c.rating,
+    phone: c.phone, deliveries: c.deliveries,
+    rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
     fee: c.fee != null ? c.fee : 0, transport: c.transport || '', plate: c.plate || '', address: c.address || '', email: c.email || '', birthdate: c.birthdate || '', passport: c.passport || '',
     active: !!c.active,
     openH: c.open_h != null ? c.open_h : 8, closeH: c.close_h != null ? c.close_h : 22,
@@ -42,8 +50,29 @@ router.get('/bootstrap', (_req, res) => {
   const announcements = db.prepare('SELECT * FROM announcements ORDER BY id DESC LIMIT 20').all().map(a => ({
     id: a.id, rest: a.rest, text: a.text, emoji: a.emoji, tag: a.tag, dish: a.dish, img: a.img || '',
   }));
-  const restaurants = db.prepare('SELECT * FROM restaurants WHERE active = 1 ORDER BY id').all().map(restRow);
-  res.json({ reviews, overrides: getOverrides(), announcements, restaurants });
+  /* Reytinglar BIR MARTA hisoblanadi va restoran/taomlarga tarqatiladi */
+  const live = liveRatings();
+  const restaurants = db.prepare('SELECT * FROM restaurants WHERE active = 1 ORDER BY id').all()
+    .map((r) => restRow(r, live));
+  res.json({
+    reviews, overrides: getOverrides(live), announcements, restaurants,
+    /* Taom va kuryer reytinglari — sayt yulduzchalarni SHU YERDAN oladi */
+    ratings: { dishes: live.dishes, couriers: live.couriers },
+    /* Sayt egasining raqami (miqdor cheklovi xabarida ko'rsatiladi) */
+    settings: publicSettings(),
+  });
+});
+
+/* GET /api/settings — ommaviy (sayt egasi raqami). PATCH — faqat admin. */
+router.get('/settings', (_req, res) => res.json(publicSettings()));
+
+router.patch('/settings', requireRole('admin'), (req, res) => {
+  const b = req.body || {};
+  for (const k of KEYS) { if (b[k] != null) setSetting(k, b[k]); }
+  /* Frontend camelCase yuborsa ham qabul qilamiz */
+  if (b.ownerPhone != null) setSetting('owner_phone', b.ownerPhone);
+  if (b.ownerName != null) setSetting('owner_name', b.ownerName);
+  res.json(publicSettings());
 });
 
 /* GET /api/restaurants */
@@ -69,12 +98,19 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
   if (db.prepare('SELECT 1 FROM restaurants WHERE name = ?').get(name)) return res.status(409).json({ error: 'Bu nom band' });
 
   const commission = Math.max(0, Math.min(50, Number(b.commission) || 18));
+  /* Ish vaqti — admin bergan bo'lsa AYNAN shu, aks holda standart 9–23.
+     Ilgari bu ustunlar INSERT'ga qo'shilmasdi: admin 24 soat qo'ysa ham yangi
+     restoran 09:00–23:00 bo'lib qolar va shu vaqtdan tashqarida buyurtma
+     qabul qilmasdi (pricing.js ish vaqtini tekshiradi). */
+  const openH = b.openH != null ? Math.max(0, Math.min(23, Number(b.openH) || 0)) : 9;
+  const closeH = b.closeH != null ? Math.max(1, Math.min(24, Number(b.closeH) || 24)) : 23;
   db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
     .run(login, hashPassword(pass), 'restoran', name, String(b.phone || ''), 'restoran.html');
-  db.prepare('INSERT INTO restaurants (name, name_cyr, emoji, kw, rating, eta, dist, photo, login, commission, addr, owner, email, descr, hours, area) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  db.prepare('INSERT INTO restaurants (name, name_cyr, emoji, kw, rating, eta, dist, photo, login, commission, addr, owner, email, descr, hours, area, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(name, String(b.nameCyr || ''), String(b.emoji || '🏪'), String(b.kw || ''), Number(b.rating) || 0,
          Number(b.eta) || 20, String(b.dist || ''), String(b.photo || ''), login, commission,
-         String(b.addr || ''), String(b.owner || ''), String(b.email || ''), String(b.descr || ''), String(b.hours || ''), String(b.area || ''));
+         String(b.addr || ''), String(b.owner || ''), String(b.email || ''), String(b.descr || ''), String(b.hours || ''), String(b.area || ''),
+         openH, closeH);
   res.status(201).json(restRow(db.prepare('SELECT * FROM restaurants WHERE name = ?').get(name)));
 });
 
@@ -98,11 +134,15 @@ router.post('/couriers', requireRole('admin'), (req, res) => {
   if (!name || !login || !pass) return res.status(400).json({ error: 'name, login, pass kerak' });
   if (db.prepare('SELECT 1 FROM accounts WHERE login = ?').get(login)) return res.status(409).json({ error: 'Bu login band' });
 
+  /* Kuryer ish vaqti — admin bergan bo'lsa AYNAN shu, aks holda standart 8–22 */
+  const cOpenH = b.openH != null ? Math.max(0, Math.min(23, Number(b.openH) || 0)) : 8;
+  const cCloseH = b.closeH != null ? Math.max(1, Math.min(24, Number(b.closeH) || 24)) : 22;
   db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
     .run(login, hashPassword(pass), 'kuryer', name, String(b.phone || ''), 'kuryer.html');
-  db.prepare('INSERT INTO couriers (name, emoji, rest, login, phone, deliveries, rating, fee, transport, plate, address, email, birthdate, passport) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  db.prepare('INSERT INTO couriers (name, emoji, rest, login, phone, deliveries, rating, fee, transport, plate, address, email, birthdate, passport, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(name, String(b.emoji || '🛵'), String(b.rest || ''), login, String(b.phone || ''), Number(b.deliveries) || 0, Number(b.rating) || 0, Number(b.fee) || 0,
-         String(b.transport || ''), String(b.plate || ''), String(b.address || ''), String(b.email || ''), String(b.birthdate || ''), String(b.passport || ''));
+         String(b.transport || ''), String(b.plate || ''), String(b.address || ''), String(b.email || ''), String(b.birthdate || ''), String(b.passport || ''),
+         cOpenH, cCloseH);
   res.status(201).json(courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)));
 });
 
@@ -406,13 +446,43 @@ router.post('/pay/:token/:orderId', (req, res) => {
   res.json({ ok: true, order: { id: o.id, item: o.item, amount: o.amount } });
 });
 
-/* GET /api/users — ro'yxatdan o'tgan foydalanuvchilar (admin) */
+/* GET /api/users — foydalanuvchilar (admin).
+   Ikki guruh:
+     registered — ro'yxatdan o'tganlar (accounts, role='user')
+     guest      — ro'yxatdan O'TMASDAN buyurtma berganlar (orders, telefon
+                  accounts'da yo'q). Mijoz kartochkasini ochganда shu ma'lumot
+                  hamma joyda bir xil ko'rinadi. */
+const digits = (s) => String(s || '').replace(/\D/g, '');
 router.get('/users', requireRole('admin'), (_req, res) => {
-  const rows = db.prepare("SELECT id, login, name, phone, email, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
-  res.json(rows.map((u) => ({
-    id: u.id, login: u.login, name: u.name, phone: u.phone || '', email: u.email || '',
+  const accs = db.prepare("SELECT id, login, name, phone, email, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
+  const knownPhones = new Set(accs.map((u) => digits(u.phone)).filter(Boolean));
+
+  const registered = accs.map((u) => ({
+    id: u.id, type: 'registered', login: u.login, name: u.name, phone: u.phone || '', email: u.email || '',
     joined: (u.created_at || '').slice(0, 10),
-  })));
+  }));
+
+  /* Mehmonlar — buyurtmalardan telefon bo'yicha guruhlab */
+  const orders = db.prepare("SELECT user, phone, addr, amount, rest, created_at FROM orders WHERE status <> 'cancelled'").all();
+  const gmap = new Map();
+  for (const o of orders) {
+    const d = digits(o.phone);
+    if (!d || knownPhones.has(d)) continue;       // ro'yxatdan o'tganlar bu yerда emas
+    if (!gmap.has(d)) gmap.set(d, { phone: o.phone, name: o.user || '', addr: o.addr || '', count: 0, spent: 0, rests: new Set(), last: '' });
+    const g = gmap.get(d);
+    g.count++; g.spent += (o.amount || 0);
+    if (o.rest) g.rests.add(o.rest);
+    if (o.user && !g.name) g.name = o.user;
+    if ((o.created_at || '') > g.last) g.last = o.created_at || '';
+    if (o.addr && !g.addr) g.addr = o.addr;
+  }
+  const guests = [...gmap.entries()].map(([d, g], i) => ({
+    id: 'g_' + d, type: 'guest', name: g.name || 'Mehmon', phone: g.phone,
+    addr: g.addr, orders: g.count, spent: g.spent, rests: g.rests.size,
+    last: (g.last || '').slice(0, 10),
+  })).sort((a, b) => b.orders - a.orders);
+
+  res.json({ registered, guests });
 });
 
 /* PATCH /api/users — admin foydalanuvchi ma'lumotini tahrirlaydi

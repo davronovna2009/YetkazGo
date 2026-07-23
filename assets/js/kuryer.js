@@ -38,8 +38,10 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const t={dash:"Buyurtmalar",orders:"Faol buyurtmalar",settings:"Sozlamalar"};
+    const t={dash:"Buyurtmalar",orders:"Faol buyurtmalar",income:"Daromad",help:"Shikoyat / yordam",settings:"Sozlamalar"};
     if(view==="settings") fillCourierSettings();
+    if(view==="income") renderIncome();
+    if(view==="help"){ try{ YZ_COMPLAINT.mount(document.getElementById("kurComplaintBox")); }catch(e){} }
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
 
@@ -338,7 +340,60 @@
   /* Daromad bo'limi va to'lov QR-kodi paneli OLIB TASHLANDI —
      kuryer paneli faqat buyurtmalarга qaratilgan. */
 
-  function renderAll(){ renderDash(); renderOrders(); updateStatusBadge(); checkDeadlines(); }
+  function renderAll(){ renderDash(); renderOrders(); updateStatusBadge(); checkDeadlines(); if(document.querySelector("#view-income.show")) renderIncome(); }
+
+  /* ===== KURYER DAROMADI =====
+     Kuryer har yetkazilgan buyurtma uchun HAQ (fee) oladi — bu uning O'Z
+     daromadi. Saytga qoladigan qism kuryerga UMUMAN ko'rsatilmaydi.
+     Davr tanlovi + karta/naqd bo'linishi (necha mijoz karta, nechasi naqd). */
+  let kIncomePeriod="oylik";
+  function kInPeriod(o,p){
+    var t=YZ_TIME.stamp((o&&o.created_at)||""); if(!t) return p==="oylik";
+    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
+    var d=(Date.now()-t)/86400000;
+    if(p==="haftalik") return d<7; if(p==="yillik") return d<366; return d<31;
+  }
+  function renderIncome(){
+    const host=$("#kIncomeBody"); if(!host) return;
+    const fee=Math.max(0, Number(CUR&&CUR.fee)||0);
+    const done=ORDERS.filter(o=>o.status==="done");
+    const inP=done.filter(o=>kInPeriod(o,kIncomePeriod));
+    const earn=inP.length*fee;
+    const card=inP.filter(o=>o.pay!=="cash"), cash=inP.filter(o=>o.pay==="cash");
+    const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[kIncomePeriod];
+    const seg=(k,t)=>`<button class="kinc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
+    /* Oylik grafik — so'nggi 6 oy, yetkazilgan buyurtmalar bo'yicha */
+    const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
+    const now=new Date(); const slots=[];
+    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],n:0}); }
+    done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); if(!mm) return; const sl=slots.find(x=>x.y===+mm[1]&&x.m===(+mm[2]-1)); if(sl) sl.n++; });
+    const max=Math.max.apply(null,slots.map(x=>x.n*fee).concat([1]));
+    const chart=slots.map(function(x){ const v=x.n*fee; return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:#8a7f76">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#16a34a,#4ade80);height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+    host.innerHTML=`
+      <div class="panel"><div class="panel-body" style="padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
+        <div style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div>
+      </div></div>
+      <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
+          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Yetkazilgan</span><b>${money(inP.length)} ta</b></div>
+          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>1 yetkazish haqi</span><b>${money(fee)} so'm</b></div>
+          <div class="fin-row tot" style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--line);margin-top:6px"><span>Sizning daromadingiz</span><b style="color:var(--green);font-size:17px">${money(earn)} so'm</b></div>
+        </div></div>
+        <div class="panel"><div class="panel-head"><h3>💳 To'lov turi</h3></div><div class="panel-body">
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span>💳 Karta</span><b>${card.length} ta</b></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span>💵 Naqd</span><b>${cash.length} ta</b></div>
+          <div style="height:14px;background:#f1eef0;border-radius:8px;overflow:hidden;margin-top:8px;display:flex">
+            ${inP.length?`<div style="width:${Math.round(card.length/inP.length*100)}%;background:#2563eb"></div><div style="width:${Math.round(cash.length/inP.length*100)}%;background:#16a34a"></div>`:''}
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--grey);margin-top:5px"><span>💳 ${inP.length?Math.round(card.length/inP.length*100):0}%</span><span>💵 ${inP.length?Math.round(cash.length/inP.length*100):0}%</span></div>
+        </div></div>
+      </div>
+      <div class="panel"><div class="panel-head"><h3>Oylik daromad (so'nggi 6 oy)</h3></div>
+        <div class="panel-body"><div style="display:flex;align-items:flex-end;gap:8px;height:170px;overflow-x:auto;padding:10px 4px">${chart}</div></div></div>
+      <p style="color:var(--grey);font-size:13px;padding:4px">Daromadingiz har yetkazilgan buyurtma uchun belgilangan haq bo'yicha hisoblanadi. Haqni admin belgilaydi.</p>`;
+    host.querySelectorAll(".kinc-seg").forEach(function(b){ b.addEventListener("click",function(){ kIncomePeriod=b.dataset.kp; renderIncome(); }); });
+  }
 
   /* ===== SOZLAMALAR: ish vaqti, ishdan javob (leave), login/parol ===== */
   let kState = { onLeave:false, leaveReason:"", leaveStatus:"none", openH:8, closeH:22 };

@@ -203,6 +203,30 @@ export function initSchema() {
       PRIMARY KEY (order_id, level)
     );
 
+    -- ===== Sayt sozlamalari (kalit -> qiymat) =====
+    -- Admin panelida to'ldiriladi, sayt/bot/mini ilova SHU YERDAN o'qiydi.
+    -- Masalan owner_phone — katta buyurtma uchun "shu raqamga qo'ng'iroq qiling".
+    CREATE TABLE IF NOT EXISTS settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ===== Shikoyatlar (restoran va kuryerdan adminga) =====
+    CREATE TABLE IF NOT EXISTS complaints (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      role       TEXT NOT NULL,              -- restoran | kuryer
+      login      TEXT NOT NULL,              -- kim yuborgan (akkaunt login)
+      name       TEXT DEFAULT '',            -- ko'rinadigan ism
+      topic      TEXT DEFAULT '',            -- mavzu (kechikish, to'lov, mijoz, boshqa)
+      text       TEXT NOT NULL,
+      order_id   INTEGER DEFAULT 0,          -- tegishli buyurtma (0 = umumiy)
+      status     TEXT DEFAULT 'new',         -- new | seen | closed
+      reply      TEXT DEFAULT '',            -- admin javobi
+      reply_at   TEXT DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
     CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
     CREATE INDEX IF NOT EXISTS idx_orders_user    ON orders(user);
@@ -291,5 +315,16 @@ export function initSchema() {
     // Adminning izohga rasmiy javobi (saytda izoh ostida ko'rinadi)
     "ALTER TABLE reviews ADD COLUMN reply TEXT DEFAULT ''",
     "ALTER TABLE reviews ADD COLUMN reply_at TEXT DEFAULT ''",
+    // ===== Taom turi va miqdor cheklovi =====
+    // kind: 'taom' | 'ichimlik' | 'shirinlik' — restoran paneli 3 xil forma ko'rsatadi
+    "ALTER TABLE added_dishes ADD COLUMN kind TEXT DEFAULT 'taom'",
+    // Bir buyurtmada shu taomdan maksimal necha dona olish mumkin (0 = cheksiz).
+    // Undan oshsa mijozga "sayt egasiga qo'ng'iroq qiling" xabari chiqadi.
+    'ALTER TABLE added_dishes ADD COLUMN max_qty INTEGER DEFAULT 0',
+    // Ichimlik uchun: hajmi (0,5 L) va turi (gazli/gazsiz/issiq)
+    "ALTER TABLE added_dishes ADD COLUMN volume TEXT DEFAULT ''",
+    "ALTER TABLE added_dishes ADD COLUMN dtype TEXT DEFAULT ''",
+    // Shirinlik uchun: allergenlar (yong'oq, sut, gluten...)
+    "ALTER TABLE added_dishes ADD COLUMN allergens TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

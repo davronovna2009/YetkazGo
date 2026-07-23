@@ -4,9 +4,13 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireRole } from '../auth.js';
+import { liveRatings } from '../ratings.js';
 
 const router = Router();
 const key = (rest, name) => `${rest}|${name}`;
+
+/* Ruxsat etilgan taom turlari — restoran paneli 3 xil forma ko'rsatadi */
+const KINDS = ['taom', 'ichimlik', 'shirinlik'];
 
 /* Egalik: restoran FAQAT o'z nomi bilan ishlay oladi (body.rest e'tiborsiz qoldiriladi);
    admin esa istalgan restoranni ko'rsatishi mumkin. Shu boshqa restoranni buzishni to'sadi. */
@@ -14,17 +18,25 @@ function restFor(req) {
   return req.user && req.user.role === 'restoran' ? req.user.name : String(req.body?.rest || '');
 }
 
-function addedRow(r) {
+function addedRow(r, live) {
+  const lr = live && live.dishes[r.name];
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr || '', emoji: r.emoji, price: r.price,
-    rest: r.rest, cat: r.cat, kw: r.kw, photo: r.photo, rating: r.rating, sold: r.sold, badge: r.badge,
+    rest: r.rest, cat: r.cat, kw: r.kw, photo: r.photo,
+    /* Reyting JONLI (izohlardan) — baho bo'lmasa 0 */
+    rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0, sold: r.sold, badge: r.badge,
     weight: r.weight || '', ingredients: r.ingredients || '', descr: r.descr || '',
+    /* Taom turi va cheklov + tur maydonlari */
+    kind: r.kind || 'taom', maxQty: r.max_qty || 0,
+    volume: r.volume || '', dtype: r.dtype || '', allergens: r.allergens || '',
   };
 }
 
-/* Umumiy override snapshot — STORE.overrides() bilan bir xil shakl */
-export function getOverrides() {
-  const added = db.prepare('SELECT * FROM added_dishes').all().map(addedRow);
+/* Umumiy override snapshot — STORE.overrides() bilan bir xil shakl.
+   `live` berilmasa — o'zi hisoblaydi (chaqiruvchi tejashi uchun uzatishi mumkin). */
+export function getOverrides(live) {
+  const lr = live || liveRatings();
+  const added = db.prepare('SELECT * FROM added_dishes').all().map((r) => addedRow(r, lr));
   const removed = db.prepare('SELECT rest, name FROM removed_dishes').all().map(r => key(r.rest, r.name));
   const discounts = {};
   for (const d of db.prepare('SELECT rest, name, pct FROM discounts').all()) discounts[key(d.rest, d.name)] = d.pct;
@@ -43,17 +55,22 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   if (!rest) return res.status(400).json({ error: 'rest kerak' });
   /* Narx manfiy yoki kasr bo'lmasin — buyurtma summasi shundan hisoblanadi (pricing.js) */
   const price = Math.max(0, Math.round(Number(b.price) || 0));
+  const kind = KINDS.includes(String(b.kind)) ? String(b.kind) : 'taom';
+  const maxQty = Math.max(0, Number(b.maxQty) || 0);
+  /* Reyting endi izohlardan hisoblanadi — bazaga 0 yozamiz (eski ustun qoladi) */
   db.prepare(
-    `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr, kind, max_qty, volume, dtype, allergens)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     id, String(b.name || ''), String(b.nameCyr || ''), String(b.emoji || '🍽️'),
     price, rest, String(b.cat || 'Fastfood'),
-    String(b.kw || ''), String(b.photo || ''), Number(b.rating) || 4.5,
+    String(b.kw || ''), String(b.photo || ''), 0,
     Number(b.sold) || 0, String(b.badge || ''),
-    String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300)
+    String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300),
+    kind, maxQty,
+    String(b.volume || '').slice(0, 40), String(b.dtype || '').slice(0, 40), String(b.allergens || '').slice(0, 300)
   );
-  res.status(201).json(addedRow(db.prepare('SELECT * FROM added_dishes WHERE id = ?').get(id)));
+  res.status(201).json(addedRow(db.prepare('SELECT * FROM added_dishes WHERE id = ?').get(id), liveRatings()));
 });
 
 /* DELETE /api/dishes — taomni o'chirish (rest+name) */

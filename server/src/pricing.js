@@ -9,13 +9,17 @@
 import { db } from './db.js';
 import { MIN_ORDER } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
+import { getSetting } from './settings.js';
 
 /* Savatdagi turli taomlar soni. Ilgari 30 edi va mijoz 30 xildan ko'p tanlasa
    buyurtma umuman o'tmasdi (xato ko'rsatib, restoran panelida hech narsa
    ko'rinmasdi). Endi katta buyurtma ham o'tadi — juda kattasi esa yo'qotilmay,
    admin tekshiruviga tushadi (order-rules.js). */
 const MAX_LINES = 120;
-const MAX_QTY = 50;     // bitta taomdan maksimal dona
+/* Bitta taomdan absolyut yuqori chegara (buzuq so'rovga qarshi). HAQIQIY biznes
+   cheklovi endi HAR TAOMGA alohida (added_dishes.max_qty) — masalan Osh 15,
+   Somsa 500. Shuning uchun bu ceiling baland: restoran 500 qo'ysa ishlashi kerak. */
+const MAX_QTY = 1000;
 
 /* Narx xatosi — status kodi bilan (route uni to'g'ridan-to'g'ri qaytaradi) */
 export class PriceError extends Error {
@@ -59,8 +63,9 @@ export function priceOrder(rawItems) {
   const want = normalizeItems(rawItems);
 
   /* `photo` ham olinadi — buyurtma tarkibi panellarда RASM bilan ko'rinsin
-     (restoran/kuryer/admin modalida taomlar rasmi bilan chiqadi). */
-  const selDish = db.prepare('SELECT id, name, emoji, price, rest, photo FROM added_dishes WHERE id = ?');
+     (restoran/kuryer/admin modalida taomlar rasmi bilan chiqadi).
+     `max_qty` — restoran qo'ygan miqdor cheklovi (0 = cheksiz). */
+  const selDish = db.prepare('SELECT id, name, emoji, price, rest, photo, max_qty FROM added_dishes WHERE id = ?');
   const selRemoved = db.prepare('SELECT 1 AS x FROM removed_dishes WHERE rest = ? AND name = ?');
   const selSoldout = db.prepare('SELECT 1 AS x FROM soldout_dishes WHERE rest = ? AND name = ?');
   const selDiscount = db.prepare('SELECT pct FROM discounts WHERE rest = ? AND name = ?');
@@ -85,6 +90,20 @@ export function priceOrder(rawItems) {
     }
     if (selSoldout.get(d.rest, d.name)) {
       throw new PriceError(409, '«' + d.name + '» hozir sotuvda yo`q');
+    }
+
+    /* ===== MIQDOR CHEKLOVI (restoran har taomga o'zi qo'yadi) =====
+       Masalan oshga 15 ta, somsaga 500 ta. Undan oshsa buyurtma o'tmaydi —
+       mijozga SAYT EGASINING raqami ko'rsatiladi: u telefonda gaplashib,
+       buyurtma rostligini tasdiqlagach restoranga o'zi aytadi. */
+    const lim = Math.max(0, Number(d.max_qty) || 0);
+    if (lim > 0 && qty > lim) {
+      const phone = getSetting('owner_phone', '');
+      throw new PriceError(409,
+        `«${d.name}» dan bir buyurtmada eng ko'pi ${lim} ta olish mumkin (siz ${qty} ta tanladingiz). `
+        + (phone
+          ? `Ko'proq kerak bo'lsa ${phone} raqamiga qo'ng'iroq qiling — tasdiqlangach restoranga o'zimiz yetkazamiz.`
+          : 'Ko`proq kerak bo`lsa sayt ma`muriyatiga qo`ng`iroq qiling.'));
     }
 
     const price = Math.max(0, Math.round(Number(d.price) || 0));

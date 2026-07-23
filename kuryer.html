@@ -36,6 +36,8 @@
       <nav class="sb-nav">
         <a class="sb-link active" data-view="dash"><span class="ic">📦</span> Buyurtmalar</a>
         <a class="sb-link" data-view="orders"><span class="ic">🛵</span> Faol buyurtmalar</a>
+        <a class="sb-link" data-view="income"><span class="ic">💰</span> Daromad</a>
+        <a class="sb-link" data-view="help"><span class="ic">📣</span> Shikoyat / yordam</a>
         <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
       </nav>
       <div class="sb-foot"><div>yetkaz.uz jamoasi</div><button id="logoutBtn">← Chiqish</button></div>
@@ -57,7 +59,8 @@
           <div id="kDeadlineAlerts"></div>
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><h3>📦 Buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:12px">Yo'lga chiqdim → Yetkazdim</span></div>
-            <div class="panel-body"><div id="dashOrdersBody"></div></div>
+            <!-- Dashboard buyurtmalar KO'P bo'lsa pastga cho'zilmasin — ichida scroll -->
+            <div class="panel-body"><div id="dashOrdersBody" style="max-height:60vh;overflow-y:auto"></div></div>
           </div>
           <div class="stat-grid" id="statCards"></div>
         </section>
@@ -65,6 +68,16 @@
         <section class="view" id="view-orders">
           <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Buyurtma holatini yangilab boring: <b>Yo'lga chiqdim → Yetkazdim</b></p>
           <div id="ordersBody"></div>
+        </section>
+
+        <!-- DAROMAD — faqat kuryerning O'Z daromadi (saytga qoladigan qism ko'rinmaydi) -->
+        <section class="view" id="view-income">
+          <div id="kIncomeBody"></div>
+        </section>
+
+        <!-- HELP: adminga shikoyat / murojaat -->
+        <section class="view" id="view-help">
+          <div id="kurComplaintBox"></div>
         </section>
 
         <!-- SOZLAMALAR -->
@@ -134,6 +147,7 @@
   <script src="assets/js/store.js"></script>
   <!-- Buyurtma tarkibi (rasm + overflow) — restoran/kuryer/admin panellari uchun -->
   <script src="assets/js/order-items.js"></script>
+  <script src="assets/js/complaint-box.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
   <script src="assets/js/kuryer.js"></script>
   <script src="assets/js/notify.js"></script>

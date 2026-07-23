@@ -44,6 +44,7 @@
       <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
       <a class="sb-link" data-view="suspicious"><span class="ic">🔎</span><span class="ic-label">Shubhali buyurtmalar</span><span class="sb-badge" id="suspBadge" hidden>0</span></a>
       <a class="sb-link" data-view="comments"><span class="ic">💬</span><span class="ic-label">Izohlar</span></a>
+      <a class="sb-link" data-view="complaints"><span class="ic">📣</span><span class="ic-label">Shikoyatlar</span><span class="sb-badge" id="compBadge" hidden>0</span></a>
       <a class="sb-link" data-view="blocked"><span class="ic">🚫</span><span class="ic-label">Bloklangan raqamlar</span></a>
       <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
     </nav>
@@ -165,6 +166,8 @@
 
       <!-- ===== FOYDALANUVCHILAR ===== -->
       <section class="view" id="view-user">
+        <!-- Ro'yxatdan o'tgan / mehmon tab -->
+        <div id="userTabs" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px"></div>
         <!-- Mobile: cards -->
         <div class="mobile-cards" id="userCards"></div>
         <!-- Desktop -->
@@ -208,16 +211,30 @@
             <span class="panel-badge" id="cmtCount">0 ta</span>
           </div>
           <div class="panel-body">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
               <input id="cmtSearch" placeholder="Ism, taom yoki matn bo'yicha qidirish..."
                      style="flex:1;min-width:190px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit" />
-              <button class="add-action-btn" id="cmtFilterBad" style="background:#C8102E">⚠️ Faqat past baho</button>
-              <button class="add-action-btn" id="cmtFilterAll" style="background:#9ca3af">Hammasi</button>
             </div>
+            <div id="cmtTabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
           </div>
         </div>
         <div class="panel">
           <div class="panel-body" id="cmtList"></div>
+        </div>
+      </section>
+
+      <!-- ===== SHIKOYATLAR (restoran/kuryerdan) ===== -->
+      <section class="view" id="view-complaints">
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head"><h3>📣 Restoran va kuryerlardan kelgan shikoyatlar</h3></div>
+          <div class="panel-body" id="compFilters"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Ro'yxat</h3>
+            <span class="panel-badge" id="compCount">0 ta</span>
+          </div>
+          <div class="panel-body" id="compList"></div>
         </div>
       </section>
 
@@ -260,6 +277,23 @@
           <div class="setting-item"><div class="setting-label"><span class="setting-name">Login</span></div><div class="setting-control"><input id="setLogin" placeholder="admin" /></div></div>
           <div class="setting-item"><div class="setting-label"><span class="setting-name">Yangi parol</span><span class="setting-desc">Bo'sh = o'zgarmaydi</span></div><div class="setting-control"><input id="setPass" type="password" placeholder="••••••" autocomplete="new-password" /></div></div>
           <div class="settings-footer"><button class="btn-save" id="setProfileSave">Profilni saqlash</button></div>
+        </div>
+
+        <!-- Sayt egasi raqami — katta/cheklovdan oshgan buyurtmada mijozga shu raqam ko'rsatiladi -->
+        <div class="settings-group">
+          <div class="settings-group-title">📞 Sayt egasi raqami (katta buyurtma uchun)</div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="setting-name">Egasi telefoni</span>
+              <span class="setting-desc">Taomga qo'yilgan cheklovdan oshsa, mijozga aynan shu raqamga qo'ng'iroq qilish taklif qilinadi</span>
+            </div>
+            <div class="setting-control"><input id="setOwnerPhone" type="tel" placeholder="+998 90 000 00 00" /></div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label"><span class="setting-name">Egasi ismi (ixtiyoriy)</span></div>
+            <div class="setting-control"><input id="setOwnerName" placeholder="Yetkaz ma'muriyati" /></div>
+          </div>
+          <div class="settings-footer"><button class="btn-save" id="setOwnerSave">Raqamni saqlash</button></div>
         </div>
 
         <!-- Asosiy sozlamalar -->

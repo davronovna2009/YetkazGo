@@ -36,6 +36,8 @@ const STORE = (function () {
     announcements: lsRead(K.ann, []),
     restaurants: lsRead(K.rests, []),
     couriers: [],
+    ratings: lsRead("yz_ratings", { dishes: {}, couriers: {} }),
+    settings: lsRead("yz_settings", {}),
   };
   if (!cache.overrides || typeof cache.overrides !== "object") cache.overrides = { added: [], removed: [], discounts: {}, soldout: [] };
   cache.overrides.added = cache.overrides.added || [];
@@ -118,6 +120,9 @@ const STORE = (function () {
       changed = applyIfChanged("restaurants", K.rests, b.restaurants || []) || changed;
       const ovr = b.overrides || { added: [], removed: [], discounts: {} };
       changed = applyIfChanged("overrides", K.ovr, ovr) || changed;
+      /* Jonli reytinglar va sayt sozlamalari (egasi raqami) — keshda saqlaymiz */
+      changed = applyIfChanged("ratings", "yz_ratings", b.ratings || { dishes: {}, couriers: {} }) || changed;
+      changed = applyIfChanged("settings", "yz_settings", b.settings || {}) || changed;
       if (changed) fire();
       try { window.YZ_LOADER && window.YZ_LOADER.online(); } catch (e) {}   // ulanish bor — loaderni yashir
     } catch (e) {
@@ -246,6 +251,42 @@ const STORE = (function () {
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
     },
 
+    /* ---- JONLI REYTINGLAR (izohlardan hisoblangan) ---- */
+    ratings: () => cache.ratings || { dishes: {}, couriers: {} },
+    dishRating: (name) => { const r = (cache.ratings && cache.ratings.dishes) || {}; return r[name] || { rating: 0, count: 0 }; },
+    courierRating: (name) => { const r = (cache.ratings && cache.ratings.couriers) || {}; return r[name] || { rating: 0, count: 0 }; },
+
+    /* ---- SAYT SOZLAMALARI (egasi raqami) ---- */
+    settings: () => cache.settings || {},
+    ownerPhone: () => (cache.settings && cache.settings.ownerPhone) || "",
+    updateSettings(data) {
+      return api("/settings", { method: "PATCH", body: data, auth: true })
+        .then(r => { cache.settings = r || cache.settings; lsWrite("yz_settings", cache.settings); fire(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+
+    /* ---- BOT/SAYT MANBA STATISTIKASI ---- */
+    fetchSourceStats() { return api("/orders/stats/source", { auth: true }).catch(() => ({ total: 0, telegram: 0, sayt: 0, telegramPct: 0, saytPct: 0 })); },
+
+    /* ---- SHIKOYATLAR (restoran/kuryer -> admin) ---- */
+    fetchComplaints() { return api("/complaints", { auth: true }).catch(() => []); },
+    sendComplaint(data) {
+      return api("/complaints", { method: "POST", body: data, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    replyComplaint(id, reply) {
+      return api("/complaints/" + id + "/reply", { method: "POST", body: { reply }, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    setComplaintStatus(id, status) {
+      return api("/complaints/" + id, { method: "PATCH", body: { status }, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    deleteComplaint(id) {
+      return api("/complaints/" + id, { method: "DELETE", auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+
     /* ---- REVIEWS ---- */
     reviews: () => cache.reviews,
     addReview(r, orderToken) {
@@ -308,9 +349,21 @@ const STORE = (function () {
     restaurants: () => cache.restaurants,
     couriers: () => cache.couriers,
     fetchCouriers() { return api("/couriers", { auth: true }).then(list => { cache.couriers = list || []; fire(); return cache.couriers; }).catch(() => cache.couriers); },
-    addRestaurant(data) { return send("/restaurants", { method: "POST", body: data }).then(r => { refreshPublic(); return r; }); },
+    /* Restoran/kuryer qo'shish — STRIKT: server rad etsa (login band, nom band)
+       xato QAYTADI. Ilgari `send` xatoni yutardi va admin panelда "qo'shildi"
+       ko'rinardi-yu, aslida akkaunt yaratilmasdi — ishlamaydigan restoran/kuryer
+       paydo bo'lardi. Endi chaqiruvchi natijani tekshiradi. */
+    addRestaurant(data) {
+      return api("/restaurants", { method: "POST", body: data, auth: true })
+        .then(r => { refreshPublic(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Serverga ulanib bo'lmadi" }));
+    },
     deleteRestaurant(login) { return send("/restaurants", { method: "DELETE", body: { login } }).then(r => { refreshPublic(); return r; }); },
-    addCourier(data) { return send("/couriers", { method: "POST", body: data }); },
+    addCourier(data) {
+      return api("/couriers", { method: "POST", body: data, auth: true })
+        .then(r => { refreshAll(); return r; })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Serverga ulanib bo'lmadi" }));
+    },
     deleteCourier(login) { return send("/couriers", { method: "DELETE", body: { login } }); },
     editRestaurant(data) { return send("/restaurants", { method: "PATCH", body: data }).then(r => { refreshPublic(); return r; }); },
     /* Restoran egasi o'z rasmini saqlaydi */

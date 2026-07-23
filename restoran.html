@@ -39,9 +39,10 @@
       <nav class="sb-nav">
         <a class="sb-link active" data-view="dash"><span class="ic">📊</span> Mening panelim</a>
         <a class="sb-link" data-view="orders"><span class="ic">🧾</span> Buyurtmalar</a>
-        <a class="sb-link" data-view="dishes"><span class="ic">🍽️</span> Mening taomlarim</a>
+        <a class="sb-link" data-view="dishes"><span class="ic">🍽️</span> Taom qo'shish</a>
         <a class="sb-link" data-view="income"><span class="ic">💰</span> Daromad hisoboti</a>
         <a class="sb-link" data-view="promo"><span class="ic">📢</span> E'lon va chegirma</a>
+        <a class="sb-link" data-view="help"><span class="ic">📣</span> Shikoyat / yordam</a>
         <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
       </nav>
       <div class="sb-foot">
@@ -97,31 +98,57 @@
           </div>
         </section>
 
-        <!-- DISHES -->
+        <!-- DISHES / TAOM QO'SHISH -->
         <section class="view" id="view-dishes">
           <div class="panel">
-            <div class="panel-head"><h3>Yangi taom qo'shish</h3></div>
+            <div class="panel-head"><h3>➕ Menyuga qo'shish</h3></div>
             <div class="panel-body">
+              <!-- 3 xil: Taom / Ichimlik / Shirinlik — har biriga mos maydonlar -->
+              <div id="ndKindTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+                <button type="button" class="nd-kind active" data-kind="taom">🍽️ Taom qo'shish</button>
+                <button type="button" class="nd-kind" data-kind="ichimlik">🥤 Ichimlik qo'shish</button>
+                <button type="button" class="nd-kind" data-kind="shirinlik">🍰 Shirinlik qo'shish</button>
+              </div>
               <div class="set-grid set-grid-dishes">
-                <div class="set-field"><label>Taom nomi</label><input id="ndName" placeholder="Masalan: Tovuqli burger" /></div>
+                <div class="set-field"><label id="ndNameLbl">Taom nomi</label><input id="ndName" placeholder="Masalan: Tovuqli burger" /></div>
                 <div class="set-field"><label>Narx (so'm)</label><input id="ndPrice" inputmode="numeric" placeholder="30000" /></div>
                 <div class="set-field"><label>Belgi</label><input id="ndEmoji" value="🍽️" /></div>
-                <div class="set-field"><label>Vazni / miqdori</label><input id="ndWeight" placeholder="Masalan: 500 g yoki 3 dona" /></div>
-                <div class="set-field"><label>Tarkibi (ichidagi mahsulotlar)</label><input id="ndIngredients" placeholder="Masalan: go'sht, piyoz, ziravorlar" /></div>
-                <div class="set-field"><label>Tavsif / ta'mi (ixtiyoriy)</label><input id="ndDescr" placeholder="Masalan: achchiq, mazali, yangi tayyorlangan" /></div>
+
+                <!-- TAOM maydonlari -->
+                <div class="set-field nd-f nd-taom"><label>Vazni / miqdori</label><input id="ndWeight" placeholder="Masalan: 500 g yoki 3 dona" /></div>
+                <div class="set-field nd-f nd-taom"><label>Tarkibi (ichidagi mahsulotlar)</label><input id="ndIngredients" placeholder="Masalan: go'sht, piyoz, ziravorlar" /></div>
+                <div class="set-field nd-f nd-taom"><label>Tavsif / ta'mi (ixtiyoriy)</label><input id="ndDescr" placeholder="Masalan: achchiq, mazali" /></div>
+
+                <!-- ICHIMLIK maydonlari -->
+                <div class="set-field nd-f nd-ichimlik" hidden><label>Hajmi</label><input id="ndVolume" placeholder="Masalan: 0,5 L / 1 L" /></div>
+                <div class="set-field nd-f nd-ichimlik" hidden><label>Turi</label>
+                  <select id="ndDtype" style="width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit">
+                    <option value="">Tanlang</option><option value="Gazli">Gazli</option><option value="Gazsiz">Gazsiz</option><option value="Issiq">Issiq (choy/kofe)</option><option value="Sharbat">Sharbat</option>
+                  </select>
+                </div>
+                <div class="set-field nd-f nd-ichimlik" hidden><label>Tavsif (ixtiyoriy)</label><input id="ndDescrDrink" placeholder="Masalan: sovuq, tabiiy" /></div>
+
+                <!-- SHIRINLIK maydonlari -->
+                <div class="set-field nd-f nd-shirinlik" hidden><label>Vazni</label><input id="ndWeightSweet" placeholder="Masalan: 200 g / 1 bo'lak" /></div>
+                <div class="set-field nd-f nd-shirinlik" hidden><label>Allergenlar</label><input id="ndAllergens" placeholder="Masalan: yong'oq, sut, gluten" /></div>
+                <div class="set-field nd-f nd-shirinlik" hidden><label>Tavsif (ixtiyoriy)</label><input id="ndDescrSweet" placeholder="Masalan: shokoladli, muzqaymoqli" /></div>
+
+                <!-- HAMMASIGA: miqdor cheklovi -->
+                <div class="set-field"><label>Bir buyurtmada maksimal dona</label><input id="ndMaxQty" inputmode="numeric" placeholder="0 = cheksiz (masalan Osh 15)" /></div>
+
                 <div class="set-field"><label>Rasm (ixtiyoriy)</label>
                   <label class="file-drop"><span class="file-drop-ico">📷</span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden></label>
                 </div>
                 <button class="set-save" id="addDishBtn">+ Qo'shish</button>
               </div>
-              <p style="color:var(--grey);font-size:13px;margin-top:10px">Taomning real rasmini yuklang — u saytda ko'rsatiladi. Rasm yuklanmasa, belgi (emoji) ishlatiladi.</p>
+              <p style="color:var(--grey);font-size:13px;margin-top:10px">Real rasmini yuklang — u saytda ko'rsatiladi. <b>Miqdor cheklovi</b>: masalan Oshga 15 yozsangiz, mijoz 15 tadan ko'p buyurtma qila olmaydi — undan oshsa unga sayt egasining raqami ko'rsatiladi.</p>
             </div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>Mening taomlarim</h3></div>
+            <div class="panel-head"><h3>Mening menyum</h3></div>
             <div class="panel-body tbl-wrap">
               <table class="tbl">
-                <thead><tr><th>Taom</th><th>Narx</th><th>Sotildi (oy)</th><th>Daromad</th><th>Amal</th></tr></thead>
+                <thead><tr><th>Nomi</th><th>Narx</th><th>Reyting</th><th>Sotildi (oy)</th><th>Daromad</th><th>Amal</th></tr></thead>
                 <tbody id="dishTbody"></tbody>
               </table>
             </div>
@@ -226,6 +253,11 @@
             </div>
           </div>
 
+        </section>
+
+        <!-- HELP: adminga shikoyat / murojaat -->
+        <section class="view" id="view-help">
+          <div id="restComplaintBox"></div>
         </section>
 
         <!-- SETTINGS: sozlamalar (login / parol) -->
@@ -363,6 +395,7 @@
   <script src="assets/js/store.js"></script>
   <!-- Buyurtma tarkibi (rasm + overflow) — restoran/kuryer/admin panellari uchun -->
   <script src="assets/js/order-items.js"></script>
+  <script src="assets/js/complaint-box.js"></script>
   <script src="assets/js/ux-inputs.js"></script>
   <script src="assets/js/data.js"></script>
   <script src="assets/js/restoran.js"></script>

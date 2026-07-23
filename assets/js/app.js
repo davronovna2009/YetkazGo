@@ -845,7 +845,26 @@
        bu muhim xabar, toast juda tez yo'qoladi. Modalда to'liq ko'rsatamiz. */
     const st = err && err.status;
     if(st===403 || st===429){ showRestrictionModal(err.message, st===403); return; }
+    /* Taom miqdor cheklovi (409) — xabarда sayt egasi raqami bor, mijoz uni
+       ko'rib qo'ng'iroq qilishi kerak. Toast juda tez yo'qoladi — modalда beramiz. */
+    if(st===409 && err.message && /qo'ng'iroq|raqam/i.test(err.message)){ showLimitModal(err.message); return; }
     toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
+  }
+
+  /* Miqdor cheklovi oynasi — mijoz sayt egasi raqamini aniq ko'rsin */
+  function showLimitModal(message){
+    /* Xabardagi telefon raqamini ajratib, bosiladigan qilamiz */
+    const m=String(message||"").match(/\+?998[\s\d]{9,}/);
+    const phone=m?m[0].replace(/\s+/g,""):"";
+    const call=phone?`<a href="tel:${encodeURIComponent(phone)}" class="btn btn-primary btn-block" style="text-decoration:none;margin-bottom:8px">📞 ${esc(m[0].trim())}</a>`:"";
+    openModal(`<div style="text-align:center">
+      <div style="font-size:46px">📞</div>
+      <h2 style="margin:8px 0;color:#C8102E">Ko'p miqdordagi buyurtma</h2>
+      <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(message||"")}</p>
+      ${call}
+      <button class="btn btn-outline btn-block" id="lxOk" style="margin-top:4px">Tushundim</button>
+    </div>`);
+    const ok=document.getElementById("lxOk"); if(ok) ok.addEventListener("click",closeModal);
   }
 
   /* Cheklov/blok oynasi — mijoz sababini aniq bilishi uchun */
