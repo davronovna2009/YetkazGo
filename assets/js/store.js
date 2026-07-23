@@ -45,6 +45,10 @@ const STORE = (function () {
   cache.overrides.discounts = cache.overrides.discounts || {};
   cache.overrides.soldout = cache.overrides.soldout || [];
 
+  /* Backend ro'yxati (bootstrap / couriers) kamida bir marta yuklanganmi —
+     admin paneli shunga qarab keshni backend bilan almashtiradi. */
+  const loaded = { bootstrap: false, couriers: false };
+
   /* ---- onChange tinglovchilari (panellar qayta render qilishi uchun) ---- */
   const listeners = [];
   let firing = false;
@@ -123,6 +127,10 @@ const STORE = (function () {
       /* Jonli reytinglar va sayt sozlamalari (egasi raqami) — keshda saqlaymiz */
       changed = applyIfChanged("ratings", "yz_ratings", b.ratings || { dishes: {}, couriers: {} }) || changed;
       changed = applyIfChanged("settings", "yz_settings", b.settings || {}) || changed;
+      /* Bootstrap kamida bir marta muvaffaqiyatli yuklandi — admin paneli
+         shundan keyin ro'yxatni FAQAT backenddan quradi (eski keshdagi
+         "arvoh" restoran/kuryerlar ko'rsatilmaydi). */
+      loaded.bootstrap = true;
       if (changed) fire();
       try { window.YZ_LOADER && window.YZ_LOADER.online(); } catch (e) {}   // ulanish bor — loaderni yashir
     } catch (e) {
@@ -348,7 +356,10 @@ const STORE = (function () {
     /* ---- RESTAURANTS / COURIERS (admin CRUD) ---- */
     restaurants: () => cache.restaurants,
     couriers: () => cache.couriers,
-    fetchCouriers() { return api("/couriers", { auth: true }).then(list => { cache.couriers = list || []; fire(); return cache.couriers; }).catch(() => cache.couriers); },
+    fetchCouriers() { return api("/couriers", { auth: true }).then(list => { cache.couriers = list || []; loaded.couriers = true; fire(); return cache.couriers; }).catch(() => cache.couriers); },
+    /* Admin paneli uchun: backend ro'yxati kamida bir marta yuklanganmi?
+       (yuklanmagan bo'lsa kesh saqlanadi, yuklangach backend = manba). */
+    loaded: () => ({ bootstrap: loaded.bootstrap, couriers: loaded.couriers }),
     /* Restoran/kuryer qo'shish — STRIKT: server rad etsa (login band, nom band)
        xato QAYTADI. Ilgari `send` xatoni yutardi va admin panelда "qo'shildi"
        ko'rinardi-yu, aslida akkaunt yaratilmasdi — ishlamaydigan restoran/kuryer

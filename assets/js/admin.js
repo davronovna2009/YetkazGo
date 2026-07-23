@@ -81,41 +81,48 @@
   }
 
   /* =========================================================
-     BACKEND SYNC — RESTS/COURIERS ni backenddan (manba) quramiz.
-     Shunda admin panelida HAMMA restoran/kuryer va ularning TO'LIQ
-     ma'lumoti (telefon, email, manzil, ish vaqti, transport,
-     ishdan-javob holati va h.k.) ko'rinadi. Endigina qo'shilgan (backendda
-     hali yo'q) yozuvlar ham saqlanadi — login bo'yicha birlashtiriladi. */
+     BACKEND SYNC — BACKEND = YAGONA MANBA.
+     MUHIM: ilgari bu funksiya localStorage keshini backend bilan BIRLASHTIRARDI
+     (login bo'yicha map). Natijada eski sessiyada qolib ketgan yoki o'chirilgan
+     restoran/kuryerlar "arvoh" bo'lib ro'yxatda turaverardi — backendда yo'q,
+     login qila olmaydi, lekin ko'rinardi. Yangi kuryer qo'shsangiz o'sha
+     arvohlar yonida chiqib, "qo'shilmadi/dublikat" degan tasavvur berardi.
+
+     Endi ro'yxat FAQAT backenddan quriladi: backendда bo'lmagan yozuv
+     KO'RSATILMAYDI. localStorage faqat offline ko'rsatish uchun (backend
+     javob bermasa oxirgi holat qoladi). */
   function syncEntitiesFromBackend(){
     try{
       if(typeof STORE==="undefined") return;
       const orders=(STORE.orders&&STORE.orders())||[];
-      /* Restoranlar (bootstrap orqali doim yangi) */
+      const flags=(STORE.loaded&&STORE.loaded())||{};
+
+      /* ---- RESTORANLAR: bootstrap (STORE.restaurants) = manba ---- */
       const beR=(STORE.restaurants&&STORE.restaurants())||[];
-      if(beR.length){
-        const map={}; RESTS.forEach(r=>{ const k=r.login||r.name; if(k) map[k]=r; });
-        beR.forEach(b=>{ const k=b.login||b.name; map[k]=Object.assign(map[k]||{id:b.id}, b); });
-        RESTS=Object.values(map).map(r=>{
-          const ord=orders.filter(o=>o.rest===r.name);
+      /* Bootstrap yuklanган bo'lsagina qayta quramiz. Umuman yuklanmagan
+         (STORE hali tayyor emas) va bizda eski kesh bor bo'lsa — wipe qilmaymiz. */
+      if(beR.length || flags.bootstrap){
+        RESTS=beR.map(b=>{
+          const ord=orders.filter(o=>o.rest===b.name);
           const rev=ord.reduce((s,o)=>s+(o.amount||0),0);
-          const comm=r.commission!=null?r.commission:18;
+          const comm=b.commission!=null?b.commission:18;
           const siteCut=Math.round(rev*comm/100);
-          return Object.assign(r,{ rev:rev, orders:ord.length, commission:comm, siteCut:siteCut, restGets:rev-siteCut, status:r.status||(r.active===false?"warn":"ok") });
+          return Object.assign({}, b, { rev:rev, orders:ord.length, commission:comm, siteCut:siteCut, restGets:rev-siteCut, status:(b.active===false?"warn":"ok") });
         });
         save(SK.rests,RESTS);
       }
-      /* Kuryerlar (fetchCouriers orqali yangilanadi) */
+
+      /* ---- KURYERLAR: fetchCouriers (STORE.couriers) = manba ---- */
       const beC=(STORE.couriers&&STORE.couriers())||[];
-      if(beC.length){
-        const map={}; COURIERS.forEach(c=>{ const k=c.login||c.name; if(k) map[k]=c; });
-        beC.forEach(b=>{ const k=b.login||b.name; map[k]=Object.assign(map[k]||{id:b.id}, b); });
-        COURIERS=Object.values(map).map(c=>{
-          const ord=orders.filter(o=>o.courier===c.name);
+      /* fetchCouriers hech bo'lmasa BIR MARTA yuklangan bo'lsa — backend manba.
+         Yuklanmaган bo'lsa eski keshni saqlab turamiz (bo'sh ko'rsatib
+         yubormaslik uchun). Flag'ni fetchCouriers o'rnatadi. */
+      if(beC.length || flags.couriers){
+        COURIERS=beC.map(b=>{
+          const ord=orders.filter(o=>o.courier===b.name);
           const done=ord.filter(o=>o.status==="done").length;
-          if(c.deliveries==null) c.deliveries=done;
-          c.earn=(c.deliveries||0)*(c.fee||0);
-          if(c.status==null) c.status="ok";
-          return c;
+          const deliveries=(b.deliveries!=null?b.deliveries:done);
+          return Object.assign({}, b, { deliveries:deliveries, earn:deliveries*(b.fee||0), status:"ok" });
         });
         save(SK.couriers,COURIERS);
       }

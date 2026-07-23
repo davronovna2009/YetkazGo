@@ -11,9 +11,13 @@ import { publicSettings, setSetting, KEYS } from '../settings.js';
 const router = Router();
 
 /* Restoran/kuryer reytingi — bazadagi qotib qolgan son emas, JONLI hisob
-   (ratings.js: mijozlar bergan izohlar o'rtachasi). */
+   (ratings.js: mijozlar bergan izohlar o'rtachasi).
+   MUHIM: `live` ni tekshiruvchi — `.map(restRow)` chaqirilса Array.map INDEKSni
+   ikkinchi argument qilib beradi (son). Shuning uchun `live` haqiqiy obyekt
+   ekanini tekshiramiz, aks holda o'zimiz hisoblaymiz. */
+function ratingsOf(live) { return (live && live.rests) ? live : liveRatings(); }
 function restRow(r, live) {
-  const lr = (live || liveRatings()).rests[r.name];
+  const lr = ratingsOf(live).rests[r.name];
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr, emoji: r.emoji, kw: r.kw,
     rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
@@ -25,7 +29,7 @@ function restRow(r, live) {
   };
 }
 function courRow(c, live) {
-  const lr = (live || liveRatings()).couriers[c.name];
+  const lr = ratingsOf(live).couriers[c.name];
   return {
     id: c.id, name: c.name, emoji: c.emoji, rest: c.rest, login: c.login,
     phone: c.phone, deliveries: c.deliveries,
@@ -77,12 +81,14 @@ router.patch('/settings', requireRole('admin'), (req, res) => {
 
 /* GET /api/restaurants */
 router.get('/restaurants', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM restaurants ORDER BY id').all().map(restRow));
+  const live = liveRatings();
+  res.json(db.prepare('SELECT * FROM restaurants ORDER BY id').all().map((r) => restRow(r, live)));
 });
 
 /* GET /api/couriers — admin */
 router.get('/couriers', requireRole('admin'), (_req, res) => {
-  res.json(db.prepare('SELECT * FROM couriers ORDER BY id').all().map(courRow));
+  const live = liveRatings();
+  res.json(db.prepare('SELECT * FROM couriers ORDER BY id').all().map((c) => courRow(c, live)));
 });
 
 /* ===== Admin: restoran qo'shish / o'chirish ===== */
