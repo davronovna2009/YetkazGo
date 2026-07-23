@@ -62,6 +62,26 @@ const STORE = (function () {
   function getToken() { return lsRead(K.token, null); }
   function setToken(t) { if (t) lsWrite(K.token, t); else try { localStorage.removeItem(K.token); } catch (e) {} }
 
+  /* ---- MAXFIY keshni tozalash (akkaunt almashganда aralashmasin) ----
+     Buyurtmalar HAR AKKAUNTGA XOS (restoran o'ziniki, kuryer o'ziniki). Ular
+     xotira keshida ham, localStorage'да ham qoladi. Akkaunt almashganда shularni
+     tozalamasak, yangi akkaunt eski akkauntning maxfiy ma'lumotini ko'radi.
+     Ommaviy ma'lumot (reviews, restaurants, e'lonlar, reyting) tozalanmaydi —
+     u hammaga bir xil. */
+  function clearPrivateCache() {
+    cache.orders = [];
+    cache.couriers = [];
+    loaded.couriers = false;
+    try { localStorage.removeItem(K.orders); } catch (e) {}
+    try { localStorage.removeItem(K.otok); } catch (e) {}
+    /* Admin paneli o'z ro'yxatini shu kalitlarда saqlaydi (barcha restoran/kuryer
+       ma'lumoti). Boshqa rol kirса, ular ko'rinmasligi uchun tozalaymiz. */
+    try { localStorage.removeItem("yz_admin_rests_v2"); } catch (e) {}
+    try { localStorage.removeItem("yz_admin_couriers_v2"); } catch (e) {}
+    try { localStorage.removeItem("yz_admin_pending"); } catch (e) {}
+    try { fire(); } catch (e) {}
+  }
+
   /* ---- API yordamchisi ---- */
   let inflight = 0;
   async function api(path, { method = "GET", body, auth = false } = {}) {
@@ -84,6 +104,7 @@ const STORE = (function () {
     authLost = true;
     try { localStorage.removeItem(K.sess); } catch (e) {}
     setToken(null);
+    try { clearPrivateCache(); } catch (e) {}   // maxfiy kesh qolmasin
     try { localStorage.setItem("yz_session_expired", "1"); } catch (e) {}
     try { location.reload(); } catch (e) {}
   }
@@ -482,7 +503,13 @@ const STORE = (function () {
     async login(login, pass) {
       try {
         const r = await api("/auth/login", { method: "POST", body: { login, pass } });
-        if (r && r.token) { setToken(r.token); this.setSession(r.account); refreshOrders(); return r.account; }
+        if (r && r.token) {
+          /* YANGI akkaunt — avval eski akkauntning maxfiy keshini tozalaymiz,
+             keyin token o'rnatib, O'Z ma'lumotini yuklaymiz. Shunда eski
+             buyurtmalar bir lahza ham ko'rinmaydi. */
+          clearPrivateCache();
+          setToken(r.token); this.setSession(r.account); refreshOrders(); return r.account;
+        }
         return null;                       // server javob berdi, lekin token yo'q
       } catch (e) {
         if (e && e.status) return null;     // HTTP xato (401) -> login/parol noto'g'ri
@@ -500,7 +527,7 @@ const STORE = (function () {
     async register(u) {
       try {
         const r = await api("/auth/register", { method: "POST", body: u });
-        if (r && r.token) { setToken(r.token); this.setSession(r.account); refreshOrders(); return r.account; }
+        if (r && r.token) { clearPrivateCache(); setToken(r.token); this.setSession(r.account); refreshOrders(); return r.account; }
         return { error: (r && r.error) || "Xatolik" };
       } catch (e) { return { error: e.message || "Xatolik" }; }
     },
@@ -510,7 +537,15 @@ const STORE = (function () {
 
     session() { return lsRead(K.sess, null); },
     setSession(s) { lsWrite(K.sess, s); },
-    clearSession() { try { localStorage.removeItem(K.sess); } catch (e) {} setToken(null); },
+    /* Chiqishда FAQAT sessiya emas, MAXFIY (akkauntga tegishli) keshni ham
+       tozalaymiz. Aks holda restoran A chiqib, kuryer B shu qurilmaга kirса,
+       B paneli A ning buyurtmalarini (mijoz telefoni/manzili bilan) keshda
+       ko'rib qolardi — akkauntlar ma'lumoti aralashardi. */
+    clearSession() {
+      try { localStorage.removeItem(K.sess); } catch (e) {}
+      setToken(null);
+      clearPrivateCache();
+    },
 
     /* Tokenni SERVERда tekshiradi — localStorage'dagi sessiyaga ISHONMAYMIZ.
        (yz_session ni qo'lda yozib panelni ochib bo'lmasin.)
