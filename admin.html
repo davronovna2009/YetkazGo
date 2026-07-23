@@ -42,6 +42,7 @@
       <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
       <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
       <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
+      <a class="sb-link" data-view="logins"><span class="ic">🔑</span><span class="ic-label">Loginlar</span></a>
       <a class="sb-link" data-view="suspicious"><span class="ic">🔎</span><span class="ic-label">Shubhali buyurtmalar</span><span class="sb-badge" id="suspBadge" hidden>0</span></a>
       <a class="sb-link" data-view="comments"><span class="ic">💬</span><span class="ic-label">Izohlar</span></a>
       <a class="sb-link" data-view="complaints"><span class="ic">📣</span><span class="ic-label">Shikoyatlar</span><span class="sb-badge" id="compBadge" hidden>0</span></a>
@@ -183,6 +184,29 @@
         <div class="panel" style="margin-top:12px">
           <div class="panel-head"><h3>Talab tahlili</h3></div>
           <div class="panel-body" id="demandList"></div>
+        </div>
+      </section>
+
+      <!-- ===== LOGINLAR (barcha akkaunt + parol yangilash) ===== -->
+      <section class="view" id="view-logins">
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head"><h3>🔑 Barcha loginlar</h3></div>
+          <div class="panel-body" style="font-size:14px;color:var(--grey)">
+            Parollar bazada <b>xeshlangan</b> — ularni o'qib bo'lmaydi (himoya).
+            Kerak bo'lsa quyidagi «Parol yangilash» tugmasi bilan yangi parol qo'ying —
+            u <b>bir marta</b> ko'rsatiladi, nusxa olib egasiga bering.
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Akkauntlar</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input id="loginSearch" placeholder="Login yoki ism bo'yicha qidirish..."
+                     style="min-width:180px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;font-family:inherit" />
+              <button class="add-action-btn" id="loginRefresh" style="background:#9ca3af">↻</button>
+            </div>
+          </div>
+          <div class="panel-body" id="loginsList"></div>
         </div>
       </section>
 

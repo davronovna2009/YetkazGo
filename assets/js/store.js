@@ -417,6 +417,13 @@ const STORE = (function () {
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
+    /* ---- LOGINLAR (admin): barcha akkaunt + parol yangilash ---- */
+    fetchAccounts() { return api("/accounts", { auth: true }).catch(() => []); },
+    resetAccountPassword(login, pass) {
+      const body = pass ? { login, pass } : { login };
+      return api("/accounts/reset-password", { method: "POST", body, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
     /* Admin foydalanuvchi ma'lumotini tahrirlaydi (restoran/kuryerdagi kabi) */
     editUser(data) {
       return api("/users", { method: "PATCH", body: data, auth: true })

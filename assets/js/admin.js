@@ -189,7 +189,7 @@
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",
-                  suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
+                  logins:"Loginlar",suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
                   blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
@@ -198,9 +198,81 @@
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
     if(view==="complaints") loadComplaints();
+    if(view==="logins") loadAccounts();
     if(view==="settings"){ fillOwnerSettings(); renderAnnList(); }
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
+  }
+
+  /* =========================================================
+     LOGINLAR — barcha akkaunt (login) + parol yangilash
+     ========================================================= */
+  let ACCOUNTS=[], loginQuery="";
+  const ROLE_INFO={admin:{t:"🛡 Adminlar",c:"#7c3aed"},restoran:{t:"🏪 Restoranlar",c:"#C8102E"},kuryer:{t:"🛵 Kuryerlar",c:"#2563eb"},user:{t:"👥 Foydalanuvchilar",c:"#16a34a"}};
+  async function loadAccounts(){
+    if(typeof STORE==="undefined" || !STORE.fetchAccounts) return;
+    const host=$("#loginsList"); if(host && !ACCOUNTS.length) host.innerHTML='<p style="color:#9a8d83;padding:16px">Yuklanmoqda...</p>';
+    const list=await STORE.fetchAccounts();
+    ACCOUNTS=Array.isArray(list)?list:[];
+    renderLogins();
+  }
+  function renderLogins(){
+    const host=$("#loginsList"); if(!host) return;
+    const q=loginQuery.trim().toLowerCase();
+    let list=ACCOUNTS.slice();
+    if(q) list=list.filter(a=>[a.login,a.name,a.phone].some(v=>String(v||"").toLowerCase().indexOf(q)>=0));
+    if(!list.length){ host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">'+(q?"Mos akkaunt topilmadi.":"Akkaunt yo'q.")+'</p>'; return; }
+    /* Rol bo'yicha guruhlab */
+    const order=["admin","restoran","kuryer","user"];
+    let html="";
+    order.forEach(function(role){
+      const rows=list.filter(a=>a.role===role);
+      if(!rows.length) return;
+      const info=ROLE_INFO[role]||{t:role,c:"#777"};
+      html+='<div style="margin:6px 0 4px;font-weight:800;color:'+info.c+';font-size:14px">'+info.t+' <span style="color:var(--grey);font-weight:600">('+rows.length+')</span></div>';
+      html+=rows.map(function(a){
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">'+
+          '<div style="flex:1;min-width:160px">'+
+            '<div style="font-weight:700">'+esc(a.name||"—")+'</div>'+
+            '<div style="color:var(--grey);font-size:13px">🔑 <span class="mono">'+esc(a.login)+'</span>'+(a.phone?' · 📞 '+esc(a.phone):'')+'</div>'+
+          '</div>'+
+          '<button class="add-action-btn" data-resetpw="'+esc(a.login)+'" style="background:#2563eb;flex:none">🔑 Parol yangilash</button>'+
+        '</div>';
+      }).join("");
+    });
+    host.innerHTML=html;
+    host.querySelectorAll("[data-resetpw]").forEach(function(b){ b.addEventListener("click",function(){ openResetPw(b.dataset.resetpw); }); });
+  }
+  /* Parol yangilash oynasi — yangi parol yozasiz yoki avtomatik yaratiladi */
+  function openResetPw(login){
+    const acc=ACCOUNTS.find(a=>a.login===login); if(!acc) return;
+    var el=document.getElementById("resetPwModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="resetPwModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px">'+
+      '<h3 style="margin:0 0 6px">🔑 Parol yangilash</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 12px"><b>'+esc(acc.name||acc.login)+'</b> ('+(ROLE_INFO[acc.role]?ROLE_INFO[acc.role].t.replace(/^\S+\s/,''):acc.role)+') · login: <b class="mono">'+esc(acc.login)+'</b></p>'+
+      '<div class="add-field"><label>Yangi parol (bo\'sh qoldirsangiz — avtomatik yaratiladi)</label>'+
+        '<input id="resetPwInput" type="text" placeholder="Masalan: Osh#2026 yoki bo\'sh qoldiring" autocomplete="new-password"></div>'+
+      '<div style="display:flex;gap:10px;margin-top:12px">'+
+        '<button id="resetPwCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
+        '<button id="resetPwOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Yangilash</button>'+
+      '</div></div>';
+    document.body.appendChild(el);
+    const inp=el.querySelector("#resetPwInput"); inp.focus();
+    el.querySelector("#resetPwCancel").addEventListener("click",function(){ el.remove(); });
+    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
+    el.querySelector("#resetPwOk").addEventListener("click",async function(){
+      var pass=inp.value.trim();
+      if(pass && pass.length<4){ toast("Parol kamida 4 belgi bo'lsin"); return; }
+      this.disabled=true; this.textContent="Yangilanmoqda...";
+      const r=(typeof STORE!=="undefined"&&STORE.resetAccountPassword)? await STORE.resetAccountPassword(login, pass||undefined) : null;
+      el.remove();
+      if(r && !r.error && r.pass){
+        toast("✅ Parol yangilandi");
+        showNewPassOnce(acc.name||acc.login, r.pass);
+      } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+    });
   }
 
   /* =========================================================
@@ -2004,6 +2076,12 @@
     // Izohlar bo'limi — qidiruv (ijobiy/salbiy tab renderComments ichida)
     const cs=document.getElementById("cmtSearch");
     if(cs) cs.addEventListener("input",function(){ cmtQuery=cs.value; renderComments(); });
+
+    // Loginlar bo'limi — qidiruv va yangilash
+    const ls=document.getElementById("loginSearch");
+    if(ls) ls.addEventListener("input",function(){ loginQuery=ls.value; renderLogins(); });
+    const lr=document.getElementById("loginRefresh");
+    if(lr) lr.addEventListener("click",loadAccounts);
 
     // Bloklangan raqamlar bo'limi
     const blkRefresh=document.getElementById("blockRefreshBtn");

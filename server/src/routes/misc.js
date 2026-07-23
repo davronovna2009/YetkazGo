@@ -528,4 +528,37 @@ router.patch('/users', requireRole('admin'), (req, res) => {
   res.json({ id: n.id, login: n.login, name: n.name, phone: n.phone || '', email: n.email || '', joined: (n.created_at || '').slice(0, 10) });
 });
 
+/* ===== LOGINLAR RO'YXATI + PAROL YANGILASH (faqat admin) =====
+   Parollar bazada XESHLANGAN — hech qachon qaytarilmaydi. Bu yerда admin
+   barcha akkauntlar loginini bir joyдан ko'radi va kerak bo'lsa yangi parol
+   o'rnatadi (yangi parol javobда BIR MARTA qaytadi — nusxa olib egasiga beriladi). */
+
+/* GET /api/accounts — barcha akkauntlar (login, rol, ism, telefon). Parolsiz. */
+router.get('/accounts', requireRole('admin'), (_req, res) => {
+  const rows = db.prepare(
+    'SELECT id, login, role, name, phone, email, created_at FROM accounts ORDER BY role, login'
+  ).all();
+  res.json(rows.map((a) => ({
+    id: a.id, login: a.login, role: a.role, name: a.name || '',
+    phone: a.phone || '', email: a.email || '', joined: (a.created_at || '').slice(0, 10),
+  })));
+});
+
+/* POST /api/accounts/reset-password — istalgan akkauntга yangi parol.
+   body: { login, pass? } — pass berilmasa tasodifiy kuchli parol yaratiladi.
+   Javob: { ok, login, role, name, pass } — pass FAQAT shu javobда ko'rinadi. */
+router.post('/accounts/reset-password', requireRole('admin'), (req, res) => {
+  const login = String(req.body?.login || '').trim();
+  if (!login) return res.status(400).json({ error: 'login kerak' });
+  const acc = db.prepare('SELECT * FROM accounts WHERE login = ?').get(login);
+  if (!acc) return res.status(404).json({ error: 'Akkaunt topilmadi' });
+
+  let pass = String(req.body?.pass || '').trim();
+  if (!pass) pass = 'yz-' + randomBytes(6).toString('base64url');   // tasodifiy kuchli parol
+  if (pass.length < 4) return res.status(400).json({ error: 'Parol kamida 4 belgi bo`lsin' });
+
+  db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(pass), acc.id);
+  res.json({ ok: true, login: acc.login, role: acc.role, name: acc.name || '', pass });
+});
+
 export default router;
