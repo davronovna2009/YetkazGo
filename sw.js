@@ -3,13 +3,13 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v15 — taom cheklovi + 3 xil taom (taom/ichimlik/shirinlik), jonli reyting,
-   bot/sayt statistikasi, ro'yxatdan o'tgan/mehmon mijozlar, karta/naqd hisoboti,
-   kuryer daromadi, shikoyatlar tizimi (complaint-box.js), sayt egasi raqami.
-   (v14 — buyurtma tarkibi rasm bilan; v13 — bot FAQAT MIJOZ uchun;
-    v12 — buyurtma manbasi; v9 — manzil/telefon; v7 — hours.js;
-    v6 — narx serverda + CSP/nonce + safe.js.) */
-const CACHE = 'yetkaz-v15';
+/* v16 — telefonда bildirishnoma (service worker showNotification + titrash),
+   shubhali buyurtma FAQAT hajm bo'yicha (tez-tez buyurtma qoidasi olib tashlandi),
+   bitta kuryer bo'lsa hamma buyurtma unga.
+   (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
+    mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
+    bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
+const CACHE = 'yetkaz-v16';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
@@ -32,6 +32,23 @@ self.addEventListener('activate', (e) => {
     caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
   );
   self.clients.claim();
+});
+
+/* Bildirishnoma bosilganда — panelni ochamiz yoki fokuslamaymiz.
+   Telefonда bildirishnoma service worker orqali chiqadi (notify.js), shuning
+   uchun bosilganда shu yerда ushlanadi. */
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cls) => {
+      /* Ochiq panel bo'lsa — o'shani fokuslaymiz */
+      for (const c of cls) {
+        if ('focus' in c) { try { c.focus(); return; } catch (err) {} }
+      }
+      /* Aks holda yangi oyna — restoran/kuryer paneliga qaytamiz (oxirgi yo'l) */
+      if (self.clients.openWindow) return self.clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('fetch', (e) => {

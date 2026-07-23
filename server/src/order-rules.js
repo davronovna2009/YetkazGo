@@ -19,20 +19,23 @@
 
    MUHIM: bu qoidalar blocks.js dagi BLOKLASH qoidalaridan ALOHIDA. U yerда
    raqam bloklanadi (spam), bu yerда esa buyurtma tekshiruvga olinadi. */
-import { db } from './db.js';
 
 /* ---- 1) Kuryer qo'ng'irog'i shart bo'ladigan chegaralar ---- */
 export const CALL_QTY = 10;          // shundan KO'P dona bo'lsa
 export const CALL_AMOUNT = 300000;   // yoki shundan QIMMAT bo'lsa (so'm)
 
 /* ---- 2) Shubhali (adminга yo'naltiriladigan) buyurtma chegaralari ----
-   20 donadan ko'p mahsulot buyurtma qilinsa — avval ADMIN ko'radi. Admin
-   tasdiqlasa restoranga va kuryerga yo'naltiriladi. */
+   FAQAT HAJMI KATTA buyurtma adminga boradi: 20 donadan ko'p mahsulot,
+   yoki juda qimmat, yoki juda ko'p xil taom. Oddiy (kichik) buyurtma
+   TO'G'RIDAN restoranga/kuryerga boradi — adminga TUSHMAYDI.
+
+   MUHIM: "qisqa vaqtда ko'p buyurtma" qoidasi BU YERДА YO'Q. Ilgari 30
+   daqiqada 3 ta buyurtma bergan oddiy mijozning KICHIK buyurtmasi ham
+   adminga ketardi. Ketma-ket spam allaqachon blocks.js da hal qilinadi
+   (10 daqiqada 6 ta → raqam bloklanadi). */
 export const SUSPECT_QTY = 20;            // 20 donadan ko'p mahsulot
 export const SUSPECT_AMOUNT = 3000000;    // 3 mln so'mdan qimmat
 export const SUSPECT_LINES = 30;          // 30 xildan ko'p turli taom
-export const SUSPECT_WINDOW_MIN = 30;     // shu daqiqada
-export const SUSPECT_ORDERS = 3;          // shuncha buyurtma bergan bo'lsa
 
 /* Buyurtmadagi JAMI dona soni (2 ta osh + 3 ta somsa = 5) */
 export function totalQty(lines) {
@@ -52,8 +55,9 @@ export function callRule(amount, lines) {
 }
 
 /* Buyurtma shubhalimi (adminga yo'naltiriladimi)?
+   FAQAT hajm bo'yicha — buyurtma vaqti/tezligi bilan ALOQASI YO'Q.
    Qaytaradi: { suspicious: boolean, reason: string } */
-export function suspicionCheck({ phone, amount, lines }) {
+export function suspicionCheck({ amount, lines }) {
   const qty = totalQty(lines);
   const sum = Number(amount) || 0;
   const kinds = Array.isArray(lines) ? lines.length : 0;
@@ -63,20 +67,6 @@ export function suspicionCheck({ phone, amount, lines }) {
   if (sum > SUSPECT_AMOUNT) why.push(`${sum.toLocaleString('ru-RU')} so'm`);
   if (kinds > SUSPECT_LINES) why.push(`${kinds} xil turli taom`);
 
-  /* Qisqa vaqtда ketma-ket buyurtma — raqamni bloklash darajasida emas, lekin
-     tekshirishga arziydi (blocks.js SPAM_MAX dan pastroq chegara). */
-  if (phone) {
-    let cnt = 0;
-    try {
-      const r = db.prepare(
-        `SELECT COUNT(*) AS n FROM orders
-          WHERE phone = ? AND created_at > datetime('now', '-${SUSPECT_WINDOW_MIN} minutes')`
-      ).get(String(phone));
-      cnt = (r && r.n) || 0;
-    } catch (e) { cnt = 0; }
-    if (cnt >= SUSPECT_ORDERS) why.push(`${SUSPECT_WINDOW_MIN} daqiqada ${cnt + 1} ta buyurtma`);
-  }
-
   return { suspicious: why.length > 0, reason: why.join(' · ') };
 }
 
@@ -85,6 +75,5 @@ export function rulesSnapshot() {
   return {
     callQty: CALL_QTY, callAmount: CALL_AMOUNT,
     suspectQty: SUSPECT_QTY, suspectAmount: SUSPECT_AMOUNT, suspectLines: SUSPECT_LINES,
-    suspectWindowMin: SUSPECT_WINDOW_MIN, suspectOrders: SUSPECT_ORDERS,
   };
 }

@@ -58,12 +58,45 @@
     if (!enabled()) return;
     bell();
     toast(title + (body ? " — " + body : ""));
+    showNotification(title, body);
+    /* Telefon: qo'ng'iroqcha bilan birga TITRASH ham (ekran o'chiq bo'lса ham seziladi) */
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+  }
+
+  /* Bildirishnoma ko'rsatish.
+     MUHIM (telefon uchun): Android/iOS'да `new Notification(...)` ISHLAMAYDI
+     ("Illegal constructor" xatosi). Telefonда bildirishnoma FAQAT service
+     worker orqali chiqadi: registration.showNotification(). Shuning uchun avval
+     SW ni sinaymiz, bo'lmasa (kompyuter) oddiy Notification'ga tushamiz. */
+  function showNotification(title, body) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    var opts = {
+      body: body || "",
+      tag: "yz-order",           // bir xil tag — bildirishnomalar to'planib ketmaydi
+      renotify: true,
+      icon: "/assets/favicon-64.png",
+      badge: "/assets/favicon-64.png",
+      vibrate: [200, 100, 200],
+      requireInteraction: false,
+    };
+    /* 1) Service worker (telefon + PWA) — asosiy yo'l */
     try {
-      if ("Notification" in window && Notification.permission === "granted") {
-        var n = new Notification("🔔 " + title, { body: body || "", tag: "yz-" + Date.now(), icon: "/assets/favicon-64.png" });
-        setTimeout(function () { try { n.close(); } catch (e) {} }, 6000);
+      if ("serviceWorker" in navigator && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(function (reg) {
+          try { reg.showNotification("🔔 " + title, opts); }
+          catch (e) { fallbackNotification(title, opts); }
+        }).catch(function () { fallbackNotification(title, opts); });
+        return;
       }
     } catch (e) {}
+    /* 2) Zaxira — kompyuter brauzeri */
+    fallbackNotification(title, opts);
+  }
+  function fallbackNotification(title, opts) {
+    try {
+      var n = new Notification("🔔 " + title, opts);
+      setTimeout(function () { try { n.close(); } catch (e) {} }, 6000);
+    } catch (e) { /* telefonда bu xato beradi — jim o'tamiz (SW allaqachon urindi) */ }
   }
 
   /* ---- Joriy rolga tegishli buyurtmalar ---- */
@@ -117,8 +150,10 @@
     card.innerHTML =
       '<div class="panel-head"><h3>🔔 Bildirishnoma</h3></div>' +
       '<div class="panel-body">' +
-        '<p style="color:var(--grey);font-size:13px;margin-bottom:12px">Yangi buyurtma, "tayyor" va "mijoz qabul qildi" hodisalarида <b>qo\'ng\'iroqcha ovozi</b> bilan ogohlantiradi.' +
-          (perm === "denied" ? ' <span style="color:#C8102E">(Brauzerда bildirishnomaга ruxsat berilmagan — faqat ovoz+ekran ishlaydi)</span>' : '') + '</p>' +
+        '<p style="color:var(--grey);font-size:13px;margin-bottom:12px">Yangi buyurtma, "tayyor" va "mijoz qabul qildi" hodisalarида <b>qo\'ng\'iroqcha ovozi</b>, <b>titrash</b> va telefon ekranida <b>bildirishnoma</b> bilan ogohlantiradi.' +
+          (perm === "denied" ? ' <span style="color:#C8102E">(Bildirishnomaга ruxsat berilmagan — faqat ovoz+ekran ishlaydi. Telefon sozlamalaridан ruxsat bering.)</span>' :
+           (perm === "default" ? ' <span style="color:#d97706">(Bildirishnoma uchun «Yoqish» ni bosib, ruxsat bering.)</span>' : '')) + '</p>' +
+        '<p style="color:var(--grey);font-size:12px;margin-bottom:12px">📱 Telefonда: saytni «Bosh ekranga qo\'shish» orqali ilova qilib o\'rnating — ekran o\'chiq bo\'lса ham bildirishnoma keladi.</p>' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
           '<button class="set-save" id="ntfToggle" style="background:' + (on ? '#C8102E' : '#16a34a') + '">' + (on ? '🔕 O\'chirish' : '🔔 Yoqish') + '</button>' +
           '<button class="set-save" id="ntfTest" style="background:#6b7280">🔔 Sinab ko\'rish</button>' +

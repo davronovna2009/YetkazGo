@@ -121,6 +121,12 @@ export function assignCourier(rest) {
   const onShift = rows.filter(courierIsOpen);
   const pool = onShift.length ? onShift : rows;
 
+  /* ===== BITTA KURYER — HAMMA BUYURTMA UNGA =====
+     Faqat bitta faol kuryer bo'lsa, 2 talik cheklov QO'LLANMAYDI: barcha
+     buyurtma o'shanga boradi (aks holda 3-buyurtmadan keyin egasiz qolardi).
+     2 talik cheklov FAQAT bir nechta kuryer bo'lganда ishlaydi. */
+  if (pool.length === 1) return pool[0].name;
+
   /* Shu restoranniki oldinroq turishi uchun (bir xil yukda hal qiluvchi omil) */
   const mineFirst = (a, b) => (a.rest === restName ? 0 : 1) - (b.rest === restName ? 0 : 1);
 
@@ -193,7 +199,7 @@ export function createOrder(b = {}) {
      - shubhali bo'lsa: status 'review' — restoran ham, kuryer ham KO'RMAYDI,
        faqat admin panelida chiqadi. Admin tasdiqlagach 'new' bo'ladi.
      - katta bo'lsa: kuryerга "avval mijozga qo'ng'iroq qiling" sharti qo'yiladi. */
-  const suspect = suspicionCheck({ phone, amount: priced.amount, lines: priced.lines });
+  const suspect = suspicionCheck({ amount: priced.amount, lines: priced.lines });
   const call = callRule(priced.amount, priced.lines);
   const status = suspect.suspicious ? 'review' : 'new';
 

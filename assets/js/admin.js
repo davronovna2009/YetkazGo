@@ -228,13 +228,13 @@
           'siz tasdiqlaganingizdan keyingina ishga tushadi.'+
         '</div>'+
         '<div style="display:flex;flex-direction:column;gap:6px">'+
-        '<div style="padding-left:4px">📦 <b>60 donadan ko\'p</b> mahsulot buyurtma qilingan bo\'lsa</div>'+
+        '<div style="padding-left:4px">📦 <b>20 donadan ko\'p</b> mahsulot buyurtma qilingan bo\'lsa</div>'+
         '<div style="padding-left:4px">💰 Summa <b>3 000 000 so\'mdan</b> oshsa</div>'+
         '<div style="padding-left:4px">🍽️ <b>30 xildan ko\'p</b> turli taom tanlangan bo\'lsa</div>'+
-        '<div style="padding-left:4px">⏱ Bitta raqamdan <b>30 daqiqada 3 va undan ko\'p</b> buyurtma kelsa</div>'+
         '<div style="color:#16a34a;margin-top:6px">✅ Tasdiqlasangiz — buyurtma restoranga tushadi va kuryer biriktiriladi.</div>'+
-        '<div style="color:var(--grey);margin-top:8px;font-size:13px">Eslatma: oddiy katta buyurtma (20–30 ta mahsulot) restoranga '+
-          'to\'g\'ridan-to\'g\'ri boradi — unда kuryer yo\'lga chiqishdan oldin mijozga qo\'ng\'iroq qiladi.</div>'+
+        '<div style="color:var(--grey);margin-top:8px;font-size:13px">Eslatma: <b>faqat hajmi katta</b> buyurtma shu yerga tushadi. '+
+          'Oddiy (kichik) buyurtma to\'g\'ridan restoranga boradi — adminga <b>tushmaydi</b>. Ketma-ket spam esa '+
+          'avtomatik bloklanadi («Bloklangan raqamlar» bo\'limi).</div>'+
         '</div>';
     }
     const host=$("#suspList"); if(!host) return;
