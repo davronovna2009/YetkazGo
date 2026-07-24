@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireRole } from '../auth.js';
+import { toImageUrl } from './upload.js';
 
 const router = Router();
 
@@ -20,9 +21,11 @@ router.post('/', requireRole('restoran', 'admin'), (req, res) => {
   if (!String(b.text || '').trim()) return res.status(400).json({ error: 'Matn kerak' });
   /* Egalik: restoran FAQAT o'z nomidan e'lon joylaydi (admin — istalganidan) */
   const rest = req.user.role === 'restoran' ? req.user.name : String(b.rest || '');
+  /* Reklama rasmi data: URL bo'lsa — /img/ ga aylantiramiz (javob shishmasin) */
+  const img = toImageUrl(b.img || '');
   const info = db.prepare(
     'INSERT INTO announcements (rest, text, emoji, tag, dish, img) VALUES (?,?,?,?,?,?)'
-  ).run(rest, String(b.text), String(b.emoji || '📢'), String(b.tag || ''), String(b.dish || ''), String(b.img || ''));
+  ).run(rest, String(b.text), String(b.emoji || '📢'), String(b.tag || ''), String(b.dish || ''), img);
   res.status(201).json(rowToAnn(db.prepare('SELECT * FROM announcements WHERE id = ?').get(info.lastInsertRowid)));
 });
 

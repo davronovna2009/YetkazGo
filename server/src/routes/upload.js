@@ -21,6 +21,26 @@ const router = Router();
 const MAX_BYTES = 6 * 1024 * 1024;   // 6MB — frontend rasmni 800–900px ga siqadi
 const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
 
+/* base64 `data:` rasmni bazaga saqlab, QISQA `/img/xxx` yo'lini qaytaradi.
+   data: URL bo'lmasa — o'zini qaytaradi (allaqachon qisqa yo'l). Xato bo'lsa
+   bo'sh satr (chaqiruvchi emoji zaxirasига tushadi).
+   MAQSAD: hech qachon ustunда to'liq base64 saqlanmasin — u /api/bootstrap
+   javobini megabaytга shishirib, panelni qotiradi. */
+export function toImageUrl(photo) {
+  const s = String(photo || '');
+  const m = s.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/);
+  if (!m) return s;   // data: emas — tegmaymiz
+  const ext = m[1] === 'jpeg' ? 'jpg' : m[1];
+  let buf;
+  try { buf = Buffer.from(m[2], 'base64'); } catch (e) { return ''; }
+  if (!buf.length || buf.length > MAX_BYTES) return '';
+  const name = `dish_${Date.now()}_${Math.floor(Math.random() * 1e6)}.${ext}`;
+  try {
+    db.prepare('INSERT INTO images (name, mime, data) VALUES (?,?,?)').run(name, MIME[ext], buf);
+    return '/img/' + name;
+  } catch (e) { return ''; }
+}
+
 /* POST /api/upload  body: { dataUrl: "data:image/png;base64,..." } -> { url } */
 router.post('/', requireRole('restoran', 'admin'), (req, res) => {
   const dataUrl = String(req.body?.dataUrl || '');

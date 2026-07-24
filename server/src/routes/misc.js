@@ -7,6 +7,7 @@ import { requireRole, hashPassword } from '../auth.js';
 import { getOverrides } from './dishes.js';
 import { liveRatings } from '../ratings.js';
 import { publicSettings, setSetting, KEYS } from '../settings.js';
+import { toImageUrl } from './upload.js';
 
 const router = Router();
 
@@ -165,7 +166,8 @@ router.delete('/couriers', requireRole('admin'), (req, res) => {
 
 /* POST /api/restaurants/photo — restoran EGASI faqat O'Z rasmini o'zgartiradi (admin — istalganini) */
 router.post('/restaurants/photo', requireRole('restoran', 'admin'), (req, res) => {
-  const photo = String(req.body?.photo || '');
+  /* data: URL bo'lsa — /img/ ga aylantiramiz (bootstrap javobi shishmasin) */
+  const photo = toImageUrl(req.body?.photo || '');
   let login = req.user.role === 'restoran' ? req.user.login : String(req.body?.login || '').trim();
   if (!login) return res.status(400).json({ error: 'login kerak' });
   const r = db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login);

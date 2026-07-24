@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { requireRole } from '../auth.js';
 import { liveRatings } from '../ratings.js';
+import { toImageUrl } from './upload.js';
 
 const router = Router();
 const key = (rest, name) => `${rest}|${name}`;
@@ -57,6 +58,9 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   const price = Math.max(0, Math.round(Number(b.price) || 0));
   const kind = KINDS.includes(String(b.kind)) ? String(b.kind) : 'taom';
   const maxQty = Math.max(0, Number(b.maxQty) || 0);
+  /* Rasm data: URL bo'lsa — DARROV bazaga ko'chirib qisqa /img/ yo'lini olamiz.
+     Aks holda to'liq base64 ustunда qolib, katalog javobini shishirardi. */
+  const photo = toImageUrl(b.photo);
   /* Reyting endi izohlardan hisoblanadi — bazaga 0 yozamiz (eski ustun qoladi) */
   db.prepare(
     `INSERT OR REPLACE INTO added_dishes (id, name, name_cyr, emoji, price, rest, cat, kw, photo, rating, sold, badge, weight, ingredients, descr, kind, max_qty, volume, dtype, allergens)
@@ -64,7 +68,7 @@ router.post('/dishes', requireRole('restoran', 'admin'), (req, res) => {
   ).run(
     id, String(b.name || ''), String(b.nameCyr || ''), String(b.emoji || '🍽️'),
     price, rest, String(b.cat || 'Fastfood'),
-    String(b.kw || ''), String(b.photo || ''), 0,
+    String(b.kw || ''), photo, 0,
     Number(b.sold) || 0, String(b.badge || ''),
     String(b.weight || '').slice(0, 40), String(b.ingredients || '').slice(0, 300), String(b.descr || '').slice(0, 300),
     kind, maxQty,

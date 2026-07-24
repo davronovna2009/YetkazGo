@@ -17,7 +17,7 @@ import dishesRoutes from './routes/dishes.js';
 import announcementsRoutes from './routes/announcements.js';
 import miscRoutes from './routes/misc.js';
 import uploadRoutes, { imageRouter } from './routes/upload.js';
-import { migrateUploadsToDb } from './migrate-images.js';
+import { migrateUploadsToDb, migrateDataUrlsToDb } from './migrate-images.js';
 import resetRoutes from './routes/reset.js';
 import adminExtraRoutes from './routes/admin-extra.js';
 import complaintsRoutes from './routes/complaints.js';
@@ -37,6 +37,9 @@ startDeadlineAlerts();
 setAutoBlockNotifier(notifyPhoneBlocked);
 /* Diskda qolgan eski rasmlarni bazaga ko'chiramiz (bir martalik, xavfsiz) */
 migrateUploadsToDb();
+/* Ustunда qolib ketgan katta base64 `data:` rasmlarni ham bazaga ko'chiramiz —
+   aks holda ular /api/bootstrap javobini megabaytga shishirib, panelni qotiradi. */
+migrateDataUrlsToDb();
 
 const app = express();
 
