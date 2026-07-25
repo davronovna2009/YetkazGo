@@ -248,6 +248,10 @@
       /* Ko'p mahsulotli buyurtma: barcha taomlar rasm lentasi (yon tomonga suriladi) */
       const n=(o.items&&o.items.length)||0;
       const strip = n>1 ? `<div style="color:var(--red);font-size:11px;font-weight:800;margin-top:4px">${n} xil · ${orderQty(o)} dona</div>${(function(){try{return YZ_ITEMS.strip(o);}catch(e){return "";}})()}` : "";
+      /* MIJOZ IZOHI ("sous bilan", "achchiq solmang") — ro'yxatning O'ZIDA
+         to'liq ko'rinadi. Kuryer modalni ochmasdan ham nima olib chiqishini
+         biladi: izohni o'tkazib yuborsa buyurtma noto'g'ri yetkaziladi. */
+      const noteBox=(function(){ try{ return YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi — shuni bajaring"}); }catch(e){ return ""; } })();
       return `<div class="panel" style="margin-bottom:14px;cursor:pointer" data-oid="${o.id}"><div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <span class="av" style="width:48px;height:48px;font-size:24px">${o.emoji}</span>
         <div style="flex:1;min-width:160px">
@@ -260,6 +264,7 @@
           ${kTimeBadge(o)}
         </div>
         ${right}
+        ${noteBox}
       </div></div>`;
     }).join("") : '<div style="color:var(--grey);padding:20px">Hozircha buyurtma yo\'q.</div>';
     $$("#"+hostId+" button[data-adv]").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); advance(+b.dataset.adv); }));
@@ -297,6 +302,8 @@
     /* Buyurtma tarkibi — har bir taom rasmi, dona soni va summasi bilan.
        20–30 mahsulotli buyurtmada ro'yxat ichida scroll bo'ladi (order-items.js). */
     let itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:250}); }catch(e){}
+    /* Mijoz izohi holat yorlig'idan ham TEPADA — kuryer birinchi shuni ko'radi */
+    let notesTop=""; try{ notesTop=YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi — shuni bajaring"}); }catch(e){}
     const gate = s.next==="ontheway" && needsCall(o);
     el.innerHTML=`<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">
       <button id="ordModalClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
@@ -304,6 +311,7 @@
       <h3 style="text-align:center;margin:6px 0 2px">${esc(o.item)}</h3>
       <div style="text-align:center;margin-bottom:8px"><span class="pill ${s.p}">${s.t}</span></div>
       <div style="text-align:center">${callBadge(o)}</div>
+      ${notesTop}
       ${itemsHtml}
       <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Mijoz</span><b>${esc(o.user)||"-"}</b></div>
@@ -358,17 +366,21 @@
     const fee=Math.max(0, Number(CUR&&CUR.fee)||0);
     const done=ORDERS.filter(o=>o.status==="done");
     const inP=done.filter(o=>kInPeriod(o,kIncomePeriod));
-    const earn=inP.length*fee;
+    /* Haq HAR BUYURTMAGA yetkazilgan paytda muhrlanadi (server: courier_fee).
+       Admin haqni keyin oshirsa/kamaytirsa, O'TGAN buyurtmalar daromadi
+       qayta yozilmaydi — kuryer ko'rgan raqam haqiqiy to'lovga mos turadi. */
+    const feeOf=o=>(o&&o.courierFee!=null)?(Number(o.courierFee)||0):fee;
+    const earn=inP.reduce((s,o)=>s+feeOf(o),0);
     const card=inP.filter(o=>o.pay!=="cash"), cash=inP.filter(o=>o.pay==="cash");
     const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[kIncomePeriod];
     const seg=(k,t)=>`<button class="kinc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     /* Oylik grafik — so'nggi 6 oy, yetkazilgan buyurtmalar bo'yicha */
     const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
     const now=new Date(); const slots=[];
-    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],n:0}); }
-    done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); if(!mm) return; const sl=slots.find(x=>x.y===+mm[1]&&x.m===(+mm[2]-1)); if(sl) sl.n++; });
-    const max=Math.max.apply(null,slots.map(x=>x.n*fee).concat([1]));
-    const chart=slots.map(function(x){ const v=x.n*fee; return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:#8a7f76">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#16a34a,#4ade80);height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],n:0,sum:0}); }
+    done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); if(!mm) return; const sl=slots.find(x=>x.y===+mm[1]&&x.m===(+mm[2]-1)); if(sl){ sl.n++; sl.sum+=feeOf(o); } });
+    const max=Math.max.apply(null,slots.map(x=>x.sum).concat([1]));
+    const chart=slots.map(function(x){ const v=x.sum; return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:#8a7f76">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#16a34a,#4ade80);height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
     host.innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
@@ -377,7 +389,8 @@
       <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
           <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Yetkazilgan</span><b>${money(inP.length)} ta</b></div>
-          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>1 yetkazish haqi</span><b>${money(fee)} so'm</b></div>
+          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>1 yetkazish haqi (hozirgi)</span><b>${money(fee)} so'm</b></div>
+          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>O'rtacha haq (shu davrda)</span><b>${money(inP.length?Math.round(earn/inP.length):fee)} so'm</b></div>
           <div class="fin-row tot" style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--line);margin-top:6px"><span>Sizning daromadingiz</span><b style="color:var(--green);font-size:17px">${money(earn)} so'm</b></div>
         </div></div>
         <div class="panel"><div class="panel-head"><h3>💳 To'lov turi</h3></div><div class="panel-body">

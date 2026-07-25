@@ -326,5 +326,13 @@ export function initSchema() {
     "ALTER TABLE added_dishes ADD COLUMN dtype TEXT DEFAULT ''",
     // Shirinlik uchun: allergenlar (yong'oq, sut, gluten...)
     "ALTER TABLE added_dishes ADD COLUMN allergens TEXT DEFAULT ''",
+    // ===== MOLIYA: buyurtma HAR DOIM o'z shartlarini o'zida saqlaydi =====
+    // Ilgari daromad hisobi restoranning HOZIRGI komissiyasi va kuryerning
+    // HOZIRGI haqi bo'yicha qayta hisoblanardi. Admin foizni o'zgartirsa,
+    // O'TGAN OYNING daromadi ham o'zgarib ketardi — hisobot yolg'on bo'lardi.
+    // Endi foiz buyurtma yaratilganda, kuryer haqi esa yetkazilganda YOZILADI
+    // va keyin o'zgarmaydi. Barcha panel (restoran/kuryer/admin) shundan hisoblaydi.
+    'ALTER TABLE orders ADD COLUMN commission_pct INTEGER DEFAULT -1',   // -1 = eski buyurtma (restoran joriy foizi ishlatiladi)
+    'ALTER TABLE orders ADD COLUMN courier_fee INTEGER DEFAULT -1',      // -1 = hali yetkazilmagan / eski buyurtma
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 }

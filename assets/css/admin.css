@@ -1396,3 +1396,57 @@ a{color:inherit;text-decoration:none}
 .kimg-bg{transform:scale(1.24)}
 /* Mobil (kichik ekran) — index kabi biroz pastroq, lekin nisbat saqlanadi */
 @media(max-width:520px){ .kimg{min-height:104px} }
+
+/* ===== TAOMGA IZOH — mijoz tilagi ("sous bilan", "achchiq solmang") =====
+   Kabinet savatida yoziladi; restoran/kuryer/admin panelida ko'rsatiladi.
+   Bu KO'RINISHI SHART bo'lgan ma'lumot — shuning uchun qizil, qalin va rasm
+   yonida emas, alohida qatorda turadi. */
+.kab-dr-row{flex-wrap:wrap}
+.ci-note{flex:0 0 100%;margin:2px 0 4px}
+.ci-note-lbl{display:block;font-size:11px;font-weight:700;color:var(--grey);margin-bottom:4px}
+.ci-note-inp{
+  width:100%;padding:8px 11px;border:1px dashed var(--line);border-radius:10px;
+  font-size:13px;font-family:inherit;color:var(--ink);background:#FFFCF9;outline:none;
+  transition:border-color .15s ease,background .15s ease;
+}
+.ci-note-inp::placeholder{color:#bdb0ad}
+.ci-note-inp:focus{border-color:var(--red);border-style:solid;background:#fff}
+.ci-note-inp.has-note{border-style:solid;border-color:var(--red);background:#FFF3F0;font-weight:600}
+
+/* Panellarda izohni KO'RSATISH uchun CSS — assets/js/order-items.js
+   o'zi sahifaga qo'shadi (YAGONA manba), bu yerda takrorlanmaydi. */
+
+/* ===== RESTORAN NOMI — panelning birinchi sahifasida (restoran.js:renderRestHead)
+   Yon menyu telefonda yopiq turadi, shuning uchun restoran o'z nomini
+   dashboardning eng tepasida ko'radi: rasm, nom, ish vaqti, manzil. */
+.rest-head{
+  display:flex;align-items:center;gap:14px;margin-bottom:16px;
+  background:linear-gradient(135deg,var(--red,#C8102E),#e14b3d);
+  color:#fff;border-radius:18px;padding:16px 18px;
+  box-shadow:0 10px 24px rgba(200,16,46,.22);
+}
+.rest-head:empty{display:none}
+.rest-head-ava{
+  width:64px;height:64px;border-radius:16px;flex:none;overflow:hidden;
+  background:rgba(255,255,255,.18);display:flex;align-items:center;
+  justify-content:center;font-size:32px;
+}
+.rest-head-ava img{width:100%;height:100%;object-fit:cover}
+.rest-head-info{flex:1;min-width:0}
+.rest-head-kicker{
+  font-size:11px;font-weight:800;letter-spacing:.8px;
+  text-transform:uppercase;opacity:.75;
+}
+.rest-head-name{
+  font-size:23px;font-weight:800;line-height:1.2;margin:2px 0 6px;
+  word-break:break-word;color:#fff;
+}
+.rest-head-meta{
+  display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;font-weight:600;opacity:.92;
+}
+.rest-head-meta .rh-closed{opacity:.85}
+@media(max-width:520px){
+  .rest-head{padding:13px 14px;gap:11px}
+  .rest-head-ava{width:52px;height:52px;font-size:26px;border-radius:13px}
+  .rest-head-name{font-size:19px}
+}

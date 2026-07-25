@@ -29,11 +29,30 @@ function restRow(r, live) {
     active: !!r.active,
   };
 }
+/* HAQIQIY yetkazishlar soni va to'langan haq — buyurtmalardan hisoblanadi.
+   Ilgari `couriers.deliveries` ustuni ishlatilardi: uni admin qo'lда kiritardi
+   va u hech qachon o'zi ko'paymasdi — panelda "0 ta yetkazgan" turaverardi,
+   daromad esa (deliveries × fee) shundan kelib chiqib soxta chiqardi. */
+function courierDone(name, fee) {
+  try {
+    /* courier_fee — yetkazilgan paytda muhrlangan haq. Muhrlanmagan (eski)
+       buyurtmalar uchun kuryerning JORIY haqiga tushamiz. */
+    return db.prepare(
+      'SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN courier_fee >= 0 THEN courier_fee ELSE ? END), 0) AS earned'
+      + " FROM orders WHERE courier = ? AND status = 'done'"
+    ).get(Math.max(0, Number(fee) || 0), String(name || '')) || { n: 0, earned: 0 };
+  } catch (e) { return { n: 0, earned: 0 }; }
+}
+
 function courRow(c, live) {
   const lr = ratingsOf(live).couriers[c.name];
+  const fee = c.fee != null ? c.fee : 0;
+  const d = courierDone(c.name, fee);
   return {
     id: c.id, name: c.name, emoji: c.emoji, rest: c.rest, login: c.login,
-    phone: c.phone, deliveries: c.deliveries,
+    /* deliveries — REAL yetkazilgan buyurtmalar soni (jadvaldagi qo'l bilan
+       kiritilgan son emas). earned — o'sha buyurtmalar uchun to'langan haq. */
+    phone: c.phone, deliveries: d.n, earned: d.earned,
     rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
     fee: c.fee != null ? c.fee : 0, transport: c.transport || '', plate: c.plate || '', address: c.address || '', email: c.email || '', birthdate: c.birthdate || '', passport: c.passport || '',
     active: !!c.active,

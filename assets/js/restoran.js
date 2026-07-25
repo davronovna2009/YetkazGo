@@ -6,8 +6,6 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
-  const COMMISSION=0.18;
-  const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
 
   /* Har bir restoran FAQAT o'z ma'lumotlarini ko'radi. Kuryer/sayt ichki foydasi YO'Q. */
   /* Parollar bu yerda saqlanmaydi — kirish backend orqali (xeshlangan) tekshiriladi */
@@ -19,15 +17,70 @@
       if(be && be.commission!=null) return be.commission; }catch(e){}
     return (r&&r.commissionPct!=null)?r.commissionPct:18;
   }
+  /* ===== HAQIQIY SOTUV — buyurtma TARKIBIDAN (o.items) =====
+     Ilgari statistika buyurtma YORLIG'I bo'yicha hisoblanardi ("Osh +2 ta"):
+     ko'p taomli buyurtmada faqat birinchi taom sanalar, butun summa esa
+     o'shanga yozilardi — ya'ni "eng ko'p sotilgan taom" va "taomdan daromad"
+     jadvallari noto'g'ri edi. Endi har bir taom O'Z dona soni va O'Z summasi
+     bilan hisoblanadi (server pricing.js bergan qatorlardan).
+
+     Qaytadi: { "Taom nomi": {name, emoji, qty, gross, orders} } */
+  function salesMap(orders){
+    var m={};
+    function bucket(name, emoji){
+      var k=String(name||"").trim(); if(!k) return null;
+      if(!m[k]) m[k]={name:k, emoji:emoji||"🍽️", qty:0, gross:0, orders:0};
+      return m[k];
+    }
+    (orders||[]).forEach(function(o){
+      var ls=[]; try{ ls=YZ_ITEMS.lines(o); }catch(e){}
+      if(ls.length){
+        ls.forEach(function(l){
+          var b=bucket(l.name, l.emoji); if(!b) return;
+          var q=Number(l.qty)||0;
+          b.qty+=q;
+          b.gross+=Number(l.sum) || ((Number(l.eff)||Number(l.price)||0)*(q||1));
+          b.orders++;
+        });
+      } else {
+        /* Eski buyurtma — tarkibi saqlanmagan. Yorliqdan ("Osh +2 ta") taxminan
+           olamiz, aks holda eski sotuvlar hisobdan butunlay tushib qolardi. */
+        var b=bucket(String(o.item||"").replace(/\s*\+\d+\s*ta\s*$/,""), o.emoji); if(!b) return;
+        b.qty+=Number(o.qtyTotal)||1;
+        b.gross+=Number(o.amount)||0;
+        b.orders++;
+      }
+    });
+    return m;
+  }
+  /* Restoranning yetkazilgan (pul tushgan) buyurtmalari */
+  function doneOrdersOf(rest){
+    try{ return ((typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(rest):[]).filter(function(o){return o.status==="done";}); }
+    catch(e){ return []; }
+  }
+  /* Restoranга tushadigan sof summa — server buyurtmaga MUHRLAGAN foiz bo'yicha
+     (o.restNet). Eski buyurtmalarda maydon bo'lmasa — joriy foiz bilan. */
+  function netOf(o, pct){
+    if(o && o.restNet!=null) return Number(o.restNet)||0;
+    return Math.round((Number(o&&o.amount)||0)*(100-pct)/100);
+  }
+
   function recompute(r){
     const C=restPct(r)/100;
-    r.dishes.forEach(d=>{ d.eff=priceOf(d); d.gross=d.eff*d.sold; d.commission=Math.round(d.gross*C); d.net=d.gross-d.commission; });
+    /* Har bir taomning HAQIQIY sotuvi — yetkazilgan buyurtmalar tarkibidan */
+    const sales=salesMap(doneOrdersOf(r&&r.name));
+    r.dishes.forEach(d=>{
+      const s=sales[d.name];
+      d.eff=priceOf(d);
+      d.sold=s?s.qty:0;                       // REAL dona soni (katalog ustuni emas)
+      d.gross=s?s.gross:0;                    // REAL tushum (chegirma qo'llangan holda)
+      d.commission=Math.round(d.gross*C);
+      d.net=d.gross-d.commission;
+    });
     r.gross=r.dishes.reduce((s,d)=>s+d.gross,0);
     r.commission=Math.round(r.gross*C);
     r.net=r.gross-r.commission;
-    r.orders=r.dishes.reduce((s,d)=>s+d.sold,0);
-    const f=[0.82,0.88,0.93,0.9,0.96,1.0];
-    r.monthly=f.map(x=>Math.round(r.net*x));
+    r.orders=doneOrdersOf(r&&r.name).length;
   }
   RESTS.forEach(r=>{ r.discount=0; r.announcements=[]; r.dishes.forEach(d=>d.discount=d.discount||0); recompute(r); });
 
@@ -76,13 +129,38 @@
       STORE.onChange(()=>{ if(CUR){ syncFromBackend(); loadDishes(); $("#sbName").textContent=CUR.name; renderAll(); try{ yzUpdateOnline(); }catch(e){} } }); }
   }
 
+  /* ===== RESTORAN NOMI — panelning BIRINCHI sahifasida =====
+     Yon menyudagi kichik yozuv yetarli emas edi: telefonda menyu yopiq turadi
+     va restoran o'z nomini umuman ko'rmasdi. Endi dashboard tepasida rasm,
+     nom, ish vaqti va manzil bilan turadi. */
+  function renderRestHead(){
+    var box=document.getElementById("restHead"); if(!box||!CUR) return;
+    var p=curRestPhoto();
+    var be=(function(){ try{ return (STORE.restaurants()||[]).find(function(x){return x.name===CUR.name;})||{}; }catch(e){ return {}; } })();
+    var open=(function(){ try{ return YZ_TIME.restOpen(be); }catch(e){ return true; } })();
+    var hrs=(function(){ try{ return YZ_TIME.restHours(be); }catch(e){ return ""; } })();
+    box.innerHTML=
+      '<div class="rest-head-ava">'+(p?'<img src="'+esc(p)+'" alt="">':esc(CUR.emoji||"🏪"))+'</div>'+
+      '<div class="rest-head-info">'+
+        '<div class="rest-head-kicker">Restoran paneli</div>'+
+        '<h1 class="rest-head-name">'+esc(CUR.name)+'</h1>'+
+        '<div class="rest-head-meta">'+
+          '<span class="'+(open?'rh-open':'rh-closed')+'">'+(open?'🟢 Ochiq':'🔴 Yopiq')+(hrs?' · '+esc(hrs):'')+'</span>'+
+          (be.addr?'<span>📍 '+esc(be.addr)+'</span>':'')+
+        '</div>'+
+      '</div>';
+  }
+
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Taom qo'shish",income:"Daromad hisoboti",promo:"E'lon va chegirma",help:"Shikoyat / yordam",settings:"Sozlamalar"};
     if(view==="settings"){ fillSettings(); renderRestPhotoCard(); }
     if(view==="help"){ try{ YZ_COMPLAINT.mount(document.getElementById("restComplaintBox")); }catch(e){} }
-    $("#tbTitle").textContent=t[view]||"";
+    /* Sarlavhada restoran nomi ham turadi — qaysi restoran sifatida
+       ishlayotgani har bo'limda ko'rinib tursin. */
+    $("#tbTitle").textContent=(CUR&&CUR.name) ? (CUR.name+" — "+(t[view]||"")) : (t[view]||"");
+    if(view==="dash") renderRestHead();
     $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
   }
 
@@ -155,31 +233,34 @@
     paid.forEach(function(o){
       const raw=String(o.created_at||""); const mm=raw.match(/^(\d{4})-(\d{2})/);
       const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth();
-      const oNet=Math.round((o.amount||0)*(100-pct)/100);
+      /* Sof daromad — buyurtmaga MUHRLANGAN komissiya foizi bo'yicha (server
+         hisoblab beradi). Admin foizni keyin o'zgartirsa, o'tgan oy grafigi
+         qayta yozilib ketmaydi. */
       const slot=slots.find(function(x){return x.y===y&&x.m===mo;});
-      if(slot) slot.sum+=oNet;
+      if(slot) slot.sum+=netOf(o,pct);
     });
     const max=Math.max.apply(null,slots.map(function(x){return x.sum;}).concat([1]));
     $("#revChart").innerHTML=slots.map(function(x){return `
       <div class="bar-col"><div class="bv">${x.sum?mln(x.sum).replace(" mln",""):"0"}</div>
         <div class="bar" style="height:${Math.max(4,Math.round(x.sum/max*150))}px"></div><small>${x.label}</small></div>`;}).join("");
-    /* Real: eng ko'p sotilgan va talab — haqiqiy buyurtmalar bo'yicha (0 dan) */
-    const agg={};
-    (live||[]).forEach(function(o){ if(!o.item) return; const k=o.item; if(!agg[k]) agg[k]={name:o.item,emoji:o.emoji||"🍽️",sold:0,rev:0}; agg[k].sold++; agg[k].rev+=(o.amount||0); });
-    const top=Object.values(agg).sort((a,b)=>b.sold-a.sold).slice(0,5);
+    /* REAL: eng ko'p sotilgan va talab — buyurtma TARKIBI bo'yicha.
+       Har taom o'z dona soni bilan sanaladi (yorliq emas — salesMap izohiga q.). */
+    const agg=salesMap(paid);
+    const top=Object.values(agg).sort((a,b)=>b.qty-a.qty).slice(0,5);
     $("#topDishes").innerHTML=top.length?top.map((d,i)=>`
       <div class="topitem" data-topname="${esc(d.name)}" style="cursor:pointer"><span class="rank">${i+1}</span><span style="font-size:20px">${d.emoji}</span>
-        <span class="ti-name">${esc(d.name)}</span><span class="ti-val">${money(d.sold)} marta</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha buyurtma yo\'q</p>';
-    const maxd=(top[0]&&top[0].sold)||1;
+        <span class="ti-name">${esc(d.name)}</span><span class="ti-val">${money(d.qty)} dona</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha buyurtma yo\'q</p>';
+    const maxd=(top[0]&&top[0].qty)||1;
     $("#demandList").innerHTML=top.length?top.map(d=>`
-      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${d.emoji} ${esc(d.name)}</b><span>${money(d.sold)} marta</span></div>
-      <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(d.sold/maxd*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Talab ma\'lumoti buyurtmalar bilan to\'ladi</p>';
+      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${d.emoji} ${esc(d.name)}</b><span>${money(d.qty)} dona · ${money(d.orders)} buyurtmada</span></div>
+      <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(d.qty/maxd*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Talab ma\'lumoti buyurtmalar bilan to\'ladi</p>';
     /* Eng ko'p sotilgan taom ustiga bosilganda — to'liq ma'lumot (asl rasm bilan) */
     $$("#topDishes .topitem").forEach(function(it){ it.addEventListener("click",function(){
       const nm=it.dataset.topname; const d=agg[nm]; if(!d) return;
       showTopDishModal(d, findRestDish(nm));
     }); });
     /* Rasm kartochkasi endi SOZLAMALARДА — u yerда nav()/fillSettings chizadi */
+    renderRestHead();       // restoran nomi — birinchi sahifaning eng tepasida
     renderDashOrders();     // dashboard'даги jonli buyurtmalar (eng tepada)
     renderSourceStats();    // bot va sayt reytingi
     renderTopCustomers();
@@ -282,10 +363,13 @@
       '<button id="tdmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
       img+'<h3 style="text-align:center;margin:4px 0 12px">'+esc(d.name)+'</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px">'+
-      row("Necha marta sotilgan", money(d.sold)+" marta")+
+      /* salesMap qaytargan REAL ko'rsatkichlar: qty — dona, orders — nechta
+         buyurtmada uchragan, gross — o'sha taomdan tushgan umumiy summa. */
+      row("Sotilgan dona", money(d.qty)+" dona")+
+      row("Nechta buyurtmada", money(d.orders)+" ta")+
       row("Narxi", (dish&&dish.price?money(dish.price)+" so'm":"—"))+
       row("Reyting", (dish&&dish.rating?dish.rating:"—"))+
-      row("Jami daromad", money(d.rev)+" so'm")+
+      row("Shu taomdan tushum", money(d.gross)+" so'm")+
       '</div></div>';
     document.body.appendChild(el);
     el.querySelector("#tdmClose").addEventListener("click",function(){ el.remove(); });
@@ -570,29 +654,41 @@
        davr bo'yicha ketardi — ya'ni yorliq bilan raqam mos kelmasdi. */
     const doneOrders=live.filter(o=>o.status==="done" && inIncomePeriod(o, incomePeriod));
     const gross=doneOrders.reduce((s,o)=>s+(o.amount||0),0);
-    const commission=Math.round(gross*pct/100);
-    const net=gross-commission;
+    /* Sof daromad HAR BUYURTMANING O'Z foizidan yig'iladi (netOf) — umumiy
+       summaga bitta foiz qo'llash noto'g'ri bo'lardi: admin foizni o'zgartirgan
+       bo'lsa, eski va yangi buyurtmalar turli shartda. */
+    const net=doneOrders.reduce((s,o)=>s+netOf(o,pct),0);
+    const commission=gross-net;
     /* To'lov turi bo'yicha bo'linish — necha kishi karta, nechasi naqd to'ladi.
        MUHIM: bu yerда ham FAQAT restoran daromadi (net) ko'rsatiladi. */
     const cardOrders=doneOrders.filter(o=>o.pay!=="cash");
     const cashOrders=doneOrders.filter(o=>o.pay==="cash");
-    const cardNet=Math.round(cardOrders.reduce((s,o)=>s+(o.amount||0),0)*keep/100);
-    const cashNet=Math.round(cashOrders.reduce((s,o)=>s+(o.amount||0),0)*keep/100);
+    const cardNet=cardOrders.reduce((s,o)=>s+netOf(o,pct),0);
+    const cashNet=cashOrders.reduce((s,o)=>s+netOf(o,pct),0);
     const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[incomePeriod];
     const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
-    /* Har bir taom bo'yicha REAL: buyurtma nomi (item) taom nomiga mos kelsa hisoblanadi */
+    /* ===== Har bir taom bo'yicha REAL sotuv =====
+       Ilgari buyurtma YORLIG'I ("Osh +2 ta") taom nomi bilan solishtirilardi:
+       ko'p taomli buyurtmada faqat BIRINCHI taom sanalar va BUTUN buyurtma
+       summasi o'shanga yozilardi. Endi buyurtma tarkibidagi har bir qator
+       o'z dona soni va o'z summasi bilan hisoblanadi (salesMap). */
+    const sales=salesMap(doneOrders);
+    /* Taomlar jadvalining yig'indisi yuqoridagi xulosa bilan MOS kelishi uchun
+       haqiqiy (o'rtacha) qoldiq ulushini ishlatamiz: turli buyurtmalar turli
+       foiz bilan muhrlangan bo'lishi mumkin. */
+    const keepRate = gross ? (net/gross) : (keep/100);
     const dishStats=function(dish){
-      var m=doneOrders.filter(function(o){ return o.item && (o.item===dish.name || o.item.indexOf(dish.name)===0); });
-      var g=m.reduce(function(s,o){return s+(o.amount||0);},0);
-      return { sold:m.length, net:Math.round(g*keep/100) };
+      var s=sales[dish.name];
+      if(!s) return { sold:0, qty:0, gross:0, net:0 };
+      return { sold:s.orders, qty:s.qty, gross:s.gross, net:Math.round(s.gross*keepRate) };
     };
-    /* Eng ko'p sotilgan taomlar (nima ko'p sotilyapti) */
+    /* Eng ko'p sotilgan taomlar (nima ko'p sotilyapti) — DONA bo'yicha */
     const rows=r.dishes.map(d=>({d, st:dishStats(d)}));
-    const best=rows.slice().sort((a,b)=>b.st.sold-a.st.sold).filter(x=>x.st.sold>0).slice(0,5);
-    const maxSold=(best[0]&&best[0].st.sold)||1;
+    const best=rows.slice().sort((a,b)=>b.st.qty-a.st.qty).filter(x=>x.st.qty>0).slice(0,5);
+    const maxSold=(best[0]&&best[0].st.qty)||1;
     const bestSellers = best.length ? best.map(x=>`
-      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${x.d.emoji||"🍽️"} ${esc(x.d.name)}</b><span>${money(x.st.sold)} marta</span></div>
-      <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(x.st.sold/maxSold*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha sotuv yo\'q</p>';
+      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${x.d.emoji||"🍽️"} ${esc(x.d.name)}</b><span>${money(x.st.qty)} dona</span></div>
+      <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(x.st.qty/maxSold*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha sotuv yo\'q</p>';
     $("#incomeBody").innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
@@ -601,6 +697,8 @@
       <div class="row2">
         <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
           <div class="fin-row"><span>Buyurtmalar (yetkazilgan)</span><b>${money(doneOrders.length)} ta</b></div>
+          <div class="fin-row"><span>Mijozlar to'lagan (aylanma)</span><b>${money(gross)} so'm</b></div>
+          <div class="fin-row"><span>Sayt komissiyasi (${gross?Math.round(commission/gross*100):pct}%)</span><b style="color:var(--red)">− ${money(commission)} so'm</b></div>
           <div class="fin-row tot"><span>Sizning daromadingiz</span><b style="color:var(--green)">${money(net)} so'm</b></div>
         </div></div>
         <div class="panel"><div class="panel-head"><h3>💳 To'lov turi bo'yicha</h3></div><div class="panel-body">
@@ -617,10 +715,10 @@
       </div></div>
       <div class="panel"><div class="panel-head"><h3>Har bir taomdan qancha daromad (${pLabel})</h3></div>
         <div class="panel-body" style="padding:0;overflow-x:auto">
-          <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi</th><th>Daromad</th></tr></thead>
+          <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi (dona)</th><th>Tushum</th><th>Sizga qoladi</th></tr></thead>
           <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}</div></td>
             <td>${money(d.price)}</td>
-            <td>${money(st.sold)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
+            <td>${money(st.qty)}</td><td>${money(st.gross)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
         </div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: bu yerda faqat sizning taomlaringizdan keladigan daromad ko'rsatiladi.</p>`;
     $$("#incomeBody .inc-seg").forEach(function(b){
@@ -666,6 +764,9 @@
   function orderQty(x){ try{ return YZ_ITEMS.qty(x); }catch(e){ return 0; } }
   /* Ko'p taomli buyurtma uchun jadval qatoridagi rasm lentasi (yon tomonga suriladi) */
   function itemsStrip(x){ try{ return YZ_ITEMS.strip(x); }catch(e){ return ""; } }
+  /* MIJOZ IZOHI ("sous bilan", "achchiq solmang") — oshxona AYNAN shuni
+     bajarishi kerak, shuning uchun jadval qatorida ham to'liq ko'rsatiladi. */
+  function itemsNotes(x){ try{ return YZ_ITEMS.notesHtml(x,{title:"Mijoz izohi — shunday tayyorlang"}); }catch(e){ return ""; } }
 
   function renderOrdersInto(tbId){
     const o=(typeof STORE!=="undefined")?STORE.ordersFor(CUR.name):[];
@@ -679,7 +780,7 @@
       var extra = n>1
         ? "<div class=\"o-more\">"+n+" xil · "+orderQty(x)+" dona</div>"+itemsStrip(x)
         : "";
-      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div>"+extra+"</td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
+      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div>"+extra+itemsNotes(x)+"</td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
       :"<tr><td colspan=6 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
     $$("#"+tbId+" .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
     $$("#"+tbId+" [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
@@ -758,6 +859,7 @@
       head+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
+      itemsNotes(o)+
       itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+

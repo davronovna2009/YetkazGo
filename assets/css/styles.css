@@ -5246,3 +5246,174 @@ body {
   color: var(--grey);
   font-weight: 600
 }
+/* ===== TAOMGA IZOH (savat + taom modali) =====
+   Mijoz har bir taomga alohida tilak yozadi: "sous bilan", "achchiq solmang".
+   Savat qatori flex — izoh maydoni butun kenglikni egallab, pastga tushadi. */
+.cart-row {
+  flex-wrap: wrap
+}
+
+.ci-note {
+  flex: 0 0 100%;
+  margin: 2px 0 4px
+}
+
+.ci-note-lbl {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--grey);
+  margin-bottom: 4px
+}
+
+.ci-note-inp {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink);
+  background: #FFFCF9;
+  outline: none;
+  transition: border-color .15s ease, background .15s ease
+}
+
+.ci-note-inp::placeholder {
+  color: #bdb0ad
+}
+
+.ci-note-inp:focus {
+  border-color: var(--red);
+  border-style: solid;
+  background: #fff
+}
+
+/* Izoh yozilgan bo'lsa — ko'zga tashlansin (mijoz yozganini unutmasin) */
+.ci-note-inp.has-note {
+  border-style: solid;
+  border-color: var(--red);
+  background: #FFF3F0;
+  font-weight: 600
+}
+
+.dm-note {
+  margin-top: 12px
+}
+
+/* ===== RESTORAN SAHIFASI: yopishib turadigan NOM paneli =====
+   Restoranga kirilgan zahoti birinchi ko'rinadigan narsa — uning NOMI.
+   Hero rasmi baland bo'lsa nom ekrandan chiqib ketardi; endi tepada
+   yopishib turadi va mijoz qaysi restoranda ekanini doim biladi. */
+.rtopbar {
+  position: sticky;
+  /* Sayt header'i ham sticky (top:0) — nom paneli uning OSTIGA yopishadi.
+     Balandlikni app.js o'lchab beradi (syncRTopbarOffset). */
+  top: var(--yz-topbar-h, 0px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .16)
+}
+
+.rtopbar-back {
+  border: none;
+  background: rgba(255, 255, 255, .18);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  flex: none;
+  line-height: 1;
+  touch-action: manipulation
+}
+
+.rtopbar-back:active {
+  background: rgba(255, 255, 255, .34)
+}
+
+.rtopbar-emoji {
+  font-size: 20px;
+  flex: none
+}
+
+.rtopbar-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.rtopbar-open {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  padding: 4px 9px;
+  white-space: nowrap
+}
+
+/* Telefonда ish vaqti matni uzun — nom siqilib qolmasin, uni yashiramiz
+   (ish vaqti pastdagi hero va ma'lumot blokida baribir ko'rinadi). */
+@media (max-width:520px) {
+  .rtopbar-open {
+    display: none
+  }
+
+  .rtopbar-name {
+    font-size: 16px
+  }
+}
+
+/* Faol buyurtmadagi mijoz izohlari (savat panelida) */
+.aop-notes {
+  margin-top: 8px;
+  background: #FFF3F0;
+  border-left: 3px solid var(--red);
+  border-radius: 0 8px 8px 0;
+  padding: 6px 9px;
+  font-size: 12px;
+  color: #8f1224;
+  line-height: 1.5
+}
+
+/* ===== Taom kartasidagi «💬» tugmasi — SHU taomga izoh yozish =====
+   Savatga qo'shilgandan keyin miqdor tugmalari yonida chiqadi: mijoz savatni
+   ochmasdan ham "sous bilan yuboring" deb yozib qo'yadi. */
+.qty-btn.qty-note {
+  font-size: 14px;
+  opacity: .85;
+  border-left: 1px solid rgba(255, 255, 255, .25)
+}
+
+/* 4-tugma qo'shilgach pill kengaydi — tor kartadan chiqib ketmasin */
+.card-pod-action .card-qty {
+  max-width: 100%
+}
+
+.qty-btn.qty-note:active {
+  opacity: 1
+}
+
+/* Izoh yozilgan — tugma "to'la" ko'rinadi, mijoz yozganini unutmaydi */
+.qty-btn.qty-note.has-note {
+  opacity: 1;
+  background: rgba(255, 255, 255, .28)
+}
+
+@media(max-width:480px) {
+  .qty-btn.qty-note {
+    font-size: 13px
+  }
+}

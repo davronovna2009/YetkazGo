@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
-import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier } from '../orders-core.js';
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee } from '../orders-core.js';
 /* Katta/shubhali buyurtma qoidalari (kuryer qo'ng'irog'i, admin tekshiruvi) */
 import { rulesSnapshot } from '../order-rules.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
@@ -177,6 +177,8 @@ router.post('/:id/received', (req, res) => {
   // Mijoz tasdiqlaganda — aniq yetkazilgan vaqtni yozamiz (done_at, UTC)
   if (o.status === 'arrived') {
     db.prepare("UPDATE orders SET status = 'done', done_at = datetime('now') WHERE id = ?").run(id);
+    /* Kuryer haqi shu buyurtmaga muhrlanadi — xarajat hisoboti keyin o'zgarmaydi */
+    sealCourierFee(id);
     /* Buyurtma muvaffaqiyatli yakunlandi — bekor qilish hisobi nolga qaytadi */
     clearOnSuccess(o.phone);
   }
@@ -325,6 +327,8 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
     params.push(id);
     db.prepare(`UPDATE orders SET ${sets.join(', ')} WHERE id = ?`).run(...params);
   }
+  /* Yetkazildi — kuryerning O'SHA PAYTDAGI haqi buyurtmaga muhrlanadi (xarajat) */
+  if (patch.status === 'done' && existing.status !== 'done') sealCourierFee(id);
   const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   /* Telegram botdan buyurtma bergan mijozga holat o'zgarganini bildiramiz.
      Bloklamaydi — bot o'chiq yoki xato bo'lsa jim o'tadi. */
@@ -357,6 +361,7 @@ export function autoConfirmArrived() {
     db.prepare(`UPDATE orders SET status = 'done', done_at = datetime('now') WHERE ${WHERE}`).run();
     console.log(`[AUTO] ${due.length} ta buyurtma ${AUTO_CONFIRM_MIN} daqiqadan keyin avtomatik tasdiqlandi`);
     for (const o of due) {
+      sealCourierFee(o.id);      // kuryer haqi xarajat sifatida yozilsin
       notifyCustomerStatus({ ...o, status: 'done', auto: true }, 'arrived');
       clearOnSuccess(o.phone);
     }

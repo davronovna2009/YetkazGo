@@ -17,9 +17,6 @@
   const vPass=s=>String(s||"").length>=4;
   /* Pasport/ID: AB1234567 (2 harf + 7 raqam) yoki 14 xonali PINFL */
   const vPassport=s=>{ s=String(s||"").trim().toUpperCase(); return /^[A-Z]{2}\d{7}$/.test(s) || /^\d{14}$/.test(s); };
-  const COMMISSION=0.18; // kuryer haqi har kuryer uchun alohida (c.fee) — admin belgilaydi
-  const MONTHS=["Yan","Fev","Mar","Apr","May","Iyun"];
-  const GMV=[310,345,360,330,380,408];
 
   /* =========================================================
      STORAGE — barcha ma'lumotlar localStorage da
@@ -34,16 +31,15 @@
 
   /* Standart ma'lumotlar (birinchi yuklashda) */
   /* Parollar bu yerda saqlanmaydi — backendda xeshlangan holda turadi */
-  const DEFAULT_RESTS=[];
-  const DEFAULT_COURIERS=[];
 
   /* Ma'lumotlarni yuklash */
   let RESTS    = load(SK.rests, null);
   let COURIERS = load(SK.couriers, null);
-  if(!RESTS)    { RESTS=DEFAULT_RESTS.map(r=>{ const c=(r.commission!=null?r.commission:18)/100; return {...r, siteCut:Math.round(r.rev*c), restGets:r.rev-Math.round(r.rev*c)}; }); save(SK.rests,RESTS); }
-  else RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round(r.rev*c); r.restGets=r.rev-r.siteCut; });
-  if(!COURIERS) { COURIERS=DEFAULT_COURIERS.map(c=>({...c, earn:c.deliveries*(c.fee||0)})); save(SK.couriers,COURIERS); }
-  else COURIERS.forEach(c=>{ c.earn=c.deliveries*(c.fee||0); });
+  if(!RESTS)    { RESTS=[]; save(SK.rests,RESTS); }
+  if(!COURIERS) { COURIERS=[]; save(SK.couriers,COURIERS); }
+  /* Aniq raqamlar syncEntitiesFromBackend() da haqiqiy buyurtmalardan quriladi */
+  RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round((r.rev||0)*c); r.restGets=(r.rev||0)-r.siteCut; });
+  COURIERS.forEach(c=>{ if(c.earn==null) c.earn=(c.deliveries||0)*(c.fee||0); });
 
   /* Pending o'chirishlar (6 soat / 3 soat kutish) */
   let PENDING = load(SK.pending, []);
@@ -75,9 +71,12 @@
 
   const USERS=[];
 
+  /* Kesh ustidan yengil qayta hisob. Aniq qiymatlar syncEntitiesFromBackend()
+     da haqiqiy buyurtmalardan quriladi — bu yerda faqat backend hali
+     javob bermaganда ko'rsatiladigan taxminiy holat. */
   function recompute(){
-    RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round(r.rev*c); r.restGets=r.rev-r.siteCut; });
-    COURIERS.forEach(c=>{ c.earn=c.deliveries*(c.fee||0); });
+    RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round((r.rev||0)*c); r.restGets=(r.rev||0)-r.siteCut; });
+    COURIERS.forEach(c=>{ if(c.earn==null) c.earn=(c.deliveries||0)*(c.fee||0); });
   }
 
   /* =========================================================
@@ -103,10 +102,14 @@
          (STORE hali tayyor emas) va bizda eski kesh bor bo'lsa — wipe qilmaymiz. */
       if(beR.length || flags.bootstrap){
         RESTS=beR.map(b=>{
-          const ord=orders.filter(o=>o.rest===b.name);
+          /* Aylanma FAQAT yetkazilgan buyurtmalardan. Ilgari bekor qilingan va
+             hali yo'ldagi buyurtmalar ham qo'shilardi — restoran aylanmasi
+             haqiqatdan katta ko'rinardi va komissiya ham shunga yarasha. */
+          const ord=orders.filter(o=>o.rest===b.name && o.status==="done");
           const rev=ord.reduce((s,o)=>s+(o.amount||0),0);
           const comm=b.commission!=null?b.commission:18;
-          const siteCut=Math.round(rev*comm/100);
+          /* Komissiya har buyurtmaning O'Z foizidan (server muhrlagan) yig'iladi */
+          const siteCut=ord.reduce((s,o)=>s+(o.commission!=null?(Number(o.commission)||0):Math.round((o.amount||0)*comm/100)),0);
           return Object.assign({}, b, { rev:rev, orders:ord.length, commission:comm, siteCut:siteCut, restGets:rev-siteCut, status:(b.active===false?"warn":"ok") });
         });
         save(SK.rests,RESTS);
@@ -119,10 +122,17 @@
          yubormaslik uchun). Flag'ni fetchCouriers o'rnatadi. */
       if(beC.length || flags.couriers){
         COURIERS=beC.map(b=>{
-          const ord=orders.filter(o=>o.courier===b.name);
-          const done=ord.filter(o=>o.status==="done").length;
-          const deliveries=(b.deliveries!=null?b.deliveries:done);
-          return Object.assign({}, b, { deliveries:deliveries, earn:deliveries*(b.fee||0), status:"ok" });
+          /* Yetkazishlar soni va to'langan haq — HAQIQIY buyurtmalardan.
+             Ilgari `deliveries` admin qo'lда kiritgan son edi va u hech qachon
+             o'zi ko'paymasdi; daromad ham shu soxta sondan hisoblanardi.
+             Endi backend (routes/misc.js:courierDone) real qiymatni beradi;
+             bu yerда faqat mahalliy buyurtma keshi bilan tekshiramiz. */
+          const done=orders.filter(o=>o.courier===b.name && o.status==="done");
+          const deliveries=(b.deliveries!=null?b.deliveries:done.length);
+          const earn=(b.earned!=null)
+            ? b.earned
+            : done.reduce((s,o)=>s+(o.courierFee!=null?(Number(o.courierFee)||0):(b.fee||0)),0);
+          return Object.assign({}, b, { deliveries:deliveries, earn:earn, status:"ok" });
         });
         save(SK.couriers,COURIERS);
       }
@@ -318,7 +328,7 @@
       return;
     }
     host.innerHTML=list.map(function(o){
-      var items=""; try{ items=YZ_ITEMS.listHtml(o,{maxHeight:220}); }catch(e){}
+      var items=""; try{ items=YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi"})+YZ_ITEMS.listHtml(o,{maxHeight:220}); }catch(e){}
       var qty=0; try{ qty=YZ_ITEMS.qty(o); }catch(e){}
       return '<div style="border:2px solid #fed7aa;border-radius:16px;padding:14px;margin-bottom:14px;background:#fffdfa">'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
@@ -696,13 +706,15 @@
   }
 
   const OSM={review:["🔎 Tekshiruvda (siz tasdiqlashingiz kerak)","warn"],new:["Yangi","warn"],accepted:["Tayyorlanmoqda","warn"],ready:["Tayyor","blue"],ontheway:["Yo'lda","blue"],arrived:["Yetkazildi (tasdiq)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
+  /* "Bu buyurtmada mijoz izohi bor" belgisi — ro'yxatdan ham ko'rinsin */
+  function noteFlag(x){ try{ return YZ_ITEMS.noteFlag(x); }catch(e){ return ""; } }
   function renderLiveOrders(){
     const o=(typeof STORE!=="undefined")?STORE.orders():[];
     // Desktop jadval
     const tb=$("#liveOrders"); if(tb){
       tb.innerHTML=o.length?o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
-        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
+        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)} ${noteFlag(x)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
       }).join("") : `<tr><td colspan="7" style="color:var(--grey);padding:18px">Buyurtma yo'q.</td></tr>`;
       $$("#liveOrders [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ openOrderModal(o.find(function(t){return t.id==row.dataset.oid;})); }); });
     }
@@ -712,7 +724,7 @@
       mc.innerHTML=o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
         return `<div class="lo-card" style="cursor:pointer" data-oid="${x.id}">
-          <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji}</div><div><div class="lo-item">${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+          <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji}</div><div><div class="lo-item">${esc(x.item)} ${noteFlag(x)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
           <div class="lo-row"><span class="lo-key">Mijoz</span><span class="lo-val">${esc(x.user)}</span></div>
           <div class="lo-row"><span class="lo-key">Kuryer</span><span class="lo-val">${esc(x.courier)}</span></div>
           <div class="lo-row"><span class="lo-key">Qayerdan</span><span class="lo-val">${srcBadge(x)}</span></div>
@@ -734,12 +746,15 @@
     /* Buyurtma tarkibi — har bir taom rasmi bilan, uzun ro'yxatда scroll (order-items.js) */
     var itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:240}); }catch(e){}
     var qty=0; try{ qty=YZ_ITEMS.qty(o); }catch(e){}
+    /* Mijoz izohlari — nizo chiqsa admin nimani so'raganini aniq ko'radi */
+    var notesHtml=""; try{ notesHtml=YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi"}); }catch(e){}
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
       "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer\">✕</button>"+
       "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>"+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
       (o.suspiciousReason?"<div style=\"background:#fff7ed;color:#c2410c;border-radius:10px;padding:8px 11px;font-size:13px;font-weight:700;margin-bottom:10px\">⚠️ Shubha sababi: "+esc(o.suspiciousReason)+"</div>":"")+
+      notesHtml+
       itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
@@ -777,21 +792,49 @@
     var d=(Date.now()-t)/86400000;
     if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31;
   }
+  /* ===== SAYT MOLIYASI — YAGONA hisoblash joyi =====
+     Server har buyurtmaga yaratilgan paytdagi komissiya foizini (commission),
+     yetkazilgan paytdagi kuryer haqini (courierFee) va sof foydani (siteProfit)
+     yozib beradi. Shuning uchun admin panel bu raqamlarni QAYTA hisoblamaydi —
+     restoran va kuryer panellari bilan bir xil qiymat chiqadi.
+     Eski (maydonlarsiz) buyurtmalar uchun joriy foizga tushamiz. */
+  function commOf(o){
+    if(o && o.commission!=null) return Number(o.commission)||0;
+    const r=RESTS.find(x=>x.name===(o&&o.rest));
+    const c=(r&&r.commission!=null?r.commission:18);
+    return Math.round((Number(o&&o.amount)||0)*c/100);
+  }
+  /* Kuryerga to'langan haq — XARAJAT. Faqat yetkazilgan buyurtmada bo'ladi. */
+  function feeOf(o){
+    if(!o || o.status!=="done") return 0;
+    if(o.courierFee!=null) return Number(o.courierFee)||0;
+    const c=COURIERS.find(x=>x.name===o.courier);
+    return Math.max(0, Number(c&&c.fee)||0);
+  }
+  /* Sof foyda = komissiya − kuryer xarajati */
+  function profitOf(o){
+    if(o && o.siteProfit!=null) return Number(o.siteProfit)||0;
+    return commOf(o)-feeOf(o);
+  }
+
   function renderDash(){
     /* REAL: komissiya faqat mijoz tasdiqlagan (done) buyurtmalardan; har restoran komissiyasi bo'yicha */
     const live=(typeof STORE!=="undefined")?STORE.orders():[];
     const done=live.filter(o=>o.status==="done");
-    const commOf=o=>{ const r=RESTS.find(x=>x.name===o.rest); const c=(r&&r.commission!=null?r.commission:18); return Math.round((o.amount||0)*c/100); };
-    const periodSite=done.filter(o=>aInPeriod(o,aIncomePeriod)).reduce((s,o)=>s+commOf(o),0);
+    const periodDone=done.filter(o=>aInPeriod(o,aIncomePeriod));
+    const periodSite=periodDone.reduce((s,o)=>s+commOf(o),0);
+    /* XARAJAT va SOF FOYDA — kuryerlarga to'langan haq komissiyadan chiqadi */
+    const periodFee=periodDone.reduce((s,o)=>s+feeOf(o),0);
+    const periodProfit=periodSite-periodFee;
     const totalOrders=live.filter(o=>o.status!=="cancelled").length;
     const apLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[aIncomePeriod];
     const aseg=(k,t)=>`<button class="a-inc-seg" data-ap="${k}" style="border:none;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${aIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${aIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     $("#statCards").innerHTML=`
       <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${money(periodSite)}</b><span>Komissiya daromadi (${apLabel})</span>
         <div style="margin-top:6px;display:flex;flex-wrap:wrap">${aseg("kunlik","Kunlik")}${aseg("haftalik","Haftalik")}${aseg("oylik","Oylik")}${aseg("yillik","Yillik")}</div></div></div>
-      <div class="scard c2"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar</span></div></div>
-      <div class="scard c3"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length}</b><span>Hamkor restoranlar</span></div></div>
-      <div class="scard c4"><div class="si">🛵</div><div class="scard-info"><b>${COURIERS.length}</b><span>Faol kuryerlar</span></div></div>`;
+      <div class="scard c2"><div class="si">🛵</div><div class="scard-info"><b style="color:#c2410c">− ${money(periodFee)}</b><span>Kuryer xarajati (${apLabel})</span></div></div>
+      <div class="scard c3"><div class="si">📈</div><div class="scard-info"><b style="color:${periodProfit<0?'#C8102E':'#16a34a'}">${money(periodProfit)}</b><span>Sof foyda (${apLabel})</span></div></div>
+      <div class="scard c4"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar · 🏪 ${RESTS.length} · 🛵 ${COURIERS.length}</span></div></div>`;
     $$("#statCards .a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderDash(); }); });
     /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab ko'tariladi/tushadi.
        Davr tugmasi (kunlik/haftalik/oylik/yillik) komissiya kartasining ichida;
@@ -826,21 +869,138 @@
       /* Diagramma sarlavhasidagi davr yorlig'i */
       const badge=document.querySelector("#view-dash .panel-badge"); if(badge) badge.textContent={kunlik:"7 kun",haftalik:"8 hafta",oylik:"6 oy",yillik:"5 yil"}[aIncomePeriod]||"6 oy";
     })();
-    /* Real: top restoranlar haqiqiy buyurtmalar bo'yicha */
+    /* ===== TOP restoranlar — FAQAT yetkazilgan (pul tushgan) buyurtmalar =====
+       Ilgari bekor qilingan va hali yo'ldagi buyurtmalar ham aylanmaga
+       qo'shilardi: restoran "top" ga chiqib, aslida pul kelmagan bo'lardi.
+       Taomlar ham buyurtma tarkibidan (dona bilan) sanaladi. */
     const rAgg={};
-    live.forEach(function(o){ if(!o.rest) return; if(!rAgg[o.rest]) rAgg[o.rest]={name:o.rest,rev:0,count:0,items:{}}; rAgg[o.rest].rev+=(o.amount||0); rAgg[o.rest].count++; const it=o.item||""; if(it) rAgg[o.rest].items[it]=(rAgg[o.rest].items[it]||0)+1; });
+    done.forEach(function(o){
+      if(!o.rest) return;
+      if(!rAgg[o.rest]) rAgg[o.rest]={name:o.rest,rev:0,comm:0,fee:0,profit:0,count:0,items:{}};
+      const a=rAgg[o.rest];
+      a.rev+=(o.amount||0); a.comm+=commOf(o); a.fee+=feeOf(o); a.profit+=profitOf(o); a.count++;
+      let ls=[]; try{ ls=YZ_ITEMS.lines(o); }catch(e){}
+      if(ls.length) ls.forEach(function(l){ const k=String(l.name||""); if(k) a.items[k]=(a.items[k]||0)+(Number(l.qty)||1); });
+      else if(o.item) a.items[o.item]=(a.items[o.item]||0)+1;
+    });
     const topR=Object.values(rAgg).sort((a,b)=>b.rev-a.rev).slice(0,5);
     $("#topRests").innerHTML=topR.length?topR.map((r,i)=>`
       <div class="topitem" data-toprest="${esc(r.name)}" style="cursor:pointer"><span class="rank">${i+1}</span>
         <span style="font-size:18px">🏪</span>
         <span class="ti-name">${esc(r.name)}</span>
-        <span class="ti-val">${money(r.rev)}</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha buyurtma yo\'q</p>';
+        <span class="ti-val">${money(r.rev)}</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha yetkazilgan buyurtma yo\'q</p>';
     $$("#topRests .topitem").forEach(function(it){ it.addEventListener("click",function(){ showTopRestModal(rAgg[it.dataset.toprest]); }); });
+    /* ===== MOLIYA XULOSASI: aylanma → komissiya → xarajat → sof foyda =====
+       Butun zanjir bitta qatorда ko'rinadi, shuning uchun "qayerdan qancha
+       tushdi va qayerga qancha ketdi" degan savol ochiq qolmaydi. */
     const note=$("#gmvNote");
-    if(note){ const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0); const totalSite=done.reduce((s,o)=>s+commOf(o),0);
-      note.innerHTML=`Jami aylanma (tasdiqlangan): <b>${money(totalGMV)} so'm</b> · Komissiya daromadi: <b>${money(totalSite)} so'm</b> · Real buyurtmalar`; }
+    if(note){
+      const totalGMV=done.reduce((s,o)=>s+(o.amount||0),0);
+      const totalSite=done.reduce((s,o)=>s+commOf(o),0);
+      const totalFee=done.reduce((s,o)=>s+feeOf(o),0);
+      const totalRest=totalGMV-totalSite;
+      const totalProfit=totalSite-totalFee;
+      note.innerHTML=`<b>${money(done.length)} ta yetkazilgan buyurtma</b> · `
+        + `Aylanma: <b>${money(totalGMV)}</b> · `
+        + `Restoranlarga: <b>${money(totalRest)}</b> · `
+        + `Komissiya: <b style="color:#16a34a">${money(totalSite)}</b> · `
+        + `Kuryer xarajati: <b style="color:#c2410c">− ${money(totalFee)}</b> · `
+        + `Sof foyda: <b style="color:${totalProfit<0?'#C8102E':'#16a34a'}">${money(totalProfit)} so'm</b>`;
+    }
+    renderFinance(done);
     renderAdminTopCustomers(live);
     renderSourceStats(live);
+  }
+
+  /* ===== MOLIYA: kirim, xarajat va sof foyda (admin dashboard) =====
+     Bitta buyurtmadagi pul zanjiri:
+       mijoz to'laydi (aylanma)
+         → restoranga: aylanma − komissiya
+         → saytga:     komissiya
+             → kuryerga: yetkazish haqi (XARAJAT)
+             → saytga qoladi: sof foyda
+     Barcha raqamlar HAQIQIY buyurtmalardan. Komissiya foizi buyurtma
+     yaratilganда, kuryer haqi esa yetkazilganда buyurtmaga muhrlanadi
+     (server/src/orders-core.js) — shuning uchun eski hisobotlar o'zgarmaydi. */
+  function renderFinance(done){
+    var host=document.getElementById("view-dash"); if(!host) return;
+    var box=document.getElementById("adminFinance");
+    if(!box){
+      box=document.createElement("div"); box.id="adminFinance"; box.className="panel";
+      box.style.marginTop="16px";
+      /* Manba statistikasidan OLDIN tursin — pul muhimroq */
+      var src=document.getElementById("adminSrcStats");
+      if(src) host.insertBefore(box, src); else host.appendChild(box);
+    }
+    var inP=(done||[]).filter(function(o){ return aInPeriod(o,aIncomePeriod); });
+    var gmv=inP.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
+    var comm=inP.reduce(function(s,o){return s+commOf(o);},0);
+    var fee=inP.reduce(function(s,o){return s+feeOf(o);},0);
+    var toRest=gmv-comm;
+    var profit=comm-fee;
+    var label={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[aIncomePeriod]||"so'nggi oy";
+
+    /* Kuryerlar bo'yicha xarajat — kimga qancha to'langan */
+    var byC={};
+    inP.forEach(function(o){
+      var n=o.courier||"— (biriktirilmagan)";
+      if(!byC[n]) byC[n]={name:n, count:0, fee:0};
+      byC[n].count++; byC[n].fee+=feeOf(o);
+    });
+    var couriers=Object.values(byC).sort(function(a,b){return b.fee-a.fee;});
+
+    /* Restoranlar bo'yicha komissiya — kimdan qancha tushdi */
+    var byR={};
+    inP.forEach(function(o){
+      var n=o.rest||"—";
+      if(!byR[n]) byR[n]={name:n, count:0, gmv:0, comm:0};
+      byR[n].count++; byR[n].gmv+=(Number(o.amount)||0); byR[n].comm+=commOf(o);
+    });
+    var rests=Object.values(byR).sort(function(a,b){return b.comm-a.comm;});
+
+    var row=function(icon,k,v,color,strong){
+      return '<div class="fin-row'+(strong?' tot':'')+'" style="display:flex;justify-content:space-between;gap:10px;padding:9px 0">'
+        + '<span style="color:var(--grey)">'+icon+' '+k+'</span>'
+        + '<b style="'+(color?'color:'+color+';':'')+'white-space:nowrap">'+v+'</b></div>';
+    };
+    /* Foyda ulushi: komissiyaning necha foizi sayt qo'lida qoladi */
+    var keepPct=comm?Math.round(profit/comm*100):0;
+    var barFee=comm?Math.max(0,Math.min(100,Math.round(fee/comm*100))):0;
+
+    box.innerHTML=
+      '<div class="panel-head"><h3>💰 Moliya: kirim, xarajat va sof foyda</h3>'
+        + '<span style="color:var(--grey);font-size:13px">'+label+' · '+inP.length+' ta yetkazilgan</span></div>'
+      + '<div class="panel-body">'
+        + row('🧾','Mijozlar to\'lagan (aylanma)', money(gmv)+" so'm")
+        + row('🏪','Restoranlarga o\'tkaziladi', '− '+money(toRest)+" so'm", '#c2410c')
+        + row('💚','Sayt komissiyasi (kirim)', money(comm)+" so'm", '#16a34a')
+        + row('🛵','Kuryerlarga to\'landi (xarajat)', '− '+money(fee)+" so'm", '#c2410c')
+        + row('📈','SOF FOYDA', money(profit)+" so'm", profit<0?'#C8102E':'#16a34a', true)
+        + '<div style="height:14px;background:#e9f7ef;border-radius:8px;overflow:hidden;margin-top:10px;display:flex">'
+          + (comm?'<div style="width:'+barFee+'%;background:#f59e0b"></div>':'')
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--grey);margin-top:5px">'
+          + '<span>🛵 Kuryerga: '+barFee+'%</span><span>📈 Sizga qoladi: '+keepPct+'%</span></div>'
+        + (couriers.length
+            ? '<div style="font-size:12px;color:var(--grey);margin-top:14px;font-weight:700">KURYERLAR BO\'YICHA XARAJAT</div>'
+              + '<div style="max-height:220px;overflow-y:auto">'
+              + couriers.map(function(c){
+                  return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">'
+                    + '<span>🛵 <b>'+esc(c.name)+'</b> <span style="color:var(--grey)">· '+c.count+' ta</span></span>'
+                    + '<b style="color:#c2410c;white-space:nowrap">− '+money(c.fee)+" so'm</b></div>";
+                }).join('') + '</div>'
+            : '')
+        + (rests.length
+            ? '<div style="font-size:12px;color:var(--grey);margin-top:14px;font-weight:700">RESTORANLAR BO\'YICHA KOMISSIYA</div>'
+              + '<div style="max-height:220px;overflow-y:auto">'
+              + rests.map(function(r){
+                  return '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px">'
+                    + '<span>🏪 <b>'+esc(r.name)+'</b> <span style="color:var(--grey)">· '+r.count+' ta · '+money(r.gmv)+" so'm</span></span>"
+                    + '<b style="color:#16a34a;white-space:nowrap">+ '+money(r.comm)+" so'm</b></div>";
+                }).join('') + '</div>'
+            : '')
+        + (inP.length ? '' : '<p style="color:var(--grey);font-size:13px;margin-top:10px">Bu davrda yetkazilgan buyurtma yo\'q — davrni yuqoridagi tugmalar bilan almashtiring.</p>')
+      + '</div>';
   }
 
   /* ===== BOT va SAYT reytingi (admin dashboard) =====
@@ -1037,7 +1197,9 @@
         return `<tr data-id="${c.id}">
           <td><div class="tname"><span class="av">${c.emoji}</span>${c.name}${courLeaveBadge(c)}${courShiftBadge(c)}</div></td>
           <td>${c.rest}</td>
-          <td>${money(c.deliveries)}</td>
+          <td>${money(c.deliveries)} ta</td>
+          <!-- Kuryerga HAQIQATDA to'langan haqlar yig'indisi (saytning xarajati) -->
+          <td class="money">${money(c.earn||0)}</td>
           <td>${courHours(c)}</td>
           <td><span class="star">★ ${c.rating}</span></td>
           <td><span class="mono">${c.login}</span>${pend?` <span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`:""}</td>
@@ -1058,7 +1220,7 @@
           </div>
           <div class="mcard-stats">
             <div class="mcard-stat"><span>Yetkazgan</span><b>${money(c.deliveries)}</b></div>
-            <div class="mcard-stat"><span>Ish vaqti</span><b>${courHours(c)}</b></div>
+            <div class="mcard-stat"><span>To'langan</span><b>${money(c.earn||0)}</b></div>
             <div class="mcard-stat"><span>Login</span><b class="mono">${c.login}</b></div>
           </div>
         </div>`;
@@ -1286,7 +1448,7 @@
           <div class="k"><span>Kuryerlar</span><b>${myCouriers.length}</b></div>
         </div></div>
       <div class="dd-sec"><h4>Moliya (${r.commission!=null?r.commission:18}% komissiya)</h4>
-        <div class="fin-row"><span>Oylik aylanma</span><b>${money(r.rev)} so'm</b></div>
+        <div class="fin-row"><span>Aylanma (yetkazilgan ${money(r.orders||0)} ta)</span><b>${money(r.rev)} so'm</b></div>
         <div class="fin-row"><span>Restoranga (${100-(r.commission!=null?r.commission:18)}%)</span><b>${money(r.restGets)} so'm</b></div>
         <div class="fin-row tot"><span>Menga (${r.commission!=null?r.commission:18}%)</span><b>${money(r.siteCut)} so'm</b></div>
       </div>
@@ -1476,7 +1638,11 @@
         <div class="kv">
           <div class="k"><span>Restoranlar</span><b>${esc(c.rest)||"—"}</b></div>
           <div class="k"><span>Reyting</span><b class="star">★ ${c.rating}</b></div>
-          <div class="k"><span>Yetkazgan</span><b>${money(c.deliveries)}</b></div>
+          <div class="k"><span>Yetkazgan</span><b>${money(c.deliveries)} ta</b></div>
+          <!-- Xarajat: shu kuryerga haqiqatda to'langan haqlar yig'indisi
+               (har buyurtmaga yetkazilgan paytdagi haq muhrlangan) -->
+          <div class="k"><span>1 yetkazish haqi</span><b>${money(c.fee||0)} so'm</b></div>
+          <div class="k"><span>Jami to'langan</span><b style="color:#c2410c">${money(c.earn||0)} so'm</b></div>
           <div class="k"><span>Telefon</span><b>${esc(c.phone)||"—"}</b></div>
           <div class="k"><span>Ish vaqti</span><b>${esc(cHours)}</b></div>
           <div class="k"><span>Holati</span><b style="color:${holatCol}">${holatTxt}</b></div>
@@ -1681,19 +1847,26 @@
   function showTopRestModal(agg){
     if(!agg) return;
     var beR=((typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants():[]).find(function(x){return x.name===agg.name;})||{};
+    /* Komissiya/xarajat/foyda renderDash da har buyurtmaning O'Z shartlari
+       bo'yicha yig'ilgan — bu yerda qayta hisoblamaymiz (mos kelishi uchun). */
     var comm=(beR.commission!=null?beR.commission:18);
-    var site=Math.round(agg.rev*comm/100);
+    var site=agg.comm!=null?agg.comm:Math.round(agg.rev*comm/100);
+    var effPct=agg.rev?Math.round(site/agg.rev*100):comm;
     var sorted=Object.entries(agg.items||{}).sort(function(a,b){return b[1]-a[1];});
     var topItem=sorted[0];
-    var itemsList=sorted.length?sorted.map(function(e){return '<div class="fin-row"><span>'+esc(e[0])+'</span><b>'+e[1]+' marta</b></div>';}).join(""):'<p style="color:var(--grey)">—</p>';
+    /* Taomlar endi DONA bo'yicha sanaladi (buyurtma tarkibidan) */
+    var itemsList=sorted.length?sorted.map(function(e){return '<div class="fin-row"><span>'+esc(e[0])+'</span><b>'+e[1]+' dona</b></div>';}).join(""):'<p style="color:var(--grey)">—</p>';
     var row=function(k,v){return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>';};
     infoModal("🏪 "+esc(agg.name),
       '<div style="display:flex;flex-direction:column;gap:10px">'+
       row("Reyting","★ "+(beR.rating||"—"))+
-      row("Buyurtmalar",agg.count+" ta")+
-      row("Eng ko'p sotilgan",topItem?(esc(topItem[0])+" ("+topItem[1]+" marta)"):"—")+
+      row("Yetkazilgan buyurtmalar",agg.count+" ta")+
+      row("Eng ko'p sotilgan",topItem?(esc(topItem[0])+" ("+topItem[1]+" dona)"):"—")+
       row("Aylanma",money(agg.rev)+" so'm")+
-      row("Komissiya daromadi ("+comm+"%)",money(site)+" so'm")+
+      row("Restoranga o'tdi",money(agg.rev-site)+" so'm")+
+      row("Komissiya daromadi ("+effPct+"%)",money(site)+" so'm")+
+      (agg.fee!=null?row("Kuryer xarajati","− "+money(agg.fee)+" so'm"):"")+
+      (agg.profit!=null?row("Sof foyda",money(agg.profit)+" so'm"):"")+
       '</div><h4 style="margin:14px 0 6px">Taomlari (sotilgan)</h4>'+itemsList);
   }
   function openUser(id){

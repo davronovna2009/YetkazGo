@@ -33,7 +33,20 @@ function safePct(pct) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-/* Mijoz yuborgan items ni tekshirib, {id -> qty} ga aylantiradi (tartib saqlanadi) */
+/* Taom izohi (mijoz tilagi): "sous bilan", "achchiq solmang", "alohida o'rang".
+   Restoran tayyorlashda, kuryer esa olib chiqishda AYNAN shuni ko'radi.
+   Uzun matn panellarda joylashmaydi va bazani shishiradi — shuning uchun cheklaymiz.
+   Boshqaruv belgilari (\n, \t) tashlanadi: bitta qatorда ko'rsatiladi. */
+export const MAX_NOTE = 200;
+export function cleanNote(v) {
+  return String(v == null ? '' : v)
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, MAX_NOTE);
+}
+
+/* Mijoz yuborgan items ni tekshirib, {id -> {qty, note}} ga aylantiradi (tartib saqlanadi) */
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw new PriceError(400, 'Savat bo`sh — taom tanlang');
@@ -51,13 +64,21 @@ function normalizeItems(rawItems) {
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
       throw new PriceError(400, 'Taom miqdori 1 dan ' + MAX_QTY + ' gacha bo`lishi kerak');
     }
-    want.set(id, Math.min(MAX_QTY, (want.get(id) || 0) + qty));
+    const note = cleanNote(it && it.note);
+    const prev = want.get(id);
+    if (prev) {
+      prev.qty = Math.min(MAX_QTY, prev.qty + qty);
+      /* Bir xil taom ikki marta kelsa — izohlar yo'qolmasin, birlashtiriladi */
+      if (note && prev.note !== note) prev.note = cleanNote(prev.note ? prev.note + '; ' + note : note);
+    } else {
+      want.set(id, { qty: Math.min(MAX_QTY, qty), note });
+    }
   }
   return want;
 }
 
 /* Buyurtmani narxlaydi. Muvaffaqiyatда:
-     { rest, item, emoji, amount, lines: [{id,name,emoji,qty,price,pct,eff,sum}] }
+     { rest, item, emoji, amount, lines: [{id,name,emoji,qty,price,pct,eff,sum,note}] }
    Xatoда — PriceError (status + o'zbekcha xabar). */
 export function priceOrder(rawItems) {
   const want = normalizeItems(rawItems);
@@ -75,7 +96,8 @@ export function priceOrder(rawItems) {
   let amount = 0;
   let rest = null;
 
-  for (const [id, qty] of want) {
+  for (const [id, w] of want) {
+    const qty = w.qty;
     const d = selDish.get(id);
     if (!d) throw new PriceError(400, 'Tanlangan taom topilmadi — sahifani yangilang');
 
@@ -112,7 +134,9 @@ export function priceOrder(rawItems) {
     const sum = eff * qty;
 
     amount += sum;
-    lines.push({ id: d.id, name: d.name, emoji: d.emoji || '🍽️', photo: d.photo || '', qty, price, pct, eff, sum });
+    /* `note` — mijozning SHU taomga yozgan tilagi ("sous bilan"). Restoran va
+       kuryer panellari uni buyurtma tarkibida alohida ko'rsatadi. */
+    lines.push({ id: d.id, name: d.name, emoji: d.emoji || '🍽️', photo: d.photo || '', qty, price, pct, eff, sum, note: w.note || '' });
   }
 
   /* Restoran o'chirilgan bo'lsa — buyurtma qabul qilinmaydi.

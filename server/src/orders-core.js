@@ -31,9 +31,64 @@ export function parseItems(s) {
   try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch (e) { return []; }
 }
 
+/* ===== MOLIYA: buyurtmaning O'Z shartlari =====
+   Komissiya foizi buyurtma yaratilganda, kuryer haqi esa yetkazilganda
+   buyurtmaga YOZILADI. Shundan keyin admin foizni/haqni o'zgartirsa ham eski
+   buyurtmalarning hisoboti o'zgarmaydi. Eski (ustunsiz yaratilgan) buyurtmalar
+   uchun -1 turadi — u holda joriy qiymatga tushamiz. */
+const DEFAULT_COMMISSION = 18;
+
+export function restCommission(rest) {
+  try {
+    const r = db.prepare('SELECT commission FROM restaurants WHERE name = ?').get(String(rest || ''));
+    if (r && r.commission != null) return Math.max(0, Math.min(50, Number(r.commission) || 0));
+  } catch (e) { /* jadval yo'q — pastdagi standart */ }
+  return DEFAULT_COMMISSION;
+}
+export function courierFeeOf(name) {
+  try {
+    const c = db.prepare('SELECT fee FROM couriers WHERE name = ?').get(String(name || ''));
+    if (c && c.fee != null) return Math.max(0, Number(c.fee) || 0);
+  } catch (e) { /* jadval yo'q */ }
+  return 0;
+}
+
+/* Buyurtma YETKAZILDI — kuryer haqi AYNAN shu paytda buyurtmaga muhrlanadi.
+   Admin keyin haqni o'zgartirsa, o'tgan buyurtmalarning xarajati o'zgarmaydi.
+   Buyurtma 'done' bo'ladigan HAR uch yo'l (kuryer PATCH, mijoz tasdig'i,
+   30 daqiqalik avtomatik tasdiq) shu funksiyani chaqiradi. */
+export function sealCourierFee(id) {
+  try {
+    const o = db.prepare('SELECT courier, courier_fee FROM orders WHERE id = ?').get(Number(id));
+    if (!o) return;
+    if (o.courier_fee != null && o.courier_fee >= 0) return;   // allaqachon muhrlangan
+    db.prepare('UPDATE orders SET courier_fee = ? WHERE id = ?').run(courierFeeOf(o.courier), Number(id));
+  } catch (e) { /* ustun yo'q (juda eski baza) — jim o'tamiz */ }
+}
+
+/* Buyurtmaning moliyaviy taqsimoti — YAGONA manba (panellar shundan foydalanadi):
+     amount  = mijoz to'lagan summa
+     comm    = saytga tushadigan komissiya
+     net     = restoranga o'tadigan qism
+     fee     = kuryerga to'lanadigan haq (yetkazilmaganda 0)
+     profit  = saytning SOF foydasi (komissiya − kuryer haqi) */
+export function orderMoney(r) {
+  const amount = Math.max(0, Number(r.amount) || 0);
+  const pct = (r.commission_pct != null && r.commission_pct >= 0)
+    ? Number(r.commission_pct) : restCommission(r.rest);
+  const comm = Math.round(amount * pct / 100);
+  /* Kuryer haqi faqat YETKAZILGAN buyurtmaga tegishli — yo'ldagi buyurtma
+     xarajat emas (bekor qilinsa hech kim haq olmaydi). */
+  const fee = r.status === 'done'
+    ? ((r.courier_fee != null && r.courier_fee >= 0) ? Number(r.courier_fee) : courierFeeOf(r.courier))
+    : 0;
+  return { amount, pct, comm, net: amount - comm, fee, profit: comm - fee };
+}
+
 /* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga qaytadi */
 export function rowToOrder(r) {
   const items = parseItems(r.items_json);
+  const m = orderMoney(r);
   return {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
@@ -53,6 +108,14 @@ export function rowToOrder(r) {
     suspicious: r.suspicious ? 1 : 0,
     suspiciousReason: r.suspicious_reason || '',
     approvedBy: r.approved_by || '',
+    /* ===== MOLIYA (server hisoblaydi — panellar o'zi qayta hisoblamaydi) =====
+       Shu tufayli restoran paneli, kuryer paneli va admin paneli BIR XIL
+       raqamni ko'rsatadi: hisob bitta joyда (orderMoney) qilinadi. */
+    commissionPct: m.pct,
+    commission: m.comm,
+    restNet: m.net,
+    courierFee: m.fee,
+    siteProfit: m.profit,
     created_at: r.created_at, done_at: r.done_at || '',
   };
 }
@@ -208,15 +271,19 @@ export function createOrder(b = {}) {
      tekshiruvda turgan buyurtma kuryerning 2 ta o'rnini bejiz band qilardi. */
   const courier = suspect.suspicious ? '' : (assignCourier(priced.rest) || String(b.courier || ''));
 
+  /* Komissiya foizi SHU BUYURTMAGA muhrlanadi. Admin ertaga foizni o'zgartirsa,
+     bugungi buyurtmadan restoranga qancha tushishi O'ZGARMAYDI — hisobot barqaror. */
+  const commissionPct = restCommission(priced.rest);
+
   const info = db.prepare(
     `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json, tg_chat_id, source,
-                         qty_total, call_required, suspicious, suspicious_reason)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+                         qty_total, call_required, suspicious, suspicious_reason, commission_pct)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
     priced.amount, String(b.addr || ''), String(b.pay || 'card'),
     courier, status, eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines), tgChatId, source,
-    totalQty(priced.lines), call.required ? 1 : 0, suspect.suspicious ? 1 : 0, suspect.reason
+    totalQty(priced.lines), call.required ? 1 : 0, suspect.suspicious ? 1 : 0, suspect.reason, commissionPct
   );
 
   const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);

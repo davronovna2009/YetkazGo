@@ -213,8 +213,11 @@ function ops(text) {
 export function notifyNewOrder(order, lines) {
   try {
     if (!BOT_ENABLED || !order || !TG_CHAT_OPS) return;
+    /* Mijoz izohi (masalan "sous bilan") — tarkib ostida alohida qatorda:
+       operator ham, kuryer ham buni ko'rmasa buyurtma noto'g'ri yetkaziladi. */
     const items = (lines && lines.length)
-      ? lines.map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`).join('\n')
+      ? lines.map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`
+          + (l.note ? `\n     💬 <b>${esc(l.note)}</b>` : '')).join('\n')
       : `  • ${esc(order.item) || '—'}`;
     ops(
       `🆕 <b>YANGI BUYURTMA #${order.id}</b>\n\n`
@@ -321,8 +324,10 @@ async function onWebAppData(msg) {
   notifyNewOrder(created.order, created.lines);
 
   const o = created.order;
+  /* Izoh mijozning tasdiq xabarida ham ko'rinadi — u yozganini tekshira olsin */
   const lines = (created.lines || [])
-    .map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`)
+    .map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`
+      + (l.note ? `\n     💬 <i>${esc(l.note)}</i>` : ''))
     .join('\n');
 
   const text =
@@ -591,8 +596,10 @@ botRouter.post('/api/tg/order', async (req, res) => {
   notifyNewOrder(o, created.lines);
 
   /* 2) Mijozning O'ZIGA botда tasdiq xabari (mini ilova yopilgach shu ko'rinadi) */
+  /* Izoh mijozning tasdiq xabarida ham ko'rinadi — u yozganini tekshira olsin */
   const lines = (created.lines || [])
-    .map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`)
+    .map((l) => `  • ${esc(l.emoji)} ${esc(l.name)} × ${l.qty} — ${money(l.sum)} so'm`
+      + (l.note ? `\n     💬 <i>${esc(l.note)}</i>` : ''))
     .join('\n');
   send(chatId,
     '✅ <b>Buyurtmangiz qabul qilindi!</b>\n\n'

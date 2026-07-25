@@ -134,6 +134,18 @@ img{display:block;max-width:100%}
 .cart-mid{flex:1;min-width:0}
 .cart-name{font-size:14px;font-weight:700}
 .cart-each{font-size:11px;color:var(--grey);margin-top:2px}
+/* Taomga izoh — mijoz tilagi, restoran/kuryer aynan shuni ko'radi */
+.cart-line{flex-wrap:wrap}
+.cart-note{flex:0 0 100%;margin-top:6px}
+.cart-note-lbl{display:block;font-size:11px;font-weight:700;color:var(--grey);margin-bottom:4px}
+.cart-note-inp{
+  width:100%;padding:9px 11px;border:1px dashed var(--line);border-radius:10px;
+  font-size:13px;font-family:inherit;color:var(--ink);background:transparent;outline:none;
+  -webkit-appearance:none;
+}
+.cart-note-inp:focus{border-style:solid;border-color:var(--red)}
+.cart-note-inp.has-note{border-style:solid;border-color:var(--red);background:rgba(200,16,46,.07);font-weight:700}
+.rv-note{color:var(--red);font-weight:800;font-size:12px}
 .totals{
   background:var(--card);border-radius:var(--radius);
   padding:14px;margin-top:12px;box-shadow:var(--shadow);
@@ -305,10 +317,15 @@ const REST = new URLSearchParams(location.search).get('rest') || '';
 let INFO = null;        // restoran qatori (openH/closeH/emoji/eta...)
 let MENU = [];          // [{id,name,emoji,price,eff,discount,photo,descr,soldout}]
 let CART = {};          // { [dishId]: qty }
+/* Taomga izoh — mijoz tilagi ("sous bilan", "achchiq solmang").
+   Restoran tayyorlashda, kuryer esa olib chiqishda AYNAN shuni ko'radi. */
+let NOTES = {};         // { [dishId]: matn }
 let PAY  = 'cash';
 let SCREEN = 'menu';    // menu | cart | form | done | err
 
 const CART_KEY = 'yz_tg_cart_' + REST;
+const NOTES_KEY = 'yz_tg_notes_' + REST;
+const NOTE_MAX = 200;
 const $ = (id) => document.getElementById(id);
 const som = (n) => Number(n||0).toLocaleString('ru-RU') + " so'm";
 /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
@@ -340,11 +357,19 @@ const notify = (t='success') => { try { tg && tg.HapticFeedback.notificationOccu
 /* ============================ Savat (localStorage) ====================== */
 function loadCart(){
   try { CART = JSON.parse(localStorage.getItem(CART_KEY)) || {}; } catch(e){ CART = {}; }
+  try { NOTES = JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; } catch(e){ NOTES = {}; }
 }
 function saveCart(){
   try { localStorage.setItem(CART_KEY, JSON.stringify(CART)); } catch(e){}
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(NOTES)); } catch(e){}
 }
-const cartLines  = () => MENU.filter(d => CART[d.id] > 0).map(d => ({ ...d, qty: CART[d.id] }));
+/* Izohni tozalab saqlaymiz — server ham aynan shu chegarani qo'llaydi */
+function setNote(id, txt){
+  const v = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, NOTE_MAX);
+  if (v) NOTES[id] = v; else delete NOTES[id];
+  saveCart();
+}
+const cartLines  = () => MENU.filter(d => CART[d.id] > 0).map(d => ({ ...d, qty: CART[d.id], note: NOTES[d.id] || '' }));
 const cartTotal  = () => cartLines().reduce((s,l) => s + l.eff * l.qty, 0);
 const cartCount  = () => cartLines().reduce((s,l) => s + l.qty, 0);
 
@@ -469,13 +494,27 @@ function renderCart(){
         <span class="qty">${l.qty}</span>
         <button data-inc="${l.id}">+</button>
       </div>
+      <div class="cart-note">
+        <label class="cart-note-lbl" for="tgNote${l.id}">💬 Shu taomga izoh</label>
+        <input id="tgNote${l.id}" class="cart-note-inp" type="text" maxlength="${NOTE_MAX}"
+               data-note="${l.id}" placeholder="Masalan: sous bilan yuboring" value="${l.note}">
+      </div>
     </div>`)}`;
+  /* Har harfda saqlaymiz — mijoz tugma bosmasdan "Rasmiylashtirish" ga o'tadi */
+  $('cartList').querySelectorAll('[data-note]').forEach(inp => {
+    if (inp.value.trim()) inp.classList.add('has-note');
+    inp.addEventListener('input', () => {
+      setNote(inp.dataset.note, inp.value);
+      inp.classList.toggle('has-note', !!inp.value.trim());
+    });
+  });
   $('tItems').textContent = som(cartTotal());
   $('tGrand').textContent = som(cartTotal());
 }
 
 function renderReview(){
-  const items = cartLines().map(l => html`${l.emoji} ${l.name} × ${l.qty} — ${raw('<b>'+som(l.eff*l.qty)+'</b>')}<br>`);
+  /* Izoh tasdiqlash ekranida ham ko'rinadi — mijoz yuborishdan oldin tekshiradi */
+  const items = cartLines().map(l => html`${l.emoji} ${l.name} × ${l.qty} — ${raw('<b>'+som(l.eff*l.qty)+'</b>')}${l.note ? raw('<br><span class="rv-note">💬 '+esc(l.note)+'</span>') : ''}<br>`);
   $('reviewBox').innerHTML = html`
     <div class="rrow"><span class="rk">🏪 Restoran:</span><span class="rv">${REST}</span></div>
     <div class="rrow"><span class="rk">🍽 Tarkibi:</span><span class="rv">${items}</span></div>
@@ -658,7 +697,7 @@ async function submit(){
   const payload = {
     initData: tg.initData || '',
     rest: REST,
-    items: lines.map(l => ({ id: l.id, qty: l.qty })),
+    items: lines.map(l => ({ id: l.id, qty: l.qty, note: l.note || '' })),
     phone: '998' + digits($('fPhone').value),
     addr: $('fAddr').value.trim(),
     pay: PAY,

@@ -56,6 +56,44 @@
     return lines(order).reduce(function (s, l) { return s + (Number(l && l.qty) || 0); }, 0);
   }
 
+  /* ---- MIJOZ IZOHLARI (taom tilaklari) ----
+     "Somsani sous bilan yuboring", "achchiq solmang", "alohida o'rang".
+     Izohli qatorlar: [{name, note, qty}]. Bo'sh bo'lsa — [] . */
+  function notes(order) {
+    return lines(order)
+      .filter(function (l) { return l && String(l.note || '').trim(); })
+      .map(function (l) {
+        return { name: String(l.name || ''), note: String(l.note).trim(), qty: Number(l.qty) || 1 };
+      });
+  }
+  function hasNotes(order) { return notes(order).length > 0; }
+
+  /* Jadval qatori uchun kichkina belgi — "bu buyurtmada mijoz tilagi bor".
+     Kuryer ro'yxatni ko'zdan kechirganda darrov sezadi. */
+  function noteFlag(order) {
+    var n = notes(order);
+    if (!n.length) return '';
+    return '<span class="yz-note-flag" title="' + esc(n.map(function (x) { return x.name + ': ' + x.note; }).join(' · ')) + '">'
+      + '💬 ' + n.length + ' ta izoh</span>';
+  }
+
+  /* Buyurtma modali uchun KATTA, o'tkazib yuborib bo'lmaydigan blok.
+     Kuryer/restoran uchun eng muhim ma'lumot — shuning uchun alohida quti. */
+  function notesHtml(order, opts) {
+    var n = notes(order);
+    if (!n.length) return '';
+    var o = opts || {};
+    var rows = n.map(function (x) {
+      return '<div class="yz-note-line">'
+        + '<span class="yz-note-dish">' + esc(x.name) + (x.qty > 1 ? ' ×' + x.qty : '') + '</span>'
+        + '<span class="yz-note-txt">' + esc(x.note) + '</span>'
+        + '</div>';
+    }).join('');
+    return '<div class="yz-note-box">'
+      + '<h4>💬 ' + esc(o.title || 'Mijoz izohi — shuni bajaring') + '</h4>'
+      + rows + '</div>';
+  }
+
   /* Bitta taom belgisi (rasm bo'lsa rasm, bo'lmasa emoji) */
   function thumb(line, size) {
     var px = size || 34;
@@ -103,17 +141,22 @@
         ? '<span class="yz-it-old">' + money(l.price) + '</span> <b class="yz-it-new">' + money(l.eff) + '</b>'
           + ' <span class="yz-it-pct">-' + Math.round(l.pct) + '%</span>'
         : money(l.eff != null ? l.eff : l.price) + " so'm";
+      /* Mijoz tilagi AYNAN shu taom ostida — tayyorlovchi/kuryer adashmasin */
+      var note = String(l.note || '').trim()
+        ? '<div class="yz-it-note">💬 <span>' + esc(l.note) + '</span></div>' : '';
       return '<div class="yz-it-row">'
         + thumb(l, 42)
         + '<div class="yz-it-info"><div class="yz-it-name">' + esc(l.name) + '</div>'
-        + '<div class="yz-it-price">' + disc + '</div></div>'
+        + '<div class="yz-it-price">' + disc + '</div>' + note + '</div>'
         + '<div class="yz-it-right"><b class="yz-it-x">× ' + (Number(l.qty) || 1) + '</b>'
         + '<span class="yz-it-sum">' + money(sum) + " so'm</span></div>"
         + '</div>';
     }).join('');
+    var n = notes(order).length;
     return '<div class="yz-it-box">'
       + '<div class="yz-it-head"><b>🍽️ Buyurtma tarkibi</b>'
-      + '<span class="yz-it-count">' + ls.length + ' xil · jami ' + total + ' dona</span></div>'
+      + '<span class="yz-it-count">' + ls.length + ' xil · jami ' + total + ' dona'
+      + (n ? ' · 💬 ' + n + ' ta izoh' : '') + '</span></div>'
       + '<div class="yz-it-scroll" style="max-height:' + (o.maxHeight || 260) + 'px">' + rows + '</div>'
       + '</div>';
   }
@@ -148,7 +191,24 @@
       '.yz-it-pct{background:#FBE3E6;color:#C8102E;border-radius:6px;padding:0 4px;font-size:10px;font-weight:800}' +
       '.yz-it-right{text-align:right;flex:none}' +
       '.yz-it-x{display:block;font-size:14px}' +
-      '.yz-it-sum{color:#9a8d83;font-size:12px;white-space:nowrap}';
+      '.yz-it-sum{color:#9a8d83;font-size:12px;white-space:nowrap}' +
+      /* ---- MIJOZ IZOHI: bu ma'lumot ko'rinmasa buyurtma noto'g'ri yetkaziladi,
+             shuning uchun qizil ramka va qalin shrift bilan ajratiladi ---- */
+      '.yz-it-note{margin-top:4px;background:#FFF3F0;border-left:3px solid #C8102E;' +
+        'border-radius:0 8px 8px 0;padding:5px 8px;font-size:12.5px;font-weight:700;' +
+        'color:#8f1224;line-height:1.4;word-break:break-word}' +
+      /* flex-basis:100% — buyurtma qatori flex konteyner, izoh butun kenglikni olsin */
+      '.yz-note-box{border:2px solid #C8102E;background:#FFF3F0;border-radius:14px;' +
+        'padding:10px 12px;margin:12px 0;flex:0 0 100%;width:100%;box-sizing:border-box}' +
+      '.yz-note-box h4{font-size:13px;color:#C8102E;margin:0 0 7px;display:flex;align-items:center;' +
+        'gap:6px;text-transform:uppercase;letter-spacing:.3px}' +
+      '.yz-note-line{display:flex;gap:8px;align-items:flex-start;padding:5px 0;' +
+        'border-top:1px dashed rgba(200,16,46,.25);font-size:13.5px;line-height:1.45}' +
+      '.yz-note-line:first-of-type{border-top:none}' +
+      '.yz-note-dish{font-weight:800;color:#5c0f1c;flex:none;max-width:45%;word-break:break-word}' +
+      '.yz-note-txt{font-weight:700;color:#8f1224;flex:1;word-break:break-word}' +
+      '.yz-note-flag{display:inline-flex;align-items:center;gap:3px;background:#C8102E;color:#fff;' +
+        'border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:800;white-space:nowrap}';
     (root.document.head || root.document.documentElement).appendChild(st);
   }
   if (root.document) {
@@ -159,5 +219,7 @@
   root.YZ_ITEMS = {
     lines: lines, qty: qty, photoOf: photoOf, isPhoto: isPhoto,
     thumb: thumb, strip: strip, listHtml: listHtml,
+    /* Mijoz izohlari — kuryer/restoran/admin panellari shulardan foydalanadi */
+    notes: notes, hasNotes: hasNotes, noteFlag: noteFlag, notesHtml: notesHtml,
   };
 })(typeof window !== 'undefined' ? window : this);

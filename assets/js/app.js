@@ -97,12 +97,18 @@
       pod.innerHTML = `<button class="add-btn" aria-label="Savatga qo'shish">+</button>`;
       pod.querySelector(".add-btn").addEventListener("click",(e)=>{e.stopPropagation();flyToCart(d,e.currentTarget);addToCart(d);updateAllCards();});
     } else {
+      /* Savatga qo'shilgan zahoti «💬» tugmasi chiqadi — SHU taomga izoh
+         yozish uchun ("sous bilan yuboring"). Izoh yozilgan bo'lsa tugma
+         to'ldirilgan holatда turadi, ya'ni mijoz yozganini ko'rib turadi. */
+      const hasNote = !!noteOf(d.id).trim();
       pod.innerHTML = `
         <div class="card-qty">
           <button class="qty-btn qty-minus" aria-label="Kamaytirish">−</button>
           <span class="qty-num">${qty}</span>
           <button class="qty-btn qty-plus${closed?' qty-closed':''}" aria-label="Ko'paytirish">+</button>
+          <button class="qty-btn qty-note${hasNote?' has-note':''}" aria-label="${esc(I18N.t("note_label"))}" title="${esc(I18N.t("note_label"))}">💬</button>
         </div>`;
+      pod.querySelector(".qty-note").addEventListener("click",(e)=>{e.stopPropagation();openNoteModal(d);});
       pod.querySelector(".qty-minus").addEventListener("click",(e)=>{e.stopPropagation();changeQty(d.id,-1);updateAllCards();});
       pod.querySelector(".qty-plus").addEventListener("click",(e)=>{
         e.stopPropagation();
@@ -215,6 +221,18 @@
           addToCart(d);updateAllCards();refreshModal();
         });
         foot.querySelector("#dmGoCart").addEventListener("click",()=>{closeModal();openCart();});
+        /* Savatga qo'shilgan zahoti — SHU TAOMGA izoh yozish maydoni.
+           "Somsani sous bilan yuboring" kabi tilak restoranga va kuryerga
+           aynan shu taom bilan birga boradi. */
+        const nb=document.createElement("div");
+        nb.className="dm-note";
+        nb.innerHTML=`<label class="ci-note-lbl" for="dmNote">💬 ${I18N.t("note_label")}</label>
+          <input id="dmNote" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
+                 placeholder="${esc(I18N.t("note_ph"))}" value="${esc(noteOf(d.id))}">`;
+        foot.appendChild(nb);
+        const dn=nb.querySelector("#dmNote");
+        if(noteOf(d.id).trim()) dn.classList.add("has-note");
+        dn.addEventListener("input",()=>{ setNote(d.id, dn.value); dn.classList.toggle("has-note", !!dn.value.trim()); });
       }
     };
     refreshModal();
@@ -407,11 +425,32 @@
     </div>`;
   }
 
+  /* Yopishib turadigan restoran nomi paneli sayt header'i ostida tursin.
+     Header mobil/desktopда turlicha balandlikda — o'lchab CSS o'zgaruvchisiga
+     yozamiz (ekran burilganda ham qayta hisoblanadi). */
+  function syncRTopbarOffset(){
+    try{
+      const bar=document.querySelector(".sticky-top-bar");
+      const h=bar?Math.round(bar.getBoundingClientRect().height):0;
+      document.documentElement.style.setProperty("--yz-topbar-h", h+"px");
+    }catch(e){}
+  }
+  window.addEventListener("resize", ()=>{ if(document.body.classList.contains("ropen")) syncRTopbarOffset(); });
+
   function openRestaurant(id){
     const r=restList().find(x=>x.id===id)||((typeof RESTAURANTS!=="undefined")?RESTAURANTS.find(x=>x.id===id):null); if(!r) return;
     const menu=catalog().filter(d=>d.rest===r.name);
     const view=$("#restaurantView");
     view.innerHTML=html`
+      <!-- Restoran nomi — sahifaning eng tepasida va scroll'da ham yopishib
+           turadi. Rasm katta bo'lganда hero'dagi nom ekrandan chiqib ketardi
+           va mijoz qaysi restoranda ekanini bilmasdi. -->
+      <div class="rtopbar">
+        <button class="rtopbar-back" id="rBackTop" aria-label="${I18N.t("back")}">←</button>
+        <span class="rtopbar-emoji">${r.emoji}</span>
+        <span class="rtopbar-name">${nm(r)}</span>
+        <span class="rtopbar-open">${restOpenLabel(r.name)}</span>
+      </div>
       <div class="rhero tone-${r.kw}">
         ${(function(){const p=restPhoto(r.name);return p?html`<img class="rhero-photo-bg" src="${p}" alt="" aria-hidden="true" data-onerr="remove"><img class="rhero-photo" src="${p}" alt="${nm(r)}" data-onerr="remove">`:"";})()}
         <div class="rhero-overlay"></div>
@@ -446,7 +485,11 @@
       flyToCart(d,e.currentTarget); addToCart(d); updateAllCards();
     }));
     $("#rBack").addEventListener("click",()=>{ location.hash=""; });
+    const bt=view.querySelector("#rBackTop"); if(bt) bt.addEventListener("click",()=>{ location.hash=""; });
     document.body.classList.add("ropen");
+    /* Nom paneli sayt header'i OSTIGA yopishsin (ustiga chiqib ketmasin).
+       Header balandligi ekran o'lchamiga qarab o'zgaradi — o'lchab qo'yamiz. */
+    syncRTopbarOffset();
     window.scrollTo({top:0});
   }
   function closeRestaurant(){
@@ -599,8 +642,44 @@
       });
       return;
     }
-    if(ex) ex.qty++; else cart.push({...d, price:(d.eff||d.price), qty:1});
+    if(ex) ex.qty++; else cart.push({...d, price:(d.eff||d.price), qty:1, note:""});
     updateCart(); updateAllCards(); toast(I18N.t("t_added"),"success");
+  }
+  /* ===== TAOMGA IZOH (mijoz tilagi) =====
+     "Somsani sous bilan yuboring", "achchiq solmang", "alohida o'rang".
+     Izoh AYNAN shu taomga biriktiriladi va buyurtma bilan birga serverga
+     boradi — restoran tayyorlashda, kuryer esa olib chiqishda ko'radi. */
+  const NOTE_MAX = 200;
+  function setNote(id, text){
+    const it = cart.find(i=>i.id===id); if(!it) return;
+    it.note = String(text||"").replace(/\s+/g," ").trim().slice(0,NOTE_MAX);
+  }
+  function noteOf(id){ const it=cart.find(i=>i.id===id); return (it&&it.note)||""; }
+  /* Taom kartasidagi «💬» tugmasi ochadigan kichik oyna — mijoz savatni
+     ochmasdan ham izohini yozib qo'yadi. */
+  function openNoteModal(d){
+    openModal(`<div style="text-align:center">
+        <div style="font-size:40px">💬</div>
+        <h2 style="margin:6px 0 2px">${esc(nm(d))}</h2>
+        <p class="modal-sub" style="margin-bottom:12px">${I18N.t("note_hint")}</p>
+      </div>
+      <div style="text-align:left">
+        <label class="ci-note-lbl" for="nmInp">${I18N.t("note_label")}</label>
+        <input id="nmInp" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
+               placeholder="${esc(I18N.t("note_ph"))}" value="${esc(noteOf(d.id))}">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-outline btn-block" id="nmClear">${I18N.t("note_clear")}</button>
+        <button class="btn btn-primary btn-block" id="nmSave">${I18N.t("note_save")}</button>
+      </div>`);
+    const inp=document.getElementById("nmInp");
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+    const save=()=>{ setNote(d.id, inp?inp.value:""); updateCart(); updateAllCards(); closeModal();
+      toast(noteOf(d.id)?I18N.t("note_saved"):I18N.t("note_cleared"),"success"); };
+    const clr=document.getElementById("nmClear");
+    if(clr) clr.addEventListener("click",()=>{ if(inp) inp.value=""; save(); });
+    const sv=document.getElementById("nmSave"); if(sv) sv.addEventListener("click",save);
+    if(inp) inp.addEventListener("keydown",e=>{ if(e.key==="Enter") save(); });
   }
   function changeQty(id,delta){
     const it=cart.find(i=>i.id===id); if(!it) return;
@@ -622,9 +701,19 @@
         row.innerHTML=`
           <div class="ci-img"><span>${i.emoji}</span></div>
           <div class="ci-info"><h4>${nm(i)}</h4><span>${fmt(i.price)} ${I18N.t("sum")}</span></div>
-          <div class="qty"><button data-m="-1">−</button><b>${i.qty}</b><button data-m="1">+</button></div>`;
+          <div class="qty"><button data-m="-1">−</button><b>${i.qty}</b><button data-m="1">+</button></div>
+          <div class="ci-note">
+            <label class="ci-note-lbl" for="note_${i.id}">💬 ${I18N.t("note_label")}</label>
+            <input id="note_${i.id}" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
+                   placeholder="${esc(I18N.t("note_ph"))}" value="${esc(i.note||"")}">
+          </div>`;
         row.querySelector('[data-m="-1"]').addEventListener("click",()=>changeQty(i.id,-1));
         row.querySelector('[data-m="1"]').addEventListener("click",()=>changeQty(i.id,1));
+        /* Izoh yozilgan zahoti savatda saqlanadi — "input" (har harfda), chunki
+           mijoz tugmani bosmasdan to'g'ridan-to'g'ri "Buyurtma berish" ga o'tadi. */
+        const ni=row.querySelector(".ci-note-inp");
+        ni.addEventListener("input",()=>{ setNote(i.id, ni.value); ni.classList.toggle("has-note", !!ni.value.trim()); });
+        if((i.note||"").trim()) ni.classList.add("has-note");
         body.appendChild(row);
       });
     }
@@ -913,7 +1002,7 @@
       emoji,
       totalPrice,
       user: user.name || "Mehmon",   // backend buyurtmasiga moslash uchun
-      items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji})),
+      items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji, note:i.note||""})),
       eta,
       arriveAt,
       startAt: now,
@@ -932,7 +1021,9 @@
           /* Serverga NIMA olayotganimizni aytamiz — summani O'ZI hisoblaydi.
              Quyidagi rest/item/emoji/amount faqat local ko'rinish uchun; server
              ularni e'tiborsiz qoldirib, javobda o'z qiymatlarini qaytaradi. */
-          items: cart.map(i=>({ id:i.id, qty:i.qty })),
+          /* `note` — mijozning shu taomga yozgan tilagi. Server uni tozalab
+             buyurtma tarkibiga yozadi; restoran va kuryer paneli ko'rsatadi. */
+          items: cart.map(i=>({ id:i.id, qty:i.qty, note:(i.note||"") })),
           rest: restName,
           item: label,
           emoji: emoji,
@@ -1272,6 +1363,13 @@
           <div class="aop-progress">
             <div class="aop-progress-fill" style="width:${pct}%;background:${stepColors[step]}"></div>
           </div>
+          ${(function(){
+            /* Mijoz yozgan izohlar — buyurtma restoranga ketgach ham ko'rinib
+               tursin: "sous bilan" deb yozganini eslay olsin. */
+            const ns=(o.items||[]).filter(i=>i&&String(i.note||"").trim());
+            if(!ns.length) return "";
+            return `<div class="aop-notes">${ns.map(i=>`<div>💬 <b>${esc(i.name)}</b>: ${esc(i.note)}</div>`).join("")}</div>`;
+          })()}
           ${step<3?`<button class="aop-cancel" data-cancel="${o.id}" style="margin-top:8px;width:100%;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer">✕ Buyurtmani bekor qilish</button>`:""}
         </div>`;
       }).join("")}

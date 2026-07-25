@@ -547,9 +547,24 @@
               <span class="kab-dq-num">${i.qty}</span>
               <button class="kab-dq-btn" data-id="${i.id}" data-m="1">+</button>
             </div>
+            <div class="ci-note">
+              <label class="ci-note-lbl" for="kabNote_${i.id}">💬 Shu taomga izoh</label>
+              <input id="kabNote_${i.id}" class="ci-note-inp kab-note" type="text" maxlength="200"
+                     data-id="${i.id}" placeholder="Masalan: sous bilan yuboring" value="${esc(i.note||"")}">
+            </div>
           </div>`).join("");
         body.querySelectorAll(".kab-dq-btn").forEach(b=>{
           b.addEventListener("click",()=>{ changeQty(+b.dataset.id,+b.dataset.m); renderCart(); });
+        });
+        /* Taom izohi — restoran va kuryer AYNAN shuni ko'radi. Har harfda
+           savatga yozamiz: mijoz tugma bosmasdan buyurtmaga o'tishi mumkin. */
+        body.querySelectorAll(".kab-note").forEach(inp=>{
+          if((inp.value||"").trim()) inp.classList.add("has-note");
+          inp.addEventListener("input",()=>{
+            const it=cart.find(x=>x.id===+inp.dataset.id); if(!it) return;
+            it.note=String(inp.value||"").replace(/\s+/g," ").trim().slice(0,200);
+            inp.classList.toggle("has-note", !!it.note);
+          });
         });
       }
     }
@@ -687,7 +702,8 @@
        Quyidagi rest/item/amount local ko'rinish uchun; server ularni e'tiborsiz
        qoldiradi. Rad etsa (min. summa / sotuvda yo'q taom) — orqaga qaytaramiz. */
     try{ created = STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:first.name+more, emoji:first.emoji,
-      items:cart.map(i=>({id:i.id, qty:i.qty})),
+      /* `note` — mijozning shu taomga yozgan tilagi (restoran/kuryer ko'radi) */
+      items:cart.map(i=>({id:i.id, qty:i.qty, note:(i.note||"")})),
       amount:total, delivery:(typeof koDeliveryFee==="function"?koDeliveryFee():0), addr:addrFull, pay:koPay, courier:STORE.courierForRest(first.rest), status:"new", eta:eta,
       time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}) },{
       onFail: err => koOrderRejected(orderLocalId, savedCart, err)

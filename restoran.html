@@ -62,6 +62,10 @@
       <div class="content">
         <!-- DASHBOARD -->
         <section class="view show" id="view-dash">
+          <!-- RESTORAN NOMI — panelga kirgandagi BIRINCHI sahifada, eng tepada.
+               Bir necha restoran bitta qurilmadan boshqarilganda kim sifatida
+               kirilganini adashtirmaslik uchun (restoran.js:renderRestHead). -->
+          <div class="rest-head" id="restHead"></div>
           <!-- BUYURTMALAR ENG TEPADA — restoran kirgan zahoti ularni ko'radi.
                Statistika va qolgan panellar pastda. Rasm yuklash "Sozlamalar"ga
                ko'chirildi (u bu yerda buyurtmalarni pastga surib yuborardi). -->
@@ -148,7 +152,9 @@
             <div class="panel-head"><h3>Mening menyum</h3></div>
             <div class="panel-body tbl-wrap">
               <table class="tbl">
-                <thead><tr><th>Nomi</th><th>Narx</th><th>Reyting</th><th>Sotildi (oy)</th><th>Daromad</th><th>Amal</th></tr></thead>
+                <!-- "Sotildi" — HAQIQIY dona soni (yetkazilgan buyurtmalar
+                     tarkibidan hisoblanadi, restoran.js:salesMap) -->
+                <thead><tr><th>Nomi</th><th>Narx</th><th>Reyting</th><th>Sotildi (dona)</th><th>Daromad</th><th>Amal</th></tr></thead>
                 <tbody id="dishTbody"></tbody>
               </table>
             </div>
