@@ -81,6 +81,14 @@ router.patch('/me', authRequired, (req, res) => {
       const taken = db.prepare('SELECT 1 FROM accounts WHERE login = ? AND id <> ?').get(newLogin, acc.id);
       if (taken) return res.status(409).json({ error: 'Bu login band' });
       db.prepare('UPDATE accounts SET login = ? WHERE id = ?').run(newLogin, acc.id);
+      /* ===== MUHIM: login ikkita jadvalда saqlanadi =====
+         `accounts.login` — haqiqiy kirish; `restaurants.login`/`couriers.login`
+         — nusxa (ko'p so'rov shu nusxa bo'yicha kalitlanadi). Ilgari bu yerда
+         faqat accounts yangilanardi va nusxa ESKI qolardi: admin «Restoranlar»
+         bo'limi eski loginni, «Loginlar» bo'limi yangisini ko'rsatardi —
+         ya'ni "ikki joyda ikki xil". Endi ikkalasi birga yangilanadi. */
+      if (acc.role === 'restoran') db.prepare('UPDATE restaurants SET login = ? WHERE login = ?').run(newLogin, acc.login);
+      else if (acc.role === 'kuryer') db.prepare('UPDATE couriers SET login = ? WHERE login = ?').run(newLogin, acc.login);
     }
   }
   if (b.pass && String(b.pass).length >= 4) db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(String(b.pass)), acc.id);

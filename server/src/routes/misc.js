@@ -144,8 +144,20 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
 router.delete('/restaurants', requireRole('admin'), (req, res) => {
   const login = String(req.body?.login || '').trim();
   if (!login) return res.status(400).json({ error: 'login kerak' });
+  /* Restoran o'chirilganda uning TAOMLARI, e'lonlari va chegirmalari ham
+     ketishi kerak — aks holda ular "yetim" bo'lib katalogда/saytда qolib
+     ketardi (o'chirilgan restoranning taomlari ko'rinaverardi).
+     Buyurtma TARIXI (orders) esa ataylab qoldiriladi — moliya hisoboti va
+     nizolar uchun kerak. */
+  const r = db.prepare('SELECT name FROM restaurants WHERE login = ?').get(login);
+  const name = r ? r.name : null;
   db.prepare('DELETE FROM restaurants WHERE login = ?').run(login);
   db.prepare("DELETE FROM accounts WHERE login = ? AND role = 'restoran'").run(login);
+  if (name) {
+    for (const t of ['added_dishes', 'removed_dishes', 'discounts', 'soldout_dishes', 'announcements']) {
+      try { db.prepare(`DELETE FROM ${t} WHERE rest = ?`).run(name); } catch (e) { /* jadval yo'q */ }
+    }
+  }
   res.json({ ok: true });
 });
 

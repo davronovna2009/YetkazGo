@@ -41,6 +41,7 @@
       <a class="sb-link active" data-view="dash"><span class="ic">📊</span><span class="ic-label">Dashboard</span></a>
       <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
       <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
+      <a class="sb-link" data-view="income"><span class="ic">💰</span><span class="ic-label">Daromad</span></a>
       <a class="sb-link" data-view="user"><span class="ic">👥</span><span class="ic-label">Foydalanuvchilar</span></a>
       <a class="sb-link" data-view="logins"><span class="ic">🔑</span><span class="ic-label">Loginlar</span></a>
       <a class="sb-link" data-view="suspicious"><span class="ic">🔎</span><span class="ic-label">Shubhali buyurtmalar</span><span class="sb-badge" id="suspBadge" hidden>0</span></a>
@@ -75,30 +76,8 @@
       <!-- ===== DASHBOARD ===== -->
       <section class="view show" id="view-dash">
 
-        <!-- Stat cards: 2x2 mobil, 4x1 desktop -->
+        <!-- Stat cards: 2x2 mobil, 4x1 desktop (operativ sonlar) -->
         <div class="stat-grid" id="statCards"></div>
-
-        <!-- Chart + Top rests -->
-        <div class="dash-row">
-          <div class="panel flex-panel">
-            <div class="panel-head">
-              <h3>Daromad (mln so'm)</h3>
-              <span class="panel-badge">6 oy</span>
-            </div>
-            <div class="panel-body">
-              <div class="chart" id="revChart"></div>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h3>TOP restoranlar</h3></div>
-            <div class="panel-body">
-              <div class="toplist" id="topRests"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- GMV info -->
-        <div class="info-strip" id="gmvNote"></div>
 
         <!-- Live orders: mobil karta / desktop jadval -->
         <div class="panel">
@@ -123,6 +102,29 @@
           <div class="panel-body" id="adminReviews"></div>
         </div>
 
+      </section>
+
+      <!-- ===== DAROMAD (dashboarddan ko'chirildi) ===== -->
+      <section class="view" id="view-income">
+        <!-- Pul kartalari: komissiya daromadi, kuryer xarajati, sof foyda (davr tanlovi ichida) -->
+        <div class="stat-grid" id="incStatCards"></div>
+
+        <!-- Daromad grafigi -->
+        <div class="panel">
+          <div class="panel-head"><h3>Daromad grafigi</h3><span class="panel-badge" id="incChartBadge">6 oy</span></div>
+          <div class="panel-body"><div class="chart" id="revChart"></div></div>
+        </div>
+
+        <!-- Aylanma → komissiya → xarajat → sof foyda -->
+        <div class="info-strip" id="gmvNote"></div>
+
+        <!-- renderFinance() bu bo'limga #adminFinance panelini qo'shadi -->
+
+        <!-- TOP restoranlar (daromad bo'yicha) -->
+        <div class="panel">
+          <div class="panel-head"><h3>TOP restoranlar (daromad bo'yicha)</h3></div>
+          <div class="panel-body"><div class="toplist" id="topRests"></div></div>
+        </div>
       </section>
 
       <!-- ===== RESTORANLAR ===== -->

@@ -114,8 +114,15 @@
     $("#loginErr").textContent="Login yoki parol xato.";
   }
   function syncFromBackend(){
-    try{ const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.login===CUR.login):null;
-      if(be){ CUR.name=be.name; if(be.emoji)CUR.emoji=be.emoji; CUR.photo=be.photo||CUR.photo; } }catch(e){}
+    try{
+      var list=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants():[];
+      /* Avval login bo'yicha, topilmasa NOM bo'yicha topamiz. Ilgari faqat login
+         bo'yicha qidirilardi: login nusxasi (restaurants.login) accounts bilan
+         mos kelmay qolsa, restoran o'z ma'lumotini (nom/rasm/ish vaqti) umuman
+         topolmasdi. Backend endi loginni yarashtiradi, bu esa qo'shimcha himoya. */
+      var be=list.find(function(x){return x.login===CUR.login;}) || list.find(function(x){return x.name===CUR.name;}) || null;
+      if(be){ CUR.name=be.name; if(be.emoji)CUR.emoji=be.emoji; CUR.photo=be.photo||CUR.photo; if(be.login)CUR.login=be.login; }
+    }catch(e){}
   }
   function enter(r){ CUR=r;
     syncFromBackend(); loadDishes();

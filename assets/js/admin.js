@@ -41,8 +41,12 @@
   RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round((r.rev||0)*c); r.restGets=(r.rev||0)-r.siteCut; });
   COURIERS.forEach(c=>{ if(c.earn==null) c.earn=(c.deliveries||0)*(c.fee||0); });
 
-  /* Pending o'chirishlar (6 soat / 3 soat kutish) */
-  let PENDING = load(SK.pending, []);
+  /* Pending o'chirishlar — ESKI mexanizm (endi ishlatilmaydi).
+     O'chirish DARHOL bajariladi (cancelRest/dismissCourier). Eski, hali
+     bajarilmagan pending yozuvlari qolgan bo'lsa — tozalaymiz, aks holda
+     restoran/kuryer yonида abadiy "⏳ o'chiriladi" yozuvi osilib qolardi. */
+  let PENDING = [];
+  try { localStorage.removeItem(SK.pending); } catch(e) {}
 
   /* Pending ni tekshirish va o'chirish */
   function checkPending(){
@@ -198,12 +202,13 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",user:"Foydalanuvchilar",
+    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",income:"Daromad",user:"Foydalanuvchilar",
                   logins:"Loginlar",suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
                   blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
+    if(view==="income") renderIncome();
     if(view==="blocked") loadBlocked();
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
@@ -817,8 +822,28 @@
     return commOf(o)-feeOf(o);
   }
 
+  /* ===== DASHBOARD — operativ ko'rsatkichlar (PUL emas) =====
+     Daromad/komissiya/xarajat/foyda alohida «Daromad» bo'limiga ko'chirildi
+     (renderIncome). Bu yerда faqat kundalik ish uchun sonlar turadi. */
   function renderDash(){
-    /* REAL: komissiya faqat mijoz tasdiqlagan (done) buyurtmalardan; har restoran komissiyasi bo'yicha */
+    const live=(typeof STORE!=="undefined")?STORE.orders():[];
+    const active=live.filter(o=>o.status!=="cancelled");
+    const totalOrders=active.length;
+    const todayOrders=active.filter(o=>{ try{ return YZ_TIME.isToday(o.created_at); }catch(e){ return false; } }).length;
+    const inProgress=live.filter(o=>!["done","cancelled","review"].includes(o.status)).length;
+    $("#statCards").innerHTML=`
+      <div class="scard c1"><div class="si">🔔</div><div class="scard-info"><b>${money(todayOrders)}</b><span>Bugungi buyurtmalar</span></div></div>
+      <div class="scard c2"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar</span></div></div>
+      <div class="scard c3"><div class="si">🛵</div><div class="scard-info"><b>${money(inProgress)}</b><span>Hozir jarayonda</span></div></div>
+      <div class="scard c4"><div class="si">🏪</div><div class="scard-info"><b>${RESTS.length} · ${COURIERS.length}</b><span>Restoran · Kuryer</span></div></div>`;
+    renderAdminTopCustomers(live);
+    renderSourceStats(live);
+  }
+
+  /* ===== DAROMAD BO'LIMI (dashboarddan ko'chirildi) =====
+     Pul kartalari (davr tanlovi bilan) + grafik + moliya zanjiri + TOP restoran.
+     Barcha raqamlar HAQIQIY, yetkazilgan (done) buyurtmalardan. */
+  function renderIncome(){
     const live=(typeof STORE!=="undefined")?STORE.orders():[];
     const done=live.filter(o=>o.status==="done");
     const periodDone=done.filter(o=>aInPeriod(o,aIncomePeriod));
@@ -826,16 +851,18 @@
     /* XARAJAT va SOF FOYDA — kuryerlarga to'langan haq komissiyadan chiqadi */
     const periodFee=periodDone.reduce((s,o)=>s+feeOf(o),0);
     const periodProfit=periodSite-periodFee;
-    const totalOrders=live.filter(o=>o.status!=="cancelled").length;
     const apLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[aIncomePeriod];
     const aseg=(k,t)=>`<button class="a-inc-seg" data-ap="${k}" style="border:none;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${aIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${aIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
-    $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${money(periodSite)}</b><span>Komissiya daromadi (${apLabel})</span>
-        <div style="margin-top:6px;display:flex;flex-wrap:wrap">${aseg("kunlik","Kunlik")}${aseg("haftalik","Haftalik")}${aseg("oylik","Oylik")}${aseg("yillik","Yillik")}</div></div></div>
-      <div class="scard c2"><div class="si">🛵</div><div class="scard-info"><b style="color:#c2410c">− ${money(periodFee)}</b><span>Kuryer xarajati (${apLabel})</span></div></div>
-      <div class="scard c3"><div class="si">📈</div><div class="scard-info"><b style="color:${periodProfit<0?'#C8102E':'#16a34a'}">${money(periodProfit)}</b><span>Sof foyda (${apLabel})</span></div></div>
-      <div class="scard c4"><div class="si">🧾</div><div class="scard-info"><b>${money(totalOrders)}</b><span>Jami buyurtmalar · 🏪 ${RESTS.length} · 🛵 ${COURIERS.length}</span></div></div>`;
-    $$("#statCards .a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderDash(); }); });
+    const sc=$("#incStatCards");
+    if(sc){
+      sc.innerHTML=`
+        <div class="scard c1"><div class="si">💰</div><div class="scard-info"><b>${money(periodSite)}</b><span>Komissiya daromadi (${apLabel})</span>
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap">${aseg("kunlik","Kunlik")}${aseg("haftalik","Haftalik")}${aseg("oylik","Oylik")}${aseg("yillik","Yillik")}</div></div></div>
+        <div class="scard c2"><div class="si">🛵</div><div class="scard-info"><b style="color:#c2410c">− ${money(periodFee)}</b><span>Kuryer xarajati (${apLabel})</span></div></div>
+        <div class="scard c3"><div class="si">📈</div><div class="scard-info"><b style="color:${periodProfit<0?'#C8102E':'#16a34a'}">${money(periodProfit)}</b><span>Sof foyda (${apLabel})</span></div></div>
+        <div class="scard c4"><div class="si">🧾</div><div class="scard-info"><b>${money(periodDone.length)}</b><span>Yetkazilgan (${apLabel})</span></div></div>`;
+      sc.querySelectorAll(".a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderIncome(); }); });
+    }
     /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab ko'tariladi/tushadi.
        Davr tugmasi (kunlik/haftalik/oylik/yillik) komissiya kartasining ichida;
        o'zgartirilsa diagramma ham shu davrga moslashadi:
@@ -867,7 +894,7 @@
         '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--red,#C8102E),#ff7a5c);height:'+Math.max(4,Math.round(x.sum/max*130))+'px"></div>'+
         '<small style="font-size:10px;color:#8a7f76;white-space:nowrap">'+x.label+'</small></div>'; }).join("");
       /* Diagramma sarlavhasidagi davr yorlig'i */
-      const badge=document.querySelector("#view-dash .panel-badge"); if(badge) badge.textContent={kunlik:"7 kun",haftalik:"8 hafta",oylik:"6 oy",yillik:"5 yil"}[aIncomePeriod]||"6 oy";
+      const badge=$("#incChartBadge"); if(badge) badge.textContent={kunlik:"7 kun",haftalik:"8 hafta",oylik:"6 oy",yillik:"5 yil"}[aIncomePeriod]||"6 oy";
     })();
     /* ===== TOP restoranlar — FAQAT yetkazilgan (pul tushgan) buyurtmalar =====
        Ilgari bekor qilingan va hali yo'ldagi buyurtmalar ham aylanmaga
@@ -908,8 +935,6 @@
         + `Sof foyda: <b style="color:${totalProfit<0?'#C8102E':'#16a34a'}">${money(totalProfit)} so'm</b>`;
     }
     renderFinance(done);
-    renderAdminTopCustomers(live);
-    renderSourceStats(live);
   }
 
   /* ===== MOLIYA: kirim, xarajat va sof foyda (admin dashboard) =====
@@ -923,14 +948,17 @@
      yaratilganда, kuryer haqi esa yetkazilganда buyurtmaga muhrlanadi
      (server/src/orders-core.js) — shuning uchun eski hisobotlar o'zgarmaydi. */
   function renderFinance(done){
-    var host=document.getElementById("view-dash"); if(!host) return;
+    /* Moliya bloki «Daromad» bo'limiga qo'yiladi (dashboardga emas). GMV
+       yozuvidan keyin, TOP restoranlardan oldin tursin. */
+    var host=document.getElementById("view-income"); if(!host) return;
     var box=document.getElementById("adminFinance");
     if(!box){
       box=document.createElement("div"); box.id="adminFinance"; box.className="panel";
       box.style.marginTop="16px";
-      /* Manba statistikasidan OLDIN tursin — pul muhimroq */
-      var src=document.getElementById("adminSrcStats");
-      if(src) host.insertBefore(box, src); else host.appendChild(box);
+      /* GMV yozuvidan keyin joylashsin (mavjud bo'lsa uning ortiga) */
+      var gmv=document.getElementById("gmvNote");
+      if(gmv && gmv.nextSibling) host.insertBefore(box, gmv.nextSibling);
+      else host.appendChild(box);
     }
     var inP=(done||[]).filter(function(o){ return aInPeriod(o,aIncomePeriod); });
     var gmv=inP.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
@@ -1498,7 +1526,7 @@
           </div>
           <button class="dd-action-btn dd-restore" data-id="${id}" data-type="rest" style="margin-top:10px">↩ Shartnomani tiklash</button>
         ` : `
-          <button class="dd-action-btn dd-danger" data-id="${id}" data-type="rest">🚫 Shartnomani bekor qilish</button>
+          <button class="dd-action-btn dd-danger" data-id="${id}" data-type="rest">🗑 Restoranni o'chirish</button>
         `}
       </div>`);
     const acBtn=$("#assignCourBtn"); if(acBtn) acBtn.addEventListener("click",()=>assignCourierModal(r));
@@ -1537,22 +1565,32 @@
     });
   }
 
-  function cancelRest(id){
+  /* ===== RESTORANNI O'CHIRISH — DARHOL va ISHONCHLI =====
+     Ilgari o'chirish localStorage'даги 6 soatlik "pending" ga tushardi va
+     haqiqiy o'chirish FAQAT admin brauzeri o'sha payt ochiq bo'lsa ishlardi.
+     Brauzer yopilsa yoki boshqa qurilmadan qaralsa — restoran qaytib kelaverardi
+     (Versal shundan ketmayotgan edi). Endi tugma bosilishi bilan backenddan
+     to'g'ridan-to'g'ri o'chiriladi. */
+  async function cancelRest(id){
     const r=RESTS.find(x=>x.id===id); if(!r) return;
     confirmModal({
-      icon: "📋",
-      title: "Shartnomani bekor qilish",
-      desc: `<b>${r.name}</b> restoran bilan shartnoma bekor qilinsinmi?<br><br>
-             ✅ 6 soat ichida qaytarib olishingiz mumkin<br>
-             ❌ 6 soatdan keyin restoran tizimdan to'liq o'chadi`,
-      confirmLabel: "Ha, bekor qilish",
+      icon: "🗑",
+      title: "Restoranni o'chirish",
+      desc: `<b>${esc(r.name)}</b> restorani butunlay o'chirilsinmi?<br><br>
+             ❌ Bu amalni ortga qaytarib bo'lmaydi.<br>
+             Restoran akkaunti, taomlari va e'lonlari o'chadi (buyurtma tarixi qoladi).`,
+      confirmLabel: "Ha, o'chirish",
       confirmClass: "confirm-danger",
-      onConfirm: ()=>{
-        const deleteAt = Date.now() + 6*60*60*1000; // 6 soat demo uchun: + 6*60*1000 = 6 daqiqa
-        PENDING.push({id, type:"rest", deleteAt, name:r.name, emoji:r.emoji});
-        save(SK.pending, PENDING);
+      onConfirm: async ()=>{
+        if(typeof STORE==="undefined" || !STORE.deleteRestaurant){ toast("Serverga ulanib bo'lmadi"); return; }
+        const res=await STORE.deleteRestaurant(r.login);
+        if(res && res.error){ toast(res.error); return; }
+        /* Mahalliy ro'yxatдан ham darhol olib tashlaymiz (backend = manba) */
+        RESTS=RESTS.filter(x=>x.id!==id); save(SK.rests,RESTS);
+        PENDING=PENDING.filter(p=>!(p.id===id&&p.type==="rest")); save(SK.pending,PENDING);
+        if(typeof STORE.fetchCouriers==="function") try{ await STORE.fetchCouriers(); }catch(e){}
         renderAll();
-        toast(`${r.name} shartnomasi bekor qilindi. 6 soat ichida tiklashingiz mumkin.`);
+        toast(`✅ ${r.name} o'chirildi`);
       }
     });
   }
@@ -1702,7 +1740,7 @@
           </div>
           <button class="dd-action-btn dd-restore" data-id="${id}" data-type="courier" style="margin-top:10px">↩ Qaytarib olish</button>
         ` : `
-          <button class="dd-action-btn dd-danger" data-id="${id}" data-type="courier">🚫 Ishdan bo'shatish</button>
+          <button class="dd-action-btn dd-danger" data-id="${id}" data-type="courier">🗑 Kuryerni o'chirish</button>
         `}
       </div>`);
     const ccBtn=$("#courContractBtn"); if(ccBtn) ccBtn.addEventListener("click",()=>showCourierContract(c));
@@ -1754,22 +1792,26 @@
     });
   }
 
-  function dismissCourier(id){
+  /* Kuryerni o'chirish — restorandagidek DARHOL (localStorage pending emas) */
+  async function dismissCourier(id){
     const c=COURIERS.find(x=>x.id===id); if(!c) return;
     confirmModal({
-      icon: "🛵",
-      title: "Ishdan bo'shatish",
-      desc: `<b>${c.name}</b> kuryer ishdan bo'shatilsinmi?<br><br>
-             ✅ 3 soat ichida qaytarib olishingiz mumkin<br>
-             ❌ 3 soatdan keyin tizimdan to'liq o'chadi`,
-      confirmLabel: "Ha, bo'shatish",
+      icon: "🗑",
+      title: "Kuryerni o'chirish",
+      desc: `<b>${esc(c.name)}</b> kuryer butunlay o'chirilsinmi?<br><br>
+             ❌ Bu amalni ortga qaytarib bo'lmaydi.<br>
+             Kuryer akkaunti o'chadi (yetkazgan buyurtmalari tarixда qoladi).`,
+      confirmLabel: "Ha, o'chirish",
       confirmClass: "confirm-danger",
-      onConfirm: ()=>{
-        const deleteAt = Date.now() + 3*60*60*1000; // 3 soat (demo: 3*60*1000)
-        PENDING.push({id, type:"courier", deleteAt, name:c.name, emoji:c.emoji});
-        save(SK.pending, PENDING);
+      onConfirm: async ()=>{
+        if(typeof STORE==="undefined" || !STORE.deleteCourier){ toast("Serverga ulanib bo'lmadi"); return; }
+        const res=await STORE.deleteCourier(c.login);
+        if(res && res.error){ toast(res.error); return; }
+        COURIERS=COURIERS.filter(x=>x.id!==id); save(SK.couriers,COURIERS);
+        PENDING=PENDING.filter(p=>!(p.id===id&&p.type==="courier")); save(SK.pending,PENDING);
+        if(typeof STORE.fetchCouriers==="function") try{ await STORE.fetchCouriers(); }catch(e){}
         renderAll();
-        toast(`${c.name} ishdan bo'shatildi. 3 soat ichida qaytarib olishingiz mumkin.`);
+        toast(`✅ ${c.name} o'chirildi`);
       }
     });
   }
@@ -2089,7 +2131,7 @@
   }
   function renderAll(){
     syncEntitiesFromBackend();   // backend = manba: hamma restoran/kuryer to'liq ma'lumoti bilan
-    renderDash(); renderLiveOrders(); renderRests(); renderCouriers(); renderUsers(); renderAdminReviews();
+    renderDash(); renderIncome(); renderLiveOrders(); renderRests(); renderCouriers(); renderUsers(); renderAdminReviews();
     updateSuspBadge();
     /* Ochiq bo'lgan bo'limlarni ham yangilaymiz (yangi shubhali buyurtma / izoh darrov ko'rinsin) */
     try{ if(document.querySelector("#view-suspicious.show")) renderSuspicious(); }catch(e){}
@@ -2177,9 +2219,8 @@
      INIT
      ========================================================= */
   document.addEventListener("DOMContentLoaded",()=>{
-    // Pending tekshirish — har daqiqada
-    checkPending();
-    setInterval(()=>{ checkPending(); renderAll(); }, 60000);
+    // Panellarni davriy yangilaymiz (jonli buyurtma/holat o'zgarishi ko'rinsin)
+    setInterval(()=>{ renderAll(); }, 60000);
 
     // Shikoyatlarni davriy yuklaymiz (yangi shikoyat kelsa hisoblagich ko'rinadi)
     loadComplaints();
@@ -2188,7 +2229,7 @@
     // Realtime: yangi buyurtma/status o'zgarganda jadval va KPI yangilanadi
     if(typeof STORE!=="undefined" && STORE.onChange){
       STORE.onChange(()=>{ try{
-        syncEntitiesFromBackend(); renderDash(); renderLiveOrders(); renderRests(); renderCouriers();
+        syncEntitiesFromBackend(); renderDash(); renderIncome(); renderLiveOrders(); renderRests(); renderCouriers();
         /* Yangi shubhali buyurtma / izoh kelsa — hisoblagich va ochiq bo'lim yangilanadi */
         updateSuspBadge(); fillOwnerSettings();
         if(document.querySelector("#view-suspicious.show")) renderSuspicious();
@@ -2197,7 +2238,7 @@
     }
     /* Kuryerlar bootstrap'da yo'q — ularni alohida davriy yangilaymiz (ishdan-javob holati ham) */
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){
-      setInterval(function(){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderCouriers(); renderDash(); }catch(e){} }); }, 12000);
+      setInterval(function(){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderCouriers(); renderDash(); renderIncome(); }catch(e){} }); }, 12000);
     }
 
     /* ===== Sessiya — SERVERда tekshiriladi =====

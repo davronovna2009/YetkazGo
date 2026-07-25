@@ -3,7 +3,13 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v19 — HAR TAOMGA IZOH ("sous bilan yuboring"): savatда yoziladi, restoran va
+/* v20 — Login xatosi tuzatildi: restoran/kuryer loginini o'zgartirsa accounts
+   va restaurants/couriers jadvallari birga yangilanadi (ilgari "ikki joyda
+   ikki xil" edi); boot'da eski drift yarashtiriladi. Restoran/kuryer o'chirish
+   DARHOL bajariladi (localStorage'даги 6 soatlik kechikish olib tashlandi —
+   Versal shundan ketmayotgan edi). Admin panelга alohida «Daromad» bo'limi:
+   dashboarddagi daromad/grafik/moliya shu yerga ko'chdi, dashboard operativ qoldi.
+   (v19 — HAR TAOMGA IZOH ("sous bilan yuboring"): savatда yoziladi, restoran va
    kuryer panelida ajratib ko'rsatiladi. Restoran nomi panelning birinchi
    sahifasida va sayt restoran sahifasida yopishib turadi. Moliya real bo'ldi:
    komissiya foizi buyurtma yaratilganda, kuryer haqi yetkazilganda buyurtmaga
@@ -16,7 +22,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v19';
+const CACHE = 'yetkaz-v20';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

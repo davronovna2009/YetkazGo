@@ -335,4 +335,38 @@ export function initSchema() {
     'ALTER TABLE orders ADD COLUMN commission_pct INTEGER DEFAULT -1',   // -1 = eski buyurtma (restoran joriy foizi ishlatiladi)
     'ALTER TABLE orders ADD COLUMN courier_fee INTEGER DEFAULT -1',      // -1 = hali yetkazilmagan / eski buyurtma
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
+
+  reconcileLogins();
+}
+
+/* ===== LOGIN NUSXALARINI YARASHTIRISH (eski/buzilgan bazalar uchun) =====
+   `accounts.login` — kirish uchun HAQIQIY login. `restaurants.login` va
+   `couriers.login` — nusxa. Ilgari restoran/kuryer o'z loginini o'zgartirsa
+   faqat accounts yangilanardi, nusxa eski qolardi. Natijada:
+     • admin «Restoranlar» bo'limi ESKI loginni ko'rsatar (nusxadan),
+       «Loginlar» bo'limi YANGISINI (accounts'dan) — "ikki joyda ikki xil";
+     • restoran kirsa ham, o'z ma'lumotini (nom/rasm/ish vaqti) topolmasdi,
+       chunki so'rovlar nusxa login bo'yicha kalitlanadi.
+   Ism jadvallar orasida sinxron saqlanadi (misc.js rename), shuning uchun
+   NOM bo'yicha to'g'ri loginni topib nusxani tuzatamiz. Sog'lom bazada bu
+   hech narsani o'zgartirmaydi (login allaqachon mos). */
+export function reconcileLogins() {
+  try {
+    db.prepare(`
+      UPDATE restaurants
+         SET login = (SELECT a.login FROM accounts a
+                       WHERE a.role = 'restoran' AND a.name = restaurants.name)
+       WHERE EXISTS (SELECT 1 FROM accounts a
+                      WHERE a.role = 'restoran' AND a.name = restaurants.name
+                        AND a.login <> restaurants.login)
+    `).run();
+    db.prepare(`
+      UPDATE couriers
+         SET login = (SELECT a.login FROM accounts a
+                       WHERE a.role = 'kuryer' AND a.name = couriers.name)
+       WHERE EXISTS (SELECT 1 FROM accounts a
+                      WHERE a.role = 'kuryer' AND a.name = couriers.name
+                        AND a.login <> couriers.login)
+    `).run();
+  } catch (e) { console.warn('[reconcileLogins] o\'tkazib yuborildi:', e.message); }
 }
