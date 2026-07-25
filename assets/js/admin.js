@@ -104,11 +104,16 @@
       const orders=(STORE.orders&&STORE.orders())||[];
       const flags=(STORE.loaded&&STORE.loaded())||{};
 
-      /* ---- RESTORANLAR: bootstrap (STORE.restaurants) = manba ---- */
-      const beR=(STORE.restaurants&&STORE.restaurants())||[];
-      /* Bootstrap yuklanган bo'lsagina qayta quramiz. Umuman yuklanmagan
+      /* ---- RESTORANLAR: manba = ADMIN endpoint (komissiya bilan) ----
+         Sayt komissiyasi ommaviy bootstrap'дан olib tashlangan (mijozga
+         ko'rinmasin). Admin panel komissiyani /admin/restaurants dan oladi.
+         Admin ro'yxati hali yuklanmagan bo'lsa — vaqtincha bootstrap'дан
+         (komissiyasiz) quramiz, komissiya yuklangач to'g'rilanadi. */
+      const adminR=(STORE.adminRestaurants&&STORE.adminRestaurants())||[];
+      const beR=(adminR.length||flags.adminRests)?adminR:((STORE.restaurants&&STORE.restaurants())||[]);
+      /* Ro'yxat backenddан kelgan bo'lsagina qayta quramiz. Umuman yuklanmagan
          (STORE hali tayyor emas) va bizda eski kesh bor bo'lsa — wipe qilmaymiz. */
-      if(beR.length || flags.bootstrap){
+      if(beR.length || flags.adminRests || flags.bootstrap){
         RESTS=beR.map(b=>{
           /* Aylanma FAQAT yetkazilgan buyurtmalardan. Ilgari bekor qilingan va
              hali yo'ldagi buyurtmalar ham qo'shilardi — restoran aylanmasi
@@ -190,7 +195,13 @@
      LOGIN / NAV
      ========================================================= */
   /* Panelni ochish / login ekraniga qaytish — bitta joyda */
-  function enterAdmin(){ $("#loginWrap").style.display="none"; $("#app").classList.add("show"); renderAll(); }
+  function enterAdmin(){
+    $("#loginWrap").style.display="none"; $("#app").classList.add("show"); renderAll();
+    /* Kirgan zahoti restoranlar (komissiya bilan) va kuryerlarни backenddan
+       olamiz — panel darrov to'liq va to'g'ri raqamlar bilan chiqsin. */
+    try{ if(STORE.fetchAdminRestaurants) STORE.fetchAdminRestaurants().then(function(){ try{ syncEntitiesFromBackend(); renderRests(); renderDash(); renderIncome(); }catch(e){} }); }catch(e){}
+    try{ if(STORE.fetchCouriers) STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderCouriers(); }catch(e){} }); }catch(e){}
+  }
   function showLogin(){ $("#loginWrap").style.display="flex"; $("#app").classList.remove("show"); }
 
   async function login(){
@@ -1892,10 +1903,13 @@
   }
   function showTopRestModal(agg){
     if(!agg) return;
+    /* Komissiya RESTS'дан (adminRestaurants — komissiya bilan); ommaviy
+       bootstrap'да komissiya yo'q. rating/ish vaqti uchun bootstrap ham yaraydi. */
+    var restRec=RESTS.find(function(x){return x.name===agg.name;})||{};
     var beR=((typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants():[]).find(function(x){return x.name===agg.name;})||{};
     /* Komissiya/xarajat/foyda renderDash da har buyurtmaning O'Z shartlari
        bo'yicha yig'ilgan — bu yerda qayta hisoblamaymiz (mos kelishi uchun). */
-    var comm=(beR.commission!=null?beR.commission:18);
+    var comm=(restRec.commission!=null?restRec.commission:18);
     var site=agg.comm!=null?agg.comm:Math.round(agg.rev*comm/100);
     var effPct=agg.rev?Math.round(site/agg.rev*100):comm;
     var sorted=Object.entries(agg.items||{}).sort(function(a,b){return b[1]-a[1];});
@@ -2243,6 +2257,11 @@
     /* Kuryerlar bootstrap'da yo'q — ularni alohida davriy yangilaymiz (ishdan-javob holati ham) */
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){
       setInterval(function(){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderCouriers(); renderDash(); renderIncome(); }catch(e){} }); }, 12000);
+    }
+    /* Restoranlar (komissiya bilan) — admin endpoint'дан. Darrov + davriy. */
+    if(typeof STORE!=="undefined" && STORE.fetchAdminRestaurants){
+      STORE.fetchAdminRestaurants().then(function(){ try{ syncEntitiesFromBackend(); renderRests(); renderDash(); renderIncome(); }catch(e){} });
+      setInterval(function(){ STORE.fetchAdminRestaurants().then(function(){ try{ syncEntitiesFromBackend(); renderRests(); renderIncome(); }catch(e){} }); }, 15000);
     }
 
     /* ===== Sessiya — SERVERда tekshiriladi =====

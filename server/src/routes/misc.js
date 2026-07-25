@@ -17,17 +17,23 @@ const router = Router();
    ikkinchi argument qilib beradi (son). Shuning uchun `live` haqiqiy obyekt
    ekanini tekshiramiz, aks holda o'zimiz hisoblaymiz. */
 function ratingsOf(live) { return (live && live.rests) ? live : liveRatings(); }
-function restRow(r, live) {
+/* MUHIM: `commission` — SAYT KOMISSIYASI. U MIJOZGA/ommaviy saytga
+   KO'RSATILMAYDI. Shuning uchun ommaviy javoblarда (bootstrap, ochiq
+   /restaurants) bu maydon UMUMAN yuborilmaydi — hatto tarmoq so'rovida ham
+   ko'rinmaydi. Faqat autentifikatsiyalangan joylar (restoran o'zi, admin)
+   `withCommission=true` bilan oladi. */
+function restRow(r, live, withCommission = false) {
   const lr = ratingsOf(live).rests[r.name];
-  return {
+  const out = {
     id: r.id, name: r.name, nameCyr: r.name_cyr, emoji: r.emoji, kw: r.kw,
     rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
     eta: r.eta, dist: r.dist, photo: r.photo, login: r.login,
-    commission: r.commission != null ? r.commission : 18,
     openH: r.open_h != null ? r.open_h : 9, closeH: r.close_h != null ? r.close_h : 23,
     addr: r.addr || '', owner: r.owner || '', email: r.email || '', descr: r.descr || '', hours: r.hours || '', area: r.area || '',
     active: !!r.active,
   };
+  if (withCommission) out.commission = r.commission != null ? r.commission : 18;
+  return out;
 }
 /* HAQIQIY yetkazishlar soni va to'langan haq — buyurtmalardan hisoblanadi.
    Ilgari `couriers.deliveries` ustuni ishlatilardi: uni admin qo'lда kiritardi
@@ -111,6 +117,15 @@ router.get('/couriers', requireRole('admin'), (_req, res) => {
   res.json(db.prepare('SELECT * FROM couriers ORDER BY id').all().map((c) => courRow(c, live)));
 });
 
+/* GET /api/admin/restaurants — ADMIN uchun to'liq ro'yxat (KOMISSIYA bilan).
+   Ommaviy /bootstrap va /restaurants komissiyani yubormaydi (mijozga ko'rinmasin);
+   admin panel esa komissiyani shu autentifikatsiyalangan endpoint'дан oladi.
+   Barcha restoranlar (nofaol ham) qaytadi — admin hammasini boshqaradi. */
+router.get('/admin/restaurants', requireRole('admin'), (_req, res) => {
+  const live = liveRatings();
+  res.json(db.prepare('SELECT * FROM restaurants ORDER BY id').all().map((r) => restRow(r, live, true)));
+});
+
 /* ===== Admin: restoran qo'shish / o'chirish ===== */
 
 /* POST /api/restaurants — yangi restoran + uning akkaunti */
@@ -145,7 +160,7 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
   });
   try { createRest(); }
   catch (e) { console.error('Restoran yaratish xatosi:', e.message); return res.status(500).json({ error: 'Restoranni yaratib bo`lmadi' }); }
-  res.status(201).json(restRow(db.prepare('SELECT * FROM restaurants WHERE name = ?').get(name)));
+  res.status(201).json(restRow(db.prepare('SELECT * FROM restaurants WHERE name = ?').get(name), null, true));
 });
 
 /* DELETE /api/restaurants — login bo'yicha (restoran + akkaunt) */
@@ -238,7 +253,7 @@ router.patch('/restaurants/me', requireRole('restoran'), (req, res) => {
   if (b.openH  != null) db.prepare('UPDATE restaurants SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
   if (b.closeH != null) db.prepare('UPDATE restaurants SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
 
-  res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login)));
+  res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login), null, true));
 });
 
 /* PATCH /api/restaurants — login bo'yicha tahrir */
@@ -280,7 +295,7 @@ router.patch('/restaurants', requireRole('admin'), (req, res) => {
   }
   if (b.pass) db.prepare("UPDATE accounts SET pass_hash = ? WHERE login = ? AND role = 'restoran'").run(hashPassword(String(b.pass)), login);
 
-  res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login)));
+  res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login), null, true));
 });
 
 /* PATCH /api/couriers — login bo'yicha tahrir */

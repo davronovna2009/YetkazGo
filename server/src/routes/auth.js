@@ -20,6 +20,14 @@ function sessionAccount(acc) {
     const c = db.prepare('SELECT fee FROM couriers WHERE login = ?').get(acc.login);
     account.fee = c ? (c.fee || 0) : 0;
   }
+  /* Restoran O'Z komissiyasini sessiyaда olib yuradi — sayt komissiyasi
+     ommaviy bootstrap'дан olib tashlangan (mijozga ko'rinmasin), lekin restoran
+     o'z panelida uni ko'rishi kerak. Kirish/`/me` autentifikatsiyalangan, shu
+     sabab bu yerда berish xavfsiz. */
+  if (acc.role === 'restoran') {
+    const r = db.prepare('SELECT commission FROM restaurants WHERE login = ?').get(acc.login);
+    account.commission = r && r.commission != null ? r.commission : 18;
+  }
   return account;
 }
 

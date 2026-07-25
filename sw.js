@@ -3,7 +3,11 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v21 — Loginsiz (ghost) restoran/kuryer tuzatildi: `restaurants`да bor, lekin
+/* v22 — Sayt komissiyasi MIJOZGA ko'rinmaydi: ommaviy bootstrap/restaurants
+   javobidан komissiya olib tashlandi. Restoran o'z komissiyasini sessiyadан
+   (login/me), admin esa /admin/restaurants (autentifikatsiyalangan) orqali
+   oladi — panellar buzilmaydi. To'liq E2E test o'tdi (32/32).
+   (v21 — Loginsiz (ghost) restoran/kuryer tuzatildi: `restaurants`да bor, lekin
    `accounts`да yo'q bo'lsa (Loginlarда ko'rinmay, Restoranlarда turib qolgan)
    — boot'да akkaunt avtomatik tiklanadi va logда parol ko'rsatiladi. Admin
    «Restoranlar»/«Kuryerlar» endi HAR DOIM backenddan (eski localStorage kesh
@@ -27,7 +31,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v21';
+const CACHE = 'yetkaz-v22';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

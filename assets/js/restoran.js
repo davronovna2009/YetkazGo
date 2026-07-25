@@ -11,10 +11,13 @@
   /* Parollar bu yerda saqlanmaydi — kirish backend orqali (xeshlangan) tekshiriladi */
   const RESTS=[];
   function priceOf(d){ return Math.round(d.price*(1-(d.discount||0)/100)); }
-  /* Restoranning shartnoma komissiyasi (backenddan, default 18%) */
+  /* Restoranning shartnoma komissiyasi. MUHIM: sayt komissiyasi ommaviy
+     bootstrap'дан olib tashlangan (mijozga ko'rinmasin) — shuning uchun uni
+     endi restoran O'Z SESSIYASIDAN oladi (login/`/me` javobida keladi, faqat
+     restoranning o'ziga). CUR.commission — kirishда o'rnatiladi. */
   function restPct(r){
-    try{ const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===(r&&r.name)):null;
-      if(be && be.commission!=null) return be.commission; }catch(e){}
+    if(r && r.commission!=null) return Number(r.commission)||0;
+    try{ const ses=curSession(); if(ses && ses.commission!=null) return Number(ses.commission)||0; }catch(e){}
     return (r&&r.commissionPct!=null)?r.commissionPct:18;
   }
   /* ===== HAQIQIY SOTUV — buyurtma TARKIBIDAN (o.items) =====
@@ -107,8 +110,9 @@
     if(acc && acc.offline){ $("#loginErr").textContent="Serverga ulanib bo'lmadi. Saytni server orqali oching (masalan http://localhost:5050) va internetni tekshiring."; return; }
     if(acc && acc.role==="restoran"){
       const r=RESTS.find(x=>x.login===acc.login) || RESTS.find(x=>x.name===acc.name);
-      if(r){ enter(r); return; }
-      enter({name:acc.name,login:acc.login}); return;
+      /* Komissiyani sessiyadан olamiz (ommaviy bootstrap'да yo'q) */
+      if(r){ if(acc.commission!=null) r.commission=acc.commission; enter(r); return; }
+      enter({name:acc.name,login:acc.login,commission:(acc.commission!=null?acc.commission:18)}); return;
     }
     if(acc && acc.target){ try{ location.href=acc.target; }catch(e){} return; }
     $("#loginErr").textContent="Login yoki parol xato.";
@@ -1006,8 +1010,10 @@
     let dishes=[];
     try{ dishes=((typeof STORE!=="undefined"&&STORE.overrides)?(STORE.overrides().added||[]):[]).filter(d=>d.rest===nameV)
           .map(d=>({name:d.name,emoji:d.emoji||"🍽️",price:d.price||0,sold:d.sold||0,discount:0,photo:d.photo||""})); }catch(e){}
+    /* Komissiya SESSIYADAN (ses.commission) — ommaviy bootstrap'да yo'q */
+    const comm=(ses&&ses.commission!=null)?ses.commission:((be&&be.commission!=null)?be.commission:18);
     const r={ id:(be&&be.id)||Date.now(), name:nameV, emoji:(be&&be.emoji)||"🏪", login:ses.login,
-      rating:(be&&be.rating)||0, commissionPct:(be&&be.commission!=null)?be.commission:18, dishes:dishes, announcements:[] };
+      rating:(be&&be.rating)||0, commission:comm, commissionPct:comm, dishes:dishes, announcements:[] };
     recompute(r);
     return r;
   }
@@ -1016,6 +1022,8 @@
   async function enterFromSession(ses){
     var rr=RESTS.find(x=>x.login===ses.login);
     if(!rr){ try{ if(STORE.ready) await STORE.ready(); }catch(e){} rr=buildBackendRest(ses); }
+    /* Komissiyani sessiyadan CUR ga muhrlaymiz (ommaviy bootstrap'да yo'q) */
+    if(rr && ses && ses.commission!=null) rr.commission=ses.commission;
     enter(rr);
   }
 

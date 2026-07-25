@@ -36,6 +36,7 @@ const STORE = (function () {
     announcements: lsRead(K.ann, []),
     restaurants: lsRead(K.rests, []),
     couriers: [],
+    adminRests: [],   // admin uchun restoranlar (komissiya bilan) — faqat xotirada
     ratings: lsRead("yz_ratings", { dishes: {}, couriers: {} }),
     settings: lsRead("yz_settings", {}),
   };
@@ -47,7 +48,7 @@ const STORE = (function () {
 
   /* Backend ro'yxati (bootstrap / couriers) kamida bir marta yuklanganmi —
      admin paneli shunga qarab keshni backend bilan almashtiradi. */
-  const loaded = { bootstrap: false, couriers: false };
+  const loaded = { bootstrap: false, couriers: false, adminRests: false };
 
   /* ---- onChange tinglovchilari (panellar qayta render qilishi uchun) ---- */
   const listeners = [];
@@ -378,9 +379,14 @@ const STORE = (function () {
     restaurants: () => cache.restaurants,
     couriers: () => cache.couriers,
     fetchCouriers() { return api("/couriers", { auth: true }).then(list => { cache.couriers = list || []; loaded.couriers = true; fire(); return cache.couriers; }).catch(() => cache.couriers); },
+    /* ADMIN uchun restoranlar — KOMISSIYA bilan (ommaviy bootstrap komissiyasiz).
+       Admin paneli komissiya ustunini/moliyani shundan quradi. Xato bo'lsa —
+       oldingi kesh qoladi (panel buzilmasin). */
+    adminRestaurants: () => cache.adminRests || [],
+    fetchAdminRestaurants() { return api("/admin/restaurants", { auth: true }).then(list => { cache.adminRests = Array.isArray(list) ? list : []; loaded.adminRests = true; fire(); return cache.adminRests; }).catch(() => cache.adminRests || []); },
     /* Admin paneli uchun: backend ro'yxati kamida bir marta yuklanganmi?
        (yuklanmagan bo'lsa kesh saqlanadi, yuklangach backend = manba). */
-    loaded: () => ({ bootstrap: loaded.bootstrap, couriers: loaded.couriers }),
+    loaded: () => ({ bootstrap: loaded.bootstrap, couriers: loaded.couriers, adminRests: loaded.adminRests }),
     /* Restoran/kuryer qo'shish — STRIKT: server rad etsa (login band, nom band)
        xato QAYTADI. Ilgari `send` xatoni yutardi va admin panelда "qo'shildi"
        ko'rinardi-yu, aslida akkaunt yaratilmasdi — ishlamaydigan restoran/kuryer
