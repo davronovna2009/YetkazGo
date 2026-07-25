@@ -3,7 +3,12 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v20 — Login xatosi tuzatildi: restoran/kuryer loginini o'zgartirsa accounts
+/* v21 — Loginsiz (ghost) restoran/kuryer tuzatildi: `restaurants`да bor, lekin
+   `accounts`да yo'q bo'lsa (Loginlarда ko'rinmay, Restoranlarда turib qolgan)
+   — boot'да akkaunt avtomatik tiklanadi va logда parol ko'rsatiladi. Admin
+   «Restoranlar»/«Kuryerlar» endi HAR DOIM backenddan (eski localStorage kesh
+   arvohlari tozalandi). Restoran/kuryer yaratish atomar (transaksiya).
+   (v20 — Login xatosi tuzatildi: restoran/kuryer loginini o'zgartirsa accounts
    va restaurants/couriers jadvallari birga yangilanadi (ilgari "ikki joyda
    ikki xil" edi); boot'da eski drift yarashtiriladi. Restoran/kuryer o'chirish
    DARHOL bajariladi (localStorage'даги 6 soatlik kechikish olib tashlandi —
@@ -22,7 +27,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v20';
+const CACHE = 'yetkaz-v21';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

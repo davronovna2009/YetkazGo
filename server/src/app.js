@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { PORT, ROOT_DIR, JWT_SECRET, UPLOAD_DIR } from './config.js';
-import { seed, ensureAdminSecure } from './seed.js';
+import { seed, ensureAdminSecure, healOrphanAccounts } from './seed.js';
 import { attachUser } from './auth.js';
 import { htmlWithCsp } from './security.js';
 
@@ -25,10 +25,15 @@ import { botRouter, startBot, notifyPhoneBlocked } from './bot.js';
 import { startDeadlineAlerts } from './alerts.js';
 import { setAutoBlockNotifier } from './blocks.js';
 
-/* Birinchi ishga tushganda bazani seed qilamiz */
+/* Birinchi ishga tushganda bazani seed qilamiz. seed() ichida initSchema()
+   chaqiriladi — u login nusxalarини yarashtiradi (reconcileLogins). */
 seed();
 /* Eski bazada standart admin paroli qolgan bo'lsa — majburan almashtiramiz */
 ensureAdminSecure();
+/* Loginsiz (ghost) restoran/kuryerга akkaunt tiklaymiz — «Loginlar»да
+   ko'rinmay, «Restoranlar»да turib qolgan yozuvlarni kirish holatiga keltiradi. */
+try { const n = healOrphanAccounts(); if (n) console.log(`[heal] ${n} ta loginsiz akkaunt tiklandi`); }
+catch (e) { console.warn('[heal] xato:', e.message); }
 /* "Yetkazildi" holatida osilib qolgan buyurtmalarni 30 daqiqadan keyin yopamiz */
 startAutoConfirm();
 /* Yetkazish muddati tugayotgan buyurtmalar — kuryerga 3 ta ogohlantirish + kechikish */

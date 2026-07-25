@@ -33,13 +33,17 @@
   /* Parollar bu yerda saqlanmaydi — backendda xeshlangan holda turadi */
 
   /* Ma'lumotlarni yuklash */
-  let RESTS    = load(SK.rests, null);
-  let COURIERS = load(SK.couriers, null);
-  if(!RESTS)    { RESTS=[]; save(SK.rests,RESTS); }
-  if(!COURIERS) { COURIERS=[]; save(SK.couriers,COURIERS); }
-  /* Aniq raqamlar syncEntitiesFromBackend() da haqiqiy buyurtmalardan quriladi */
-  RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round((r.rev||0)*c); r.restGets=(r.rev||0)-r.siteCut; });
-  COURIERS.forEach(c=>{ if(c.earn==null) c.earn=(c.deliveries||0)*(c.fee||0); });
+  /* ===== Restoran/kuryer ro'yxati — HAR DOIM backenddan =====
+     Ilgari bu ro'yxatlar localStorage keshidan (yz_admin_rests_v2) yuklanardi.
+     Backend'да o'chirilgan yoki nomi o'zgargan restoran kesh eskirganда
+     "Restoranlar" bo'limида ARVOH bo'lib turaverardi — masalan "Loginlar"да
+     yo'q, "Restoranlar"да bor holati. Endi bo'sh boshlaymiz: ro'yxat FAQAT
+     syncEntitiesFromBackend() orqali backenddan quriladi (bir zumdан keyin).
+     Eski keshni ham tozalaymiz. */
+  let RESTS    = [];
+  let COURIERS = [];
+  try { localStorage.removeItem(SK.rests); } catch(e) {}
+  try { localStorage.removeItem(SK.couriers); } catch(e) {}
 
   /* Pending o'chirishlar — ESKI mexanizm (endi ishlatilmaydi).
      O'chirish DARHOL bajariladi (cancelRest/dismissCourier). Eski, hali

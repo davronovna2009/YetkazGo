@@ -130,13 +130,21 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
      qabul qilmasdi (pricing.js ish vaqtini tekshiradi). */
   const openH = b.openH != null ? Math.max(0, Math.min(23, Number(b.openH) || 0)) : 9;
   const closeH = b.closeH != null ? Math.max(1, Math.min(24, Number(b.closeH) || 24)) : 23;
-  db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
-    .run(login, hashPassword(pass), 'restoran', name, String(b.phone || ''), 'restoran.html');
-  db.prepare('INSERT INTO restaurants (name, name_cyr, emoji, kw, rating, eta, dist, photo, login, commission, addr, owner, email, descr, hours, area, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(name, String(b.nameCyr || ''), String(b.emoji || '🏪'), String(b.kw || ''), Number(b.rating) || 0,
-         Number(b.eta) || 20, String(b.dist || ''), String(b.photo || ''), login, commission,
-         String(b.addr || ''), String(b.owner || ''), String(b.email || ''), String(b.descr || ''), String(b.hours || ''), String(b.area || ''),
-         openH, closeH);
+  /* ATOMAR: akkaunt va restoran BIRGA yaratiladi. Ilgari ikki alohida INSERT
+     edi — biri o'tib, ikkinchisi yiqilsa (masalan nom band), yarim yaratilib
+     "loginsiz restoran" yoki "restoransiz akkaunt" qolib ketardi. Transaksiya
+     ikkovини bir vaqtda muvaffaqiyatli qiladi yoki ikkovини ham bekor qiladi. */
+  const createRest = db.transaction(() => {
+    db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
+      .run(login, hashPassword(pass), 'restoran', name, String(b.phone || ''), 'restoran.html');
+    db.prepare('INSERT INTO restaurants (name, name_cyr, emoji, kw, rating, eta, dist, photo, login, commission, addr, owner, email, descr, hours, area, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(name, String(b.nameCyr || ''), String(b.emoji || '🏪'), String(b.kw || ''), Number(b.rating) || 0,
+           Number(b.eta) || 20, String(b.dist || ''), String(b.photo || ''), login, commission,
+           String(b.addr || ''), String(b.owner || ''), String(b.email || ''), String(b.descr || ''), String(b.hours || ''), String(b.area || ''),
+           openH, closeH);
+  });
+  try { createRest(); }
+  catch (e) { console.error('Restoran yaratish xatosi:', e.message); return res.status(500).json({ error: 'Restoranni yaratib bo`lmadi' }); }
   res.status(201).json(restRow(db.prepare('SELECT * FROM restaurants WHERE name = ?').get(name)));
 });
 
@@ -175,12 +183,18 @@ router.post('/couriers', requireRole('admin'), (req, res) => {
   /* Kuryer ish vaqti — admin bergan bo'lsa AYNAN shu, aks holda standart 8–22 */
   const cOpenH = b.openH != null ? Math.max(0, Math.min(23, Number(b.openH) || 0)) : 8;
   const cCloseH = b.closeH != null ? Math.max(1, Math.min(24, Number(b.closeH) || 24)) : 22;
-  db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
-    .run(login, hashPassword(pass), 'kuryer', name, String(b.phone || ''), 'kuryer.html');
-  db.prepare('INSERT INTO couriers (name, emoji, rest, login, phone, deliveries, rating, fee, transport, plate, address, email, birthdate, passport, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(name, String(b.emoji || '🛵'), String(b.rest || ''), login, String(b.phone || ''), Number(b.deliveries) || 0, Number(b.rating) || 0, Number(b.fee) || 0,
-         String(b.transport || ''), String(b.plate || ''), String(b.address || ''), String(b.email || ''), String(b.birthdate || ''), String(b.passport || ''),
-         cOpenH, cCloseH);
+  /* ATOMAR: akkaunt va kuryer BIRGA yaratiladi (restorandagi kabi) — yarim
+     yaratilib "loginsiz kuryer" qolib ketmasin. */
+  const createCour = db.transaction(() => {
+    db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)')
+      .run(login, hashPassword(pass), 'kuryer', name, String(b.phone || ''), 'kuryer.html');
+    db.prepare('INSERT INTO couriers (name, emoji, rest, login, phone, deliveries, rating, fee, transport, plate, address, email, birthdate, passport, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(name, String(b.emoji || '🛵'), String(b.rest || ''), login, String(b.phone || ''), Number(b.deliveries) || 0, Number(b.rating) || 0, Number(b.fee) || 0,
+           String(b.transport || ''), String(b.plate || ''), String(b.address || ''), String(b.email || ''), String(b.birthdate || ''), String(b.passport || ''),
+           cOpenH, cCloseH);
+  });
+  try { createCour(); }
+  catch (e) { console.error('Kuryer yaratish xatosi:', e.message); return res.status(500).json({ error: 'Kuryerni yaratib bo`lmadi' }); }
   res.status(201).json(courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)));
 });
 

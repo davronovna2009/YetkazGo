@@ -118,6 +118,65 @@ export function ensureAdminSecure() {
   return true;
 }
 
+/* ===== GHOST (loginsiz) RESTORAN/KURYERNI TIKLASH =====
+   Muammo: `restaurants`/`couriers` jadvalида yozuv bor, lekin unga mos
+   `accounts` yozuvi YO'Q. Bunday restoran/kuryer:
+     • kira olmaydi (auth accounts bo'yicha ishlaydi),
+     • admin «Loginlar» bo'limida KO'RINMAYDI (u accounts'dan o'qiydi),
+     • lekin «Restoranlar» bo'limida turaveradi (restaurants'dan) —
+       ya'ni "Loginlarда yo'q, Restoranlarда bor" holati.
+   Sabab har xil bo'lishi mumkin (chala o'chirish, eski migratsiya). Yechim:
+   har boot'да bunday yozuvга AKKAUNT yaratamiz (tasodifiy parol bilan) va
+   logда ko'rsatamiz. Endi u «Loginlar»да chiqadi va admin parolni yangilay
+   oladi. Login nusxa (restaurants.login) bo'yicha bog'lanadi.
+
+   MUHIM: login boshqa rol tomonidan band bo'lsa — TEGMAYMIZ (to'qnashuvni
+   admin qo'lда hal qiladi). Sog'lom bazada bu funksiya hech narsa qilmaydi. */
+export function healOrphanAccounts() {
+  let healed = 0;
+  const mkPass = () => 'yz-' + randomBytes(6).toString('base64url');
+  const insAcc = db.prepare('INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)');
+
+  /* MUHIM: `restaurants` jadvalida `phone` ustuni YO'Q (restoran telefoni
+     accounts.phone da turadi). `couriers`да esa bor. Shuning uchun telefonni
+     faqat kuryerda o'qiymiz — aks holda SELECT "no such column: phone" berib,
+     butun tiklash jim yiqilardi. */
+  function healTable(table, role, target, hasPhone) {
+    let rows = [];
+    try {
+      const phoneSel = hasPhone ? 't.phone' : "'' AS phone";
+      rows = db.prepare(
+        `SELECT t.login, t.name, ${phoneSel} FROM ${table} t
+          WHERE t.login <> '' AND NOT EXISTS (
+            SELECT 1 FROM accounts a WHERE a.login = t.login AND a.role = ?
+          )`
+      ).all(role);
+    } catch (e) { console.warn(`[heal] ${table} so'rovi xato:`, e.message); return; }
+    for (const r of rows) {
+      /* Login umuman band bo'lsa (boshqa rol) — o'tkazib yuboramiz */
+      if (db.prepare('SELECT 1 FROM accounts WHERE login = ?').get(r.login)) continue;
+      const pass = mkPass();
+      try {
+        insAcc.run(r.login, hashPassword(pass), role, r.name || r.login, r.phone || '', target);
+        healed++;
+        console.warn(
+          `\n${'='.repeat(64)}\n` +
+          `  🔧 LOGINSIZ ${role.toUpperCase()} uchun akkaunt TIKLANDI\n` +
+          `     nom:    ${r.name || r.login}\n` +
+          `     login:  ${r.login}\n` +
+          `     parol:  ${pass}\n` +
+          `  Endi «Loginlar» bo'limida ko'rinadi — parolni o'sha yerдан yangilang.\n` +
+          `${'='.repeat(64)}\n`
+        );
+      } catch (e) { console.warn(`[heal] «${r.name}» akkaunt yaratilmadi:`, e.message); }
+    }
+  }
+
+  healTable('restaurants', 'restoran', 'restoran.html', false);
+  healTable('couriers', 'kuryer', 'kuryer.html', true);
+  return healed;
+}
+
 /* CLI: `npm run seed` ("--force" bilan to'liq qayta yaratish) */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('seed.js')) {
   const force = process.argv.includes('--force');
