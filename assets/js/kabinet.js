@@ -151,6 +151,27 @@
     }catch(e){ return null; }
   }
 
+  /* «Yordam» bo'limidagi bevosita bog'lanish — admin «Sozlamalar»да yozib qo'ygan
+     telefon / username / havola. Bo'sh bo'lsa blok yashiriladi. */
+  function fillSupportContact(){
+    var host=document.getElementById("kabSupportBox"); if(!host) return;
+    var s={}; try{ s=(typeof STORE!=="undefined"&&STORE.settings)?STORE.settings():{}; }catch(e){}
+    var phone=s.supportPhone||s.ownerPhone||"", username=s.supportUsername||"", link=s.supportLink||"", note=s.supportNote||"";
+    if(!phone && !username && !link){ host.style.display="none"; host.innerHTML=""; return; }
+    host.style.display="";
+    var rows="";
+    if(phone) rows+='<a href="tel:'+esc(String(phone).replace(/[^\d+]/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:inherit;text-decoration:none;font-weight:700;border-bottom:1px solid var(--line)"><span style="font-size:18px">📞</span>'+esc(phone)+'</a>';
+    if(username){
+      var uhref=/^https?:\/\//.test(username)?username:("https://t.me/"+String(username).replace(/^@+/,""));
+      rows+='<a href="'+esc(uhref)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:inherit;text-decoration:none;font-weight:700;border-bottom:1px solid var(--line)"><span style="font-size:18px">✈️</span>'+esc(username)+'</a>';
+    }
+    if(link && link!==username) rows+='<a href="'+esc(link)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:#2563eb;text-decoration:none;font-weight:700;word-break:break-all"><span style="font-size:18px">🔗</span>'+esc(link)+'</a>';
+    host.innerHTML="<div class=\"panel\" style=\"margin-bottom:16px\"><div class=\"panel-head\"><h3>🆘 Bevosita bog'lanish</h3></div><div class=\"panel-body\">"+
+      "<p style=\"color:var(--grey);font-size:13px;margin:0 0 6px\">Savol yoki muammo bo'lsa — sayt ma'muriyatiga murojaat qiling:</p>"+
+      rows+(note?"<p style=\"color:var(--grey);font-size:12px;margin:8px 0 0\">"+esc(note)+"</p>":"")+
+      "</div></div>";
+  }
+
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
@@ -168,6 +189,7 @@
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
     if(view==="review") renderReviewForm();
     if(view==="settings") renderSettings();
+    if(view==="help") fillSupportContact();
     if(view==="rests")  renderKabRests();
     if(view==="taomlar"){ if(activeRest){ filterByRest(activeRest); } else { renderFilters(); renderMenu(); } }
   }

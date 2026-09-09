@@ -1616,22 +1616,32 @@
         </div>
         ${(beR&&beR.descr)?`<p style="color:var(--grey);font-size:13px;margin-top:8px">${esc(beR.descr)}</p>`:''}
       </div>
-      <div class="dd-sec"><h4>✏️ Tahrirlash</h4>
-        <div class="add-field"><label>Nomi</label><input id="edrName" value="${r.name}"></div>
-        <div class="add-field"><label>Telefon</label><input id="edrPhone" value="${r.phone||''}"></div>
+      <div class="dd-sec"><h4>✏️ Tahrirlash (barcha ma'lumot)</h4>
+        <div class="add-row">
+          <div class="add-field" style="flex:0 0 84px"><label>Emoji</label><input id="edrEmoji" value="${esc(r.emoji||'🏪')}" maxlength="4" style="text-align:center;font-size:18px"></div>
+          <div class="add-field" style="flex:1"><label>Nomi</label><input id="edrName" value="${esc(r.name)}"></div>
+        </div>
+        <div class="add-field"><label>Nomi (kirill)</label><input id="edrNameCyr" value="${esc(r.nameCyr||(beR&&beR.nameCyr)||'')}" placeholder="Ixtiyoriy"></div>
+        <div class="add-field"><label>Telefon</label><input id="edrPhone" value="${esc((r.phone!=null?r.phone:(beR&&beR.phone))||'')}"></div>
         <div class="add-field"><label>Komissiya (%)</label><input id="edrComm" type="number" value="${r.commission!=null?r.commission:18}"></div>
         <div class="add-row">
           <div class="add-field"><label>Ochilish (soat)</label><input id="edrOpen" type="number" min="0" max="23" value="${openH}"></div>
           <div class="add-field"><label>Yopilish (soat)</label><input id="edrClose" type="number" min="0" max="24" value="${closeH}"></div>
         </div>
         <p style="color:var(--grey);font-size:12px;margin:-2px 0 8px">Tungi smena mumkin (20 → 02), bir xil son = 24 soat. Vaqt Toshkent (UTC+5) bo'yicha.</p>
-        <div class="add-field"><label>Egasi (F.I.Sh)</label><input id="edrOwner" value="${esc((beR&&beR.owner)||'')}"></div>
-        <div class="add-field"><label>Email</label><input id="edrEmail" value="${esc((beR&&beR.email)||'')}" placeholder="email@example.com"></div>
-        <div class="add-field"><label>Manzil</label><input id="edrAddr" value="${esc((beR&&beR.addr)||r.addr||'')}"></div>
-        <div class="add-field"><label>Yetkazish hududi</label><input id="edrArea" value="${esc((beR&&beR.area)||'')}"></div>
-        <div class="add-field"><label>Tavsif</label><input id="edrDescr" value="${esc((beR&&beR.descr)||'')}"></div>
+        <div class="add-row">
+          <div class="add-field"><label>Yetkazish vaqti (daqiqa)</label><input id="edrEta" type="number" min="5" max="120" value="${r.eta||(beR&&beR.eta)||20}"></div>
+          <div class="add-field"><label>Masofa (matn)</label><input id="edrDist" value="${esc(r.dist||(beR&&beR.dist)||'')}" placeholder="2.5 km"></div>
+        </div>
+        <div class="add-field"><label>Kategoriya / kalit so'z (kw)</label><input id="edrKw" value="${esc(r.kw||(beR&&beR.kw)||'')}" placeholder="milliy / fastfood / shirinlik"></div>
+        <div class="add-field"><label>Ish vaqti (matn)</label><input id="edrHours" value="${esc(r.hours||(beR&&beR.hours)||'')}" placeholder="Masalan: Har kuni 9:00–23:00"></div>
+        <div class="add-field"><label>Egasi (F.I.Sh)</label><input id="edrOwner" value="${esc(r.owner||(beR&&beR.owner)||'')}"></div>
+        <div class="add-field"><label>Email</label><input id="edrEmail" value="${esc(r.email||(beR&&beR.email)||'')}" placeholder="email@example.com"></div>
+        <div class="add-field"><label>Manzil</label><input id="edrAddr" value="${esc(r.addr||(beR&&beR.addr)||'')}"></div>
+        <div class="add-field"><label>Yetkazish hududi</label><input id="edrArea" value="${esc(r.area||(beR&&beR.area)||'')}"></div>
+        <div class="add-field"><label>Tavsif</label><input id="edrDescr" value="${esc(r.descr||(beR&&beR.descr)||'')}"></div>
         ${passFieldHtml("edrPass","Yangi parol (bo'sh = o'zgarmaydi)")}
-        <button class="dd-action-btn" id="edrSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
+        <button class="dd-action-btn" id="edrSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Hammasini saqlash</button>
       </div>
       <div class="dd-sec">
         <button class="dd-action-btn" id="assignCourBtn" style="background:#2563eb;color:#fff;width:100%;margin-bottom:8px">🛵 Kuryer biriktirish</button>
@@ -1659,27 +1669,35 @@
     if(restBtn) restBtn.addEventListener("click",()=>{ restoreItem(id,"rest"); closeDrawer(); });
     const saveBtn=$("#edrSave");
     if(saveBtn) saveBtn.addEventListener("click",()=>{
-      const name=($("#edrName").value||"").trim()||r.name;
-      const phone=($("#edrPhone").value||"").trim();
+      const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+      const name=val("edrName")||r.name;
+      const phone=val("edrPhone");
       const comm=Math.max(0,Math.min(50,parseInt($("#edrComm").value,10)||18));
       /* 0–23 / 0–24: tungi smena (20→02) va 24 soat (9→9) ham ruxsat etiladi.
          `|| 9` ishlatilmaydi — 0 (yarim tun) haqiqiy qiymat. */
       const rawOh=parseInt($("#edrOpen").value,10), rawCh=parseInt($("#edrClose").value,10);
       const oh=Math.max(0,Math.min(23,Number.isFinite(rawOh)?rawOh:9));
       const ch=Math.max(0,Math.min(24,Number.isFinite(rawCh)?rawCh:23));
+      const rawEta=parseInt($("#edrEta")&&$("#edrEta").value,10);
+      const eta=Math.max(5,Math.min(120,Number.isFinite(rawEta)?rawEta:20));
+      const emojiV=val("edrEmoji")||r.emoji||"🏪";
+      const emailV=val("edrEmail");
+      if(emailV && window.YZ_EMAIL && !YZ_EMAIL.valid(emailV)){ toast("Email noto'g'ri formatda"); return; }
       const pass=($("#edrPass").value||"").trim();
       const oldName=r.name;
-      const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
-      r.name=name; r.phone=phone; r.commission=comm; r.addr=val("edrAddr")||r.addr;
+      r.name=name; r.phone=phone; r.commission=comm; r.emoji=emojiV; r.addr=val("edrAddr")||r.addr;
       recompute(); save(SK.rests,RESTS);
       if(typeof STORE!=="undefined" && STORE.editRestaurant){
-        const body={login:r.login,name:name,phone:phone,commission:comm,openH:oh,closeH:ch,
-          owner:val("edrOwner"), email:val("edrEmail"), addr:val("edrAddr"), area:val("edrArea"), descr:val("edrDescr")};
+        const body={login:r.login,name:name,phone:phone,commission:comm,openH:oh,closeH:ch,emoji:emojiV,
+          nameCyr:val("edrNameCyr"), kw:val("edrKw"), eta:eta, dist:val("edrDist"), hours:val("edrHours"),
+          owner:val("edrOwner"), email:emailV, addr:val("edrAddr"), area:val("edrArea"), descr:val("edrDescr")};
         if(pass) body.pass=pass;
-        STORE.editRestaurant(body);
+        Promise.resolve(STORE.editRestaurant(body)).then(function(){
+          try{ if(STORE.fetchAdminRestaurants) return STORE.fetchAdminRestaurants(); }catch(e){}
+        }).then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} });
       }
       closeDrawer(); renderAll();
-      toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+      toast(`✅ ${name} — barcha ma'lumot saqlandi${pass?" (parol o'zgartirildi)":""}`);
       if(pass) showNewPassOnce(name, pass);
       if(name!==oldName) COURIERS.forEach(c=>{ if(c.rest===oldName) c.rest=name; });
     });
@@ -1833,9 +1851,12 @@
           <div class="k"><span>Email</span><b>${esc((beC&&beC.email)||'—')}</b></div>
           <div class="k"><span>Tug'ilgan</span><b>${esc((beC&&beC.birthdate)||'—')}</b></div>
         </div></div>
-      <div class="dd-sec"><h4>✏️ Tahrirlash</h4>
-        <div class="add-field"><label>Ism</label><input id="edcName" value="${c.name}"></div>
-        <div class="add-field"><label>Telefon</label><input id="edcPhone" type="tel" value="${c.phone||''}"></div>
+      <div class="dd-sec"><h4>✏️ Tahrirlash (barcha ma'lumot)</h4>
+        <div class="add-row">
+          <div class="add-field" style="flex:0 0 84px"><label>Emoji</label><input id="edcEmoji" value="${esc(c.emoji||'🛵')}" maxlength="4" style="text-align:center;font-size:18px"></div>
+          <div class="add-field" style="flex:1"><label>Ism</label><input id="edcName" value="${esc(c.name)}"></div>
+        </div>
+        <div class="add-field"><label>Telefon</label><input id="edcPhone" type="tel" value="${esc(c.phone||'')}"></div>
         <div class="add-field"><label>Restoranlar (vergul bilan ajrating)</label><input id="edcRest" value="${esc(c.rest)||''}" placeholder="Restoran nomi"></div>
         <div class="add-field"><label>Bir yetkazish haqi (so'm)</label><input id="edcFee" type="number" value="${c.fee||0}"></div>
         <div style="display:flex;gap:10px">
@@ -1843,12 +1864,18 @@
           <div class="add-field" style="flex:1"><label>Ish oxiri (soat)</label><input id="edcCloseH" type="number" min="0" max="24" value="${(beC&&beC.closeH!=null)?beC.closeH:(c.closeH!=null?c.closeH:22)}"></div>
         </div>
         <p style="color:var(--grey);font-size:12px;margin:-2px 0 8px">Tungi smena mumkin (20 → 02), bir xil son = 24 soat. Vaqt Toshkent (UTC+5) bo'yicha.</p>
-        <div class="add-field"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Velosiped / Avto"></div>
+        <div class="add-row">
+          <div class="add-field" style="flex:1"><label>Transport</label><input id="edcTransport" value="${esc((beC&&beC.transport)||'')}" placeholder="Mototsikl / Avto"></div>
+          <div class="add-field" style="flex:1"><label>Avto raqami</label><input id="edcPlate" value="${esc((beC&&beC.plate)||'')}" placeholder="01 A 123 BC"></div>
+        </div>
         <div class="add-field"><label>Manzil</label><input id="edcAddress" value="${esc((beC&&beC.address)||'')}"></div>
         <div class="add-field"><label>Email</label><input id="edcEmail" type="email" value="${esc((beC&&beC.email)||'')}" placeholder="email@example.com"></div>
-        <div class="add-field"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
+        <div class="add-row">
+          <div class="add-field" style="flex:1"><label>Tug'ilgan sana</label><input id="edcBirth" type="date" value="${esc((beC&&beC.birthdate)||'')}"></div>
+          <div class="add-field" style="flex:1"><label>Pasport</label><input id="edcPassport" value="${esc((beC&&beC.passport)||'')}" placeholder="AA 1234567"></div>
+        </div>
         ${passFieldHtml("edcPass","Yangi parol (bo'sh = o'zgarmaydi)")}
-        <button class="dd-action-btn" id="edcSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Saqlash</button>
+        <button class="dd-action-btn" id="edcSave" style="background:#16a34a;color:#fff;margin-top:6px">💾 Hammasini saqlash</button>
       </div>
       <div class="dd-sec">
         <button class="dd-action-btn" id="courContractBtn" style="background:#f4f1f2;color:var(--ink);width:100%;margin-bottom:8px">📄 Kuryer bilan tuzilgan shartnoma</button>
@@ -1897,17 +1924,20 @@
       const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
       const emailV=val("edcEmail");
       if(emailV && window.YZ_EMAIL && !YZ_EMAIL.valid(emailV)){ toast("Email noto'g'ri formatda"); return; }
-      c.name=name; c.phone=phone; c.rest=rest; c.fee=fee; c.openH=openH; c.closeH=closeH;
+      const emojiV=val("edcEmoji")||c.emoji||"🛵";
+      c.name=name; c.phone=phone; c.rest=rest; c.fee=fee; c.openH=openH; c.closeH=closeH; c.emoji=emojiV;
       recompute(); save(SK.couriers,COURIERS);
       if(typeof STORE!=="undefined" && STORE.editCourier){
-        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,openH:openH,closeH:closeH,
-          transport:val("edcTransport"), address:val("edcAddress"),
-          email:emailV, birthdate:val("edcBirth")};
+        const body={login:c.login,name:name,phone:phone,rest:rest,fee:fee,openH:openH,closeH:closeH,emoji:emojiV,
+          transport:val("edcTransport"), plate:val("edcPlate"), address:val("edcAddress"),
+          email:emailV, birthdate:val("edcBirth"), passport:val("edcPassport")};
         if(pass) body.pass=pass;
-        STORE.editCourier(body);
+        Promise.resolve(STORE.editCourier(body)).then(function(){
+          try{ if(STORE.fetchCouriers) return STORE.fetchCouriers(); }catch(e){}
+        }).then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} });
       }
       closeDrawer(); renderAll();
-      toast(`✅ ${name} ma'lumotlari tahrirlandi${pass?" (parol o'zgartirildi)":""}`);
+      toast(`✅ ${name} — barcha ma'lumot saqlandi${pass?" (parol o'zgartirildi)":""}`);
       if(pass) showNewPassOnce(name, pass);
     });
   }
@@ -2167,6 +2197,8 @@
     const s=STORE.settings()||{};
     const set=(id,v)=>{ const el=document.getElementById(id); if(el && document.activeElement!==el) el.value=(v||""); };
     set("setOwnerPhone",s.ownerPhone); set("setOwnerName",s.ownerName);
+    set("setSupportPhone",s.supportPhone); set("setSupportUsername",s.supportUsername);
+    set("setSupportLink",s.supportLink); set("setSupportNote",s.supportNote);
   }
   async function saveOwnerSettings(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -2177,6 +2209,24 @@
     if(btn) btn.disabled=false;
     if(r && !r.error) toast("✅ Sayt egasi raqami saqlandi — mijozlar shu raqamni ko'radi");
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+  }
+  async function saveSupportSettings(){
+    const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+    const phone=f("setSupportPhone");
+    if(phone && window.YZ_PHONE && !YZ_PHONE.valid(phone)){ toast("❌ Yordam telefoni noto'g'ri"); return; }
+    let username=f("setSupportUsername");
+    if(username && !username.startsWith("@") && !/^https?:\/\//.test(username)) username="@"+username.replace(/^@+/,"");
+    let link=f("setSupportLink");
+    if(link && !/^https?:\/\//.test(link)) link="https://"+link;
+    const btn=document.getElementById("setSupportSave"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.updateSettings)
+      ? await STORE.updateSettings({ supportPhone:phone, supportUsername:username, supportLink:link, supportNote:f("setSupportNote") })
+      : null;
+    if(btn) btn.disabled=false;
+    if(r && !r.error){
+      toast("✅ Yordam kontaktlari saqlandi — mijoz/restoran/kuryer «Shikoyat / yordam» bo'limида ko'radi");
+      fillOwnerSettings();
+    } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   async function saveProfile(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -2467,8 +2517,9 @@
     const sps=$("#setProfileSave"); if(sps) sps.addEventListener("click",saveProfile);
     fillProfile();
     const sos=$("#setOwnerSave"); if(sos) sos.addEventListener("click",saveOwnerSettings);
+    const sss=$("#setSupportSave"); if(sss) sss.addEventListener("click",saveSupportSettings);
     fillOwnerSettings();
-    if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
+    if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone","setSupportPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} }); }
     const ab=$("#annBtn"); if(ab) ab.addEventListener("click",postAnnounce);
     renderAnnList();

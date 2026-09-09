@@ -32,7 +32,15 @@ function restRow(r, live, withCommission = false) {
     addr: r.addr || '', owner: r.owner || '', email: r.email || '', descr: r.descr || '', hours: r.hours || '', area: r.area || '',
     active: !!r.active,
   };
-  if (withCommission) out.commission = r.commission != null ? r.commission : 18;
+  if (withCommission) {
+    out.commission = r.commission != null ? r.commission : 18;
+    /* Restoran telefoni accounts.phone da turadi (restaurants jadvalида ustun yo'q).
+       Admin panel tahrirlash formasi shundan oladi. */
+    try {
+      const acc = db.prepare("SELECT phone FROM accounts WHERE login = ? AND role = 'restoran'").get(r.login);
+      out.phone = acc ? (acc.phone || '') : '';
+    } catch (e) { out.phone = ''; }
+  }
   return out;
 }
 /* HAQIQIY yetkazishlar soni va to'langan haq — buyurtmalardan hisoblanadi.
@@ -100,8 +108,12 @@ router.patch('/settings', requireRole('admin'), (req, res) => {
   const b = req.body || {};
   for (const k of KEYS) { if (b[k] != null) setSetting(k, b[k]); }
   /* Frontend camelCase yuborsa ham qabul qilamiz */
-  if (b.ownerPhone != null) setSetting('owner_phone', b.ownerPhone);
-  if (b.ownerName != null) setSetting('owner_name', b.ownerName);
+  const camel = {
+    ownerPhone: 'owner_phone', ownerName: 'owner_name',
+    supportPhone: 'support_phone', supportUsername: 'support_username',
+    supportLink: 'support_link', supportNote: 'support_note',
+  };
+  for (const [c, k] of Object.entries(camel)) { if (b[c] != null) setSetting(k, b[c]); }
   res.json(publicSettings());
 });
 
@@ -289,10 +301,14 @@ router.patch('/restaurants', requireRole('admin'), (req, res) => {
   if (commission != null) db.prepare('UPDATE restaurants SET commission = ? WHERE login = ?').run(commission, login);
   if (b.openH != null) db.prepare('UPDATE restaurants SET open_h = ? WHERE login = ?').run(Math.max(0, Math.min(23, Number(b.openH) || 0)), login);
   if (b.closeH != null) db.prepare('UPDATE restaurants SET close_h = ? WHERE login = ?').run(Math.max(1, Math.min(24, Number(b.closeH) || 24)), login);
-  /* Chala qolgan ma'lumotlarni ham to'ldirish/tahrirlash (admin) */
-  for (const col of ['owner', 'email', 'addr', 'area', 'descr', 'hours']) {
+  /* Barcha matnli maydonlar — admin to'liq tahrirlaydi */
+  for (const col of ['owner', 'email', 'addr', 'area', 'descr', 'hours', 'kw', 'dist']) {
     if (b[col] != null) db.prepare(`UPDATE restaurants SET ${col} = ? WHERE login = ?`).run(String(b[col]).slice(0, 500), login);
   }
+  /* Kirill nomi (frontend camelCase yuboradi) */
+  if (b.nameCyr != null) db.prepare('UPDATE restaurants SET name_cyr = ? WHERE login = ?').run(String(b.nameCyr).slice(0, 120), login);
+  /* Yetkazish vaqti (daqiqa) — 5..120 */
+  if (b.eta != null) db.prepare('UPDATE restaurants SET eta = ? WHERE login = ?').run(Math.max(5, Math.min(120, Number(b.eta) || 20)), login);
   if (b.pass) db.prepare("UPDATE accounts SET pass_hash = ? WHERE login = ? AND role = 'restoran'").run(hashPassword(String(b.pass)), login);
 
   res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login), null, true));

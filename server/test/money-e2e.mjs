@@ -536,6 +536,87 @@ async function main() {
   eq(uHack.data.account.login, 'aziza_k', 'mijoz login o\'zgartira olmaydi');
   eq((await api('POST', '/auth/login', { login: 'aziza_k', pass: 'hack1234' })).status, 401, 'mijoz o\'zgartirgan parol ishlamaydi');
 
+  /* ============ PART I: ADMIN restoran ma'lumotlarini TO'LIQ tahrirlaydi ============ */
+  console.log('\n--- Admin: restoran barcha maydonlari ---');
+  const rEdit = await api('PATCH', '/restaurants', {
+    login: 'e2e_rest_new',
+    emoji: '🍲', nameCyr: 'Миллий Таомлар', phone: '+998901239999',
+    kw: 'milliy', eta: 35, dist: '3.2 km', hours: 'Har kuni 8:00–23:00',
+    owner: 'Karimov Aziz', email: 'rest@e2e.uz', addr: 'Chilonzor 5',
+    area: 'Chilonzor tumani', descr: 'Eng mazali milliy taomlar',
+  }, AT);
+  eq(rEdit.status, 200, 'restoran PATCH muvaffaqiyatli');
+  eq(rEdit.data.emoji, '🍲', 'restoran: emoji saqlandi');
+  eq(rEdit.data.nameCyr, 'Миллий Таомлар', 'restoran: kirill nomi saqlandi');
+  eq(rEdit.data.phone, '+998901239999', 'restoran: telefon saqlandi (accounts.phone) va javobда qaytdi');
+  eq(rEdit.data.kw, 'milliy', 'restoran: kalit so\'z saqlandi');
+  eq(rEdit.data.eta, 35, 'restoran: yetkazish vaqti saqlandi');
+  eq(rEdit.data.dist, '3.2 km', 'restoran: masofa saqlandi');
+  eq(rEdit.data.hours, 'Har kuni 8:00–23:00', 'restoran: ish vaqti matni saqlandi');
+  eq(rEdit.data.owner, 'Karimov Aziz', 'restoran: egasi saqlandi');
+  eq(rEdit.data.email, 'rest@e2e.uz', 'restoran: email saqlandi');
+  eq(rEdit.data.area, 'Chilonzor tumani', 'restoran: hudud saqlandi');
+  eq(rEdit.data.descr, 'Eng mazali milliy taomlar', 'restoran: tavsif saqlandi');
+  /* GET /admin/restaurants ham hammasini qaytaradi (telefon bilan) */
+  const arList2 = (await api('GET', '/admin/restaurants', null, AT)).data;
+  const arRow2 = arList2.find((x) => x.login === 'e2e_rest_new');
+  eq(arRow2.phone, '+998901239999', '/admin/restaurants: telefon ko\'rinadi');
+  eq(arRow2.emoji, '🍲', '/admin/restaurants: emoji ko\'rinadi');
+  eq(arRow2.eta, 35, '/admin/restaurants: eta ko\'rinadi');
+  /* Ommaviy /bootstrap da ham yangi emoji/eta ko'rinadi (komissiyasiz) */
+  const boot = (await api('GET', '/bootstrap', null)).data;
+  const bRest = (boot.restaurants || []).find((x) => x.name === 'E2E Milliy Taomlar');
+  eq(bRest.emoji, '🍲', '/bootstrap: yangi emoji mijozga ko\'rinadi');
+  eq(bRest.eta, 35, '/bootstrap: yangi eta mijozga ko\'rinadi');
+  eq(bRest.commission, undefined, '/bootstrap: komissiya HALI sizmaydi');
+
+  /* ============ PART J: ADMIN kuryer ma'lumotlarini TO'LIQ tahrirlaydi ============ */
+  console.log('\n--- Admin: kuryer barcha maydonlari ---');
+  const cEdit = await api('PATCH', '/couriers', {
+    login: 'e2e_cour',
+    emoji: '🏍️', phone: '+998907771122', transport: 'Mototsikl',
+    plate: '01 A 777 BC', address: 'Yunusobod 12', email: 'kur@e2e.uz',
+    birthdate: '1998-05-20', passport: 'AA 7654321', fee: 13000,
+  }, AT);
+  eq(cEdit.status, 200, 'kuryer PATCH muvaffaqiyatli');
+  eq(cEdit.data.emoji, '🏍️', 'kuryer: emoji saqlandi');
+  eq(cEdit.data.transport, 'Mototsikl', 'kuryer: transport saqlandi');
+  eq(cEdit.data.plate, '01 A 777 BC', 'kuryer: avto raqami saqlandi');
+  eq(cEdit.data.address, 'Yunusobod 12', 'kuryer: manzil saqlandi');
+  eq(cEdit.data.email, 'kur@e2e.uz', 'kuryer: email saqlandi');
+  eq(cEdit.data.birthdate, '1998-05-20', 'kuryer: tug\'ilgan sana saqlandi');
+  eq(cEdit.data.passport, 'AA 7654321', 'kuryer: pasport saqlandi');
+  eq(cEdit.data.fee, 13000, 'kuryer: haq saqlandi');
+  const cList2 = (await api('GET', '/couriers', null, AT)).data;
+  const cRow2 = cList2.find((x) => x.login === 'e2e_cour');
+  eq(cRow2.plate, '01 A 777 BC', '/couriers: avto raqami ko\'rinadi');
+  eq(cRow2.passport, 'AA 7654321', '/couriers: pasport ko\'rinadi');
+  eq(cRow2.emoji, '🏍️', '/couriers: emoji ko\'rinadi');
+
+  /* ============ PART K: ADMIN «Yordam / murojaat» kontaktlari ============ */
+  console.log('\n--- Admin: yordam kontaktlari ---');
+  const setResp = await api('PATCH', '/settings', {
+    supportPhone: '+998712000000',
+    supportUsername: '@yetkaz_yordam',
+    supportLink: 'https://t.me/yetkaz_yordam',
+    supportNote: 'Ish vaqti: 9:00–21:00',
+  }, AT);
+  eq(setResp.status, 200, '/settings PATCH muvaffaqiyatli');
+  eq(setResp.data.supportPhone, '+998712000000', 'settings: yordam telefoni saqlandi');
+  eq(setResp.data.supportUsername, '@yetkaz_yordam', 'settings: username saqlandi');
+  eq(setResp.data.supportLink, 'https://t.me/yetkaz_yordam', 'settings: havola saqlandi');
+  eq(setResp.data.supportNote, 'Ish vaqti: 9:00–21:00', 'settings: izoh saqlandi');
+  /* Ochiq GET /settings — login shart emas (mijoz ham ko'radi) */
+  const pubSet = (await api('GET', '/settings', null)).data;
+  eq(pubSet.supportPhone, '+998712000000', 'GET /settings (ochiq): yordam telefoni ko\'rinadi');
+  eq(pubSet.supportUsername, '@yetkaz_yordam', 'GET /settings (ochiq): username ko\'rinadi');
+  /* /bootstrap.settings ham */
+  const boot2 = (await api('GET', '/bootstrap', null)).data;
+  eq(boot2.settings.supportLink, 'https://t.me/yetkaz_yordam', '/bootstrap.settings: havola ko\'rinadi');
+  /* Non-admin /settings PATCH ga kira olmaydi */
+  const setForbidden = await api('PATCH', '/settings', { supportPhone: '+998000000000' }, KT);
+  eq(setForbidden.status, 403, 'kuryer /settings PATCH ga kira olmaydi (403)');
+
   /* ============ NATIJA ============ */
   console.log(`\n=== NATIJA: ${PASS} o'tdi, ${FAIL} yiqildi ===`);
   if (FAIL) { console.error('\nYiqilganlar:\n - ' + fails.join('\n - ')); process.exit(1); }

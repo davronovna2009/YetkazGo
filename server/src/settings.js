@@ -9,8 +9,10 @@
                    AYNAN shu raqam ko'rsatiladi (pricing.js). */
 import { db } from './db.js';
 
-/* Ruxsat etilgan kalitlar — begona kalit bazani ifloslantirmasin */
-export const KEYS = ['owner_phone', 'owner_name'];
+/* Ruxsat etilgan kalitlar — begona kalit bazani ifloslantirmasin.
+   support_* — «Yordam / murojaat» kontaktlari: mijoz, restoran, kuryer
+   panellaridagi «Shikoyat / yordam» bo'limида ko'rsatiladi (admin yozib qo'yadi). */
+export const KEYS = ['owner_phone', 'owner_name', 'support_phone', 'support_username', 'support_link', 'support_note'];
 
 export function getSetting(key, def = '') {
   try {
@@ -35,5 +37,9 @@ export function publicSettings() {
   return {
     ownerPhone: getSetting('owner_phone', ''),
     ownerName: getSetting('owner_name', ''),
+    supportPhone: getSetting('support_phone', ''),
+    supportUsername: getSetting('support_username', ''),
+    supportLink: getSetting('support_link', ''),
+    supportNote: getSetting('support_note', ''),
   };
 }

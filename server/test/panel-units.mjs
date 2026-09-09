@@ -223,5 +223,58 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   eq(/lg-edit-login/.test(hostHTML) && /lg-edit-pass/.test(hostHTML), true, 'admin Loginlar: har kartada Login va Parol tugmasi');
 }
 
+/* ---------- APP «Aksiya/reklama» bo'limi — FAQAT aksiyadagi taomlar ---------- */
+{
+  const src = JS('app.js');
+  const CAT = [
+    { id: 1, rest: 'A', name: 'Osh', price: 30000, emoji: '🍚' },
+    { id: 2, rest: 'A', name: 'Somsa', price: 12000, emoji: '🥟', discount: 25, eff: 9000 },
+    { id: 3, rest: 'B', name: 'Desert', price: 20000, emoji: '🍰' },
+    { id: 4, rest: 'B', name: 'Lagmon', price: 25000, emoji: '🍜' },
+  ];
+  let PROMOS = [];
+  const ctx = {
+    catalog: () => CAT,
+    getAllPromos: () => PROMOS,
+    STORE: { overrides: () => ({ discounts: {} }) },
+    Set, Math, Number, String, Object, Array,
+  };
+  vm.createContext(ctx);
+  vm.runInContext(extract(src, 'getDiscountedDishes') + ';this.getDiscountedDishes=getDiscountedDishes;', ctx);
+  vm.runInContext('this.getDiscountedDishes=getDiscountedDishes;this.getAllPromos=getAllPromos;this.catalog=catalog;' +
+    extract(src, 'getPromoDishCards') + ';this.getPromoDishCards=getPromoDishCards;', ctx);
+
+  /* 1) Chegirмasi bor + e'lon yo'q — faqat chegirмали taom */
+  PROMOS = [];
+  let c = ctx.getPromoDishCards();
+  eq(c.length, 1, 'app.promo: faqat chegирмали taom (Somsa)');
+  eq(c[0].name, 'Somsa', 'app.promo: Somsa 25%');
+
+  /* 2) E'lon "Desert" ni nomlaydi — chegирмасиз ham kartaga tushadi */
+  PROMOS = [{ rest: 'B', dish: 'Desert', text: 'Desert aksiyada!', tag: 'AKSIYA' }];
+  c = ctx.getPromoDishCards();
+  eq(c.length, 2, 'app.promo: Somsa (chegирма) + Desert (e\'lonда nomlangan)');
+  eq(c.some((x) => x.name === 'Desert'), true, 'app.promo: Desert e\'lon orqali kartaga tushdi');
+  const des = c.find((x) => x.name === 'Desert');
+  eq(des.eff, 20000, 'app.promo: chegирмасиз e\'lon taomi asl narxда (eff = price)');
+
+  /* 3) E'lon dishsiz (umumiy reklама) — hech qanday yangi taom qo'shilmaydi */
+  PROMOS = [{ rest: 'A', text: 'Hammaga chegirма!', tag: 'AKSIYA' }];
+  c = ctx.getPromoDishCards();
+  eq(c.length, 1, 'app.promo: dishsiz e\'lon — faqat chegирмали taom qoladi (reklамасиз taomlar YO\'Q)');
+
+  /* 4) Chegирма ham, e'lon ham yo'q — bo'sh (taom kartasi umuman chizilmaydi) */
+  CAT[1].discount = 0; delete CAT[1].eff;
+  PROMOS = [];
+  c = ctx.getPromoDishCards();
+  eq(c.length, 0, 'app.promo: aksiya yo\'q -> taom kartasi chizilmaydi (bo\'sh)');
+  CAT[1].discount = 25; CAT[1].eff = 9000;
+
+  /* 5) Dublikat bo'lmaydi: taom ham chegирмали, ham e'lonда */
+  PROMOS = [{ rest: 'A', dish: 'Somsa', text: 'Somsa aksiyada', tag: 'AKSIYA' }];
+  c = ctx.getPromoDishCards();
+  eq(c.filter((x) => x.name === 'Somsa').length, 1, 'app.promo: Somsa 1 marta (chegирма+e\'lon dublikat emas)');
+}
+
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);
 process.exit(FAIL ? 1 : 0);

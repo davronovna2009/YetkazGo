@@ -550,6 +550,28 @@
     });
     const fr=$("#footerRests"); fr.innerHTML="";
     restList().forEach(r=>{ const li=document.createElement("li"); li.textContent=nm(r); fr.appendChild(li); });
+    renderFooterContact();
+  }
+
+  /* Footer «Aloqa / yordam» — admin «Sozlamalar»да yozib qo'ygan kontaktlar
+     (publicSettings). Bo'sh bo'lsa — umumiy matn. */
+  function renderFooterContact(){
+    const box=$("#footerContact"); if(!box) return;
+    let s={}; try{ s=(typeof STORE!=="undefined"&&STORE.settings)?STORE.settings():{}; }catch(e){}
+    const phone=s.supportPhone||s.ownerPhone||"";
+    const username=s.supportUsername||"";
+    const link=s.supportLink||"";
+    const note=s.supportNote||"";
+    let h="";
+    if(phone) h+=`<p><a href="tel:${esc(String(phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">📞 ${esc(phone)}</a></p>`;
+    if(username){
+      const uhref=/^https?:\/\//.test(username)?username:("https://t.me/"+String(username).replace(/^@+/,""));
+      h+=`<p><a href="${esc(uhref)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">✈️ ${esc(username)}</a></p>`;
+    }
+    if(link && link!==username) h+=`<p><a href="${esc(link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;word-break:break-all">🔗 ${esc(link)}</a></p>`;
+    if(note) h+=`<p style="opacity:.8;font-size:13px">${esc(note)}</p>`;
+    if(!h) h='<p style="opacity:.85">Savol yoki muammo bo\'lsa — «Mening kabinetim → Yordam» bo\'limi orqali murojaat qiling.</p>';
+    box.innerHTML=h;
   }
 
   /* ---------- REVIEWS ---------- */
@@ -1628,10 +1650,39 @@
     return discDishes;
   }
 
+  /* ===== AKSIYA/REKLAMAGA TUSHGAN TAOMLAR — YAGONA manba =====
+     Reklama bo'limida FAQAT shu taomlar ko'rsatiladi:
+       1) chegirmasi bor taomlar (getDiscountedDishes)
+       2) restoran e'lonida AYNAN nomi ko'rsatilgan taom (p.dish)
+     Reklamasi/aksiyasi yo'q taomlar bu yerда UMUMAN ko'rinmaydi.
+     Hech biri bo'lmasa — bo'sh massiv (taom kartasi chizilmaydi). */
+  function getPromoDishCards(){
+    const seen = new Set();
+    const out = [];
+    getDiscountedDishes().forEach(d=>{
+      const k=d.rest+"|"+d.name;
+      if(!seen.has(k)){ seen.add(k); out.push(d); }
+    });
+    try{
+      getAllPromos().forEach(p=>{
+        if(!p || !p.dish) return;
+        const d = catalog().find(x=>x.rest===p.rest && x.name===p.dish);
+        if(!d) return;
+        const k=d.rest+"|"+d.name;
+        if(seen.has(k)) return;
+        seen.add(k);
+        /* e'lonда nomlangan taom — chegirма bo'lmasa asl narxда */
+        out.push(d.discount>0 ? d : {...d, eff:d.price});
+      });
+    }catch(e){}
+    return out;
+  }
+
   /* Promo modal — e'longa bosganda */
   function openPromoModal(){
     const promos = getAllPromos();
-    const discDishes = getDiscountedDishes();
+    /* FAQAT aksiya/reklamaga tushgan taomlar (chegirма yoki e'lonда nomlangan) */
+    const discDishes = getPromoDishCards();
 
     openModal(`
       <div class="promo-modal">
@@ -1639,7 +1690,7 @@
         <p class="modal-sub">Bugungi maxsus takliflar</p>
 
         ${discDishes.length ? `
-        <div class="promo-section-title">🏷️ Chegirmali taomlar</div>
+        <div class="promo-section-title">🏷️ Aksiyadagi taomlar</div>
         <div class="promo-dishes">
           ${discDishes.map(d=>`
           <div class="promo-dish-card" data-id="${d.id}">
@@ -1650,9 +1701,9 @@
               <div class="pdc-name">${esc(nm(d))}</div>
               <div class="pdc-rest">${d.rest}</div>
               <div class="pdc-prices">
-                <span class="pdc-old">${fmt(d.price)}</span>
-                <span class="pdc-new">${fmt(d.eff)} so'm</span>
-                <span class="pdc-badge">-${d.discount}%</span>
+                ${d.discount>0
+                  ? `<span class="pdc-old">${fmt(d.price)}</span> <span class="pdc-new">${fmt(d.eff)} so'm</span> <span class="pdc-badge">-${d.discount}%</span>`
+                  : `<span class="pdc-new">${fmt(d.price)} so'm</span>`}
               </div>
             </div>
             <button class="pdc-add" data-id="${d.id}">+</button>
@@ -1783,8 +1834,10 @@
     if(!sec) return;
     if(adPromoTimer){ clearInterval(adPromoTimer); adPromoTimer=null; }
     const promos = getAllPromos();
-    const disc   = getDiscountedDishes();
-    if(!promos.length && !disc.length){ sec.style.display="none"; sec.innerHTML=""; return; }
+    /* Tagidagi kartalar: FAQAT aksiya/reklamaga tushgan taomlar. Reklamasi
+       yo'q taomlar bu yerда ko'rsatilmaydi; hech biri bo'lmasa karta chizilmaydi. */
+    const cards  = getPromoDishCards();
+    if(!promos.length && !cards.length){ sec.style.display="none"; sec.innerHTML=""; return; }
     sec.style.display="";
 
     /* Reklamalar ro'yxati — bittadan ko'p bo'lsa slider sekin almashadi */
@@ -1812,10 +1865,6 @@
     };
     const dots = list.length>1
       ? `<div class="apb-dots">${list.map((_,i)=>`<span${i===0?' class="on"':''}></span>`).join("")}</div>` : "";
-
-    /* Tagidagi kartalar: avval chegirmali taomlar; bo'lmasa 1-reklama restoranining taomlari */
-    let cards = disc;
-    if(!cards.length) cards = catalog().filter(x=>x.rest===list[0].rest).slice(0,4);
 
     sec.innerHTML = `
       <div class="container">
