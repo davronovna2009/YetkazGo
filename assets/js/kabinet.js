@@ -118,6 +118,8 @@
         try{ askPendingConfirmKab(); }catch(e){}
         /* Restoran ish vaqtini o'zgartirsa — kabinet darrov yangilansin */
         try{ refreshOpenState(true); }catch(e){}
+        /* Aksiya/e'lon o'zgarsa — banner ham yangilansin */
+        try{ renderKabPromoBand(); }catch(e){}
       }); }
     /* Kirganда tasdiqlanmagan buyurtma bo'lsa — darrov so'raymiz */
     if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(function(){ try{ askPendingConfirmKab(); }catch(e){} }).catch(function(){});
@@ -501,11 +503,59 @@
         </div></div>`;
   }
   function renderMenu(){
+    renderKabPromoBand();
     if(activeRest){ filterByRest(activeRest); return; }
     const g=$("#kMenu"); if(!g) return;
     g.innerHTML=kcatalog().filter(d=>activeCat==="Hammasi"||kDishCat(d)===activeCat)
       .map(d=>kCardHTML(d,'🏷')).join("");
     bindMenuEvents();
+  }
+
+  /* ===== AKSIYA BANNERI — bosh saytdagi kabi (index.html adPromo) =====
+     Restoran e'lonlari navbatма-navbat aylanadi; bosilганда «Aksiyalar» modali.
+     E'lon ham, chegirмали taom ham bo'lmasa — banner yashiriladi. */
+  var _kabPromoTimer=null, _kabPromoIdx=0;
+  function kabPromoList(){
+    var anns=[];
+    try{
+      var be=(typeof STORE!=="undefined"&&STORE.announcements)?STORE.announcements():[];
+      var stored=[]; try{ stored=JSON.parse(localStorage.getItem("yetkaz_announcements")||"[]"); }catch(e){}
+      anns=stored.concat(be).filter(function(p){ return p && (p.text||p.dish); });
+    }catch(e){}
+    return anns;
+  }
+  function kabPromoHasDish(){
+    try{ return kcatalog().some(function(d){ return d.discount>0; }) || kabPromoList().some(function(p){ return p.dish; }); }catch(e){ return false; }
+  }
+  function renderKabPromoBand(){
+    var band=document.getElementById("kabPromoBand");
+    var inner=document.getElementById("kabPromoInner");
+    if(!band||!inner) return;
+    var list=kabPromoList();
+    if(!list.length && !kabPromoHasDish()){
+      band.style.display="none"; inner.innerHTML="";
+      if(_kabPromoTimer){ clearInterval(_kabPromoTimer); _kabPromoTimer=null; }
+      return;
+    }
+    band.style.display="flex";
+    var slides=list.length?list:[{tag:"AKSIYA",text:"Bugungi chegirмали taomlarни ko'ring!",emoji:"🔥"}];
+    function paint(){
+      var p=slides[_kabPromoIdx%slides.length]||slides[0];
+      inner.innerHTML=
+        '<span class="kpb-tag">'+esc(p.emoji||"🔥")+" "+esc(p.tag||"AKSIYA")+'</span>'+
+        (p.rest?'<span class="kpb-rest">🏪 '+esc(p.rest)+'</span>':'')+
+        '<span class="kpb-text">'+esc(p.text||"Aksiyalar")+'</span>'+
+        '<span style="margin-left:auto;font-weight:800;white-space:nowrap">Batafsil →</span>';
+    }
+    paint();
+    if(_kabPromoTimer){ clearInterval(_kabPromoTimer); _kabPromoTimer=null; }
+    if(slides.length>1){
+      _kabPromoTimer=setInterval(function(){
+        var el=document.getElementById("kabPromoInner"); if(!el){ clearInterval(_kabPromoTimer); _kabPromoTimer=null; return; }
+        _kabPromoIdx=(_kabPromoIdx+1)%slides.length; el.style.opacity="0";
+        setTimeout(function(){ paint(); el.style.opacity="1"; },200);
+      },5000);
+    }
   }
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
   function addToCart(id){
@@ -1054,6 +1104,7 @@
     renderMenuFiltered(list);
   }
   function renderMenuFiltered(list){
+    renderKabPromoBand();
     const g=document.getElementById("kMenu"); if(!g) return;
     g.innerHTML=list.map(d=>kCardHTML(d,'🏷 CHEGIRMA')).join("");
     bindMenuEvents();
