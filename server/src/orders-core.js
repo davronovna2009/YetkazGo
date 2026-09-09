@@ -8,6 +8,7 @@ import { priceOrder, PriceError } from './pricing.js';
 import { courierIsOpen } from './hours.js';
 import { phoneStatus, checkSpam } from './blocks.js';
 import { callRule, suspicionCheck, totalQty } from './order-rules.js';
+import { payMethodAllowed } from './settings.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
@@ -237,6 +238,15 @@ export function createOrder(b = {}) {
 
   const spam = checkSpam(phone, b.user);
   if (spam) throw new OrderError(spam.message, 403);
+
+  /* ===== TO'LOV TURI — admin ruxsat bergan bo'lishi shart =====
+     Admin «To'lov turlari» bo'limида kartani (yoki naqdni) o'chirsa — o'sha
+     usul bilan buyurtма O'TMAYDI (frontend tugmasini bekitadi, lekin haqiqiy
+     to'siq SHU YERДА: eski sahifa yoki to'g'ridan API orqali ham o'tmaydi). */
+  const payId = String(b.pay || 'card');
+  if (!payMethodAllowed(payId)) {
+    throw new OrderError('Bu to`lov usuli hozir mavjud emas. Boshqa usulni tanlang.', 409);
+  }
 
   let priced;
   try {

@@ -295,6 +295,34 @@ const STORE = (function () {
         .then(r => { cache.settings = r || cache.settings; lsWrite("yz_settings", cache.settings); fire(); return r; })
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
     },
+    /* Admin RUXSAT bergan to'lov turlari — [{id,label,note}]. Checkout (sayt +
+       kabinet) faqat shularni ko'rsatadi; server ham shularni qabul qiladi. */
+    payMethods() {
+      const s = cache.settings || {};
+      const out = [];
+      /* *_On maydonlari bo'lmasa (eski server javobi) — ikkalasi ham yoqilgan */
+      if (s.payCardOn == null || s.payCardOn) out.push({ id: "card", label: "💳 Karta", note: "" });
+      if (s.payCashOn == null || s.payCashOn) out.push({ id: "cash", label: "💵 Naqd", note: "" });
+      if (Array.isArray(s.payExtra)) {
+        s.payExtra.forEach(x => { if (x && x.label) out.push({ id: String(x.id || x.label), label: String(x.label), note: String(x.note || "") }); });
+      }
+      /* Hech biri qolmasa — naqd majburan (buyurtma umuman bo'lmay qolmasin) */
+      return out.length ? out : [{ id: "cash", label: "💵 Naqd", note: "" }];
+    },
+    payAllowed(id) {
+      return this.payMethods().some(m => m.id === id || (id === "card" && m.id === "card") || (id === "cash" && m.id === "cash"));
+    },
+    /* Buyurtma `pay` -> ko'rsatiladigan yorliq (panellar order modalида ishlatadi) */
+    payLabel(id) {
+      if (id === "card" || id === "karta") return "💳 Karta";
+      if (id === "cash" || id === "naqd") return "💵 Naqd";
+      const s = cache.settings || {};
+      if (Array.isArray(s.payExtra)) {
+        const m = s.payExtra.find(x => x && x.id === id);
+        if (m) return "💠 " + m.label;
+      }
+      return id ? ("💳 " + id) : "—";
+    },
 
     /* ---- BOT/SAYT MANBA STATISTIKASI ---- */
     fetchSourceStats() { return api("/orders/stats/source", { auth: true }).catch(() => ({ total: 0, telegram: 0, sayt: 0, telegramPct: 0, saytPct: 0 })); },

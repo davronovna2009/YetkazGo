@@ -151,25 +151,12 @@
     }catch(e){ return null; }
   }
 
-  /* «Yordam» bo'limidagi bevosita bog'lanish — admin «Sozlamalar»да yozib qo'ygan
-     telefon / username / havola. Bo'sh bo'lsa blok yashiriladi. */
+  /* «Yordam» bo'limidagi bevosita bog'lanish — YAGONA manba: assets/js/support.js.
+     Admin «Sozlamalar»да yozib qo'ygan telefon / username / havola. */
   function fillSupportContact(){
     var host=document.getElementById("kabSupportBox"); if(!host) return;
-    var s={}; try{ s=(typeof STORE!=="undefined"&&STORE.settings)?STORE.settings():{}; }catch(e){}
-    var phone=s.supportPhone||s.ownerPhone||"", username=s.supportUsername||"", link=s.supportLink||"", note=s.supportNote||"";
-    if(!phone && !username && !link){ host.style.display="none"; host.innerHTML=""; return; }
-    host.style.display="";
-    var rows="";
-    if(phone) rows+='<a href="tel:'+esc(String(phone).replace(/[^\d+]/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:inherit;text-decoration:none;font-weight:700;border-bottom:1px solid var(--line)"><span style="font-size:18px">📞</span>'+esc(phone)+'</a>';
-    if(username){
-      var uhref=/^https?:\/\//.test(username)?username:("https://t.me/"+String(username).replace(/^@+/,""));
-      rows+='<a href="'+esc(uhref)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:inherit;text-decoration:none;font-weight:700;border-bottom:1px solid var(--line)"><span style="font-size:18px">✈️</span>'+esc(username)+'</a>';
-    }
-    if(link && link!==username) rows+='<a href="'+esc(link)+'" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:11px 0;color:#2563eb;text-decoration:none;font-weight:700;word-break:break-all"><span style="font-size:18px">🔗</span>'+esc(link)+'</a>';
-    host.innerHTML="<div class=\"panel\" style=\"margin-bottom:16px\"><div class=\"panel-head\"><h3>🆘 Bevosita bog'lanish</h3></div><div class=\"panel-body\">"+
-      "<p style=\"color:var(--grey);font-size:13px;margin:0 0 6px\">Savol yoki muammo bo'lsa — sayt ma'muriyatiga murojaat qiling:</p>"+
-      rows+(note?"<p style=\"color:var(--grey);font-size:12px;margin:8px 0 0\">"+esc(note)+"</p>":"")+
-      "</div></div>";
+    if(typeof YZ_SUPPORT!=="undefined" && YZ_SUPPORT.mount){ YZ_SUPPORT.mount(host,{title:"🆘 Bevosita bog'lanish"}); return; }
+    host.style.display="none";
   }
 
   function nav(view){
@@ -240,6 +227,7 @@
     set("stEmail", (ses&&ses.email)||"");
     set("stLogin", USER.login||(ses&&ses.login));
     try{ set("stAddr", localStorage.getItem("yz_user_addr")||""); }catch(e){}
+    try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("kabLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     var snd=document.getElementById("stSound");
     try{ if(snd) snd.checked = localStorage.getItem("yz_sound")!=="0"; }catch(e){}
   }
@@ -665,6 +653,19 @@
   }
   /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
   function koDeliveryFee(){ return 0; }
+  /* Buyurtма `pay` qiymati -> ko'rsatiladigan yorliq (naqd/karta/custom) */
+  function payLabelOf(id){
+    if(id==="card"||id==="karta") return "💳 Karta";
+    if(id==="cash"||id==="naqd") return "💵 Naqd";
+    try{ if(typeof STORE!=="undefined" && STORE.payMethods){ var m=STORE.payMethods().find(function(x){return x.id===id;}); if(m) return m.label; } }catch(e){}
+    return "💳 "+String(id||"");
+  }
+  /* Admin RUXSAT bergan to'lov turlari (STORE.payMethods). Karta o'chirilса — ko'rinmaydi. */
+  function koPayOptionsHtml(){
+    var list=[{id:"card",label:"💳 Karta"},{id:"cash",label:"💵 Naqd"}];
+    try{ if(typeof STORE!=="undefined" && STORE.payMethods) list=STORE.payMethods(); }catch(e){}
+    return list.map(function(m,i){ return '<div class="ko-pay'+(i===0?' on':'')+'" data-pay="'+esc(m.id)+'" data-note="'+esc(m.note||"")+'">'+esc(m.label)+'</div>'; }).join("");
+  }
   function openCheckout(total){
     koPay="card";
     const fee=koDeliveryFee();
@@ -702,10 +703,8 @@
       </div>
       <div class="set-field" style="margin-bottom:14px">
         <label>${kt3('tolov')||"To'lov usuli"}</label>
-        <div class="ko-pays">
-          <div class="ko-pay on" data-pay="card">${kt3('karta')||'💳 Karta'}</div>
-          <div class="ko-pay" data-pay="cash">${kt3('naqd')||'💵 Naqd'}</div>
-        </div>
+        <div class="ko-pays">${koPayOptionsHtml()}</div>
+        <div id="koPayNote" style="color:var(--grey);font-size:12px;margin-top:6px"></div>
       </div>
       <div class="ko-summary">
         <div class="ko-row"><span>Taomlar (${cart.reduce((s,i)=>s+i.qty,0)} ta)</span><span>${money(total)} so'm</span></div>
@@ -713,7 +712,13 @@
         <div class="ko-row tot"><span>Jami</span><span>${money(total+fee)} so'm</span></div>
       </div>
       <button class="set-save" id="koConfirm" style="width:100%;margin-top:4px">${kt3('tasdiq')||'✅ Buyurtmani tasdiqlash'}</button>`;
-    $$("#koContent .ko-pay").forEach(o=>o.addEventListener("click",()=>{ $$("#koContent .ko-pay").forEach(x=>x.classList.remove("on")); o.classList.add("on"); koPay=o.dataset.pay; }));
+    /* Boshlang'ich tanlov — birinchi mavjud usul */
+    var firstPay=document.querySelector("#koContent .ko-pay.on");
+    koPay=firstPay?firstPay.dataset.pay:"cash";
+    var koPayNote=document.getElementById("koPayNote");
+    var koShowNote=function(){ var el=document.querySelector("#koContent .ko-pay.on"); var n=el?(el.dataset.note||""):""; if(koPayNote){ koPayNote.textContent=n; koPayNote.style.display=n?"":"none"; } };
+    koShowNote();
+    $$("#koContent .ko-pay").forEach(o=>o.addEventListener("click",()=>{ $$("#koContent .ko-pay").forEach(x=>x.classList.remove("on")); o.classList.add("on"); koPay=o.dataset.pay; koShowNote(); }));
     const koGeo=$("#koGeoBtn"); if(koGeo) koGeo.addEventListener("click",()=>detectLocation($("#koAddr"), koGeo));
     if(window.YZ_PHONE) YZ_PHONE.attach($("#koPhone"));
     $("#koConfirm").addEventListener("click",confirmOrder);
@@ -812,7 +817,7 @@
       <div class="ko-track" style="text-align:center">
         <div style="font-size:48px;margin-bottom:6px">${emoji}</div>
         <h2 style="font-size:19px;margin-bottom:4px">${kt4('qabul')||'Buyurtma qabul qilindi!'}</h2>
-        <p class="ko-sub">📍 ${addr} · ${koPay==="card"?"💳 Karta":"💵 Naqd"}</p>
+        <p class="ko-sub">📍 ${addr} · ${esc(payLabelOf(koPay))}</p>
         <p style="font-size:13px;color:var(--grey);background:#f0f9f4;border-radius:10px;padding:10px;margin:10px 0">
           🛵 Buyurtmangiz real vaqtда kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
         </p>

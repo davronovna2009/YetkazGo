@@ -33,29 +33,16 @@
     return '<span class="pill warn">⏳ Ko\'rib chiqilmoqda</span>';
   }
 
-  /* Admin yozib qo'ygan «Yordam / murojaat» kontaktlari (publicSettings).
-     Bo'sh bo'lsa blok umuman chizilmaydi. */
+  /* «Bevosita bog'lanish» bloki — YAGONA manba: assets/js/support.js (YZ_SUPPORT).
+     Admin «Sozlamalar»да yozib qo'ygan telefon/username/havola. */
   function contactBlock() {
-    var s = {};
-    try { s = (root.STORE && STORE.settings && STORE.settings()) || {}; } catch (e) {}
-    var phone = s.supportPhone || s.ownerPhone || '';
-    var username = s.supportUsername || '';
-    var link = s.supportLink || '';
-    var note = s.supportNote || '';
-    if (!phone && !username && !link) return '';
-    var rows = '';
-    if (phone) rows += '<a href="tel:' + esc(String(phone).replace(/[^\d+]/g, '')) + '" style="display:flex;align-items:center;gap:8px;padding:9px 0;color:inherit;text-decoration:none;font-weight:700"><span>📞</span><span>' + esc(phone) + '</span></a>';
-    if (username) {
-      var uhref = /^https?:\/\//.test(username) ? username : ('https://t.me/' + String(username).replace(/^@+/, ''));
-      rows += '<a href="' + esc(uhref) + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:9px 0;color:inherit;text-decoration:none;font-weight:700"><span>✈️</span><span>' + esc(username) + '</span></a>';
+    if (root.YZ_SUPPORT && YZ_SUPPORT.blockHtml) {
+      return YZ_SUPPORT.blockHtml({
+        title: '🆘 Bevosita bog\'lanish',
+        intro: 'Tezkor yordam kerak bo\'lsa — sayt ma\'muriyatiga to\'g\'ridan-to\'g\'ri murojaat qiling:',
+      });
     }
-    if (link && link !== username) rows += '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:8px;padding:9px 0;color:#2563eb;text-decoration:none;font-weight:700;word-break:break-all"><span>🔗</span><span>' + esc(link) + '</span></a>';
-    return '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>🆘 Bevosita bog\'lanish</h3></div>' +
-      '<div class="panel-body">' +
-        '<p style="color:var(--grey);font-size:13px;margin:0 0 6px">Tezkor yordam kerak bo\'lsa — sayt ma\'muriyatiga to\'g\'ridan-to\'g\'ri murojaat qiling:</p>' +
-        rows +
-        (note ? '<p style="color:var(--grey);font-size:12px;margin:8px 0 0">' + esc(note) + '</p>' : '') +
-      '</div></div>';
+    return '';
   }
 
   function render(host) {

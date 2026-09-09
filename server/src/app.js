@@ -70,12 +70,18 @@ app.use('/api/upload', express.json({ limit: '8mb' }), uploadRoutes);
 
 app.use(express.json({ limit: '1mb' }));
 
+/* Test rejimida (NODE_ENV=test — server/test/run.mjs) rate-limit o'chiriladi:
+   E2E test qisqa vaqtда ko'p buyurtma/login qiladi. Production hech qachon
+   NODE_ENV=test qo'ymaydi. */
+const IS_TEST = process.env.NODE_ENV === 'test';
+
 /* Kirish/ro'yxat uchun brute-force himoyasi */
 const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,        // 10 daqiqa
   max: 30,                          // har IP uchun 30 urinish
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => IS_TEST,
   message: { error: 'Juda ko`p urinish. Birozdan so`ng qayta urinib ko`ring.' },
 });
 
@@ -91,7 +97,7 @@ const orderLimiter = rateLimit({
      Mijozning "bekor qilish" (/:id/cancel) va "qabul qildim" (/:id/received)
      so'rovlari ham POST — ular limitга TUSHMASLIGI kerak, aks holda bitta
      IP ortidagi (Wi-Fi/NAT) mijozlar buyurtmasini tasdiqlay olmay qolardi. */
-  skip: (req) => req.method !== 'POST' || req.path !== '/',
+  skip: (req) => IS_TEST || req.method !== 'POST' || req.path !== '/',
   message: { error: 'Juda ko`p buyurtma yuborildi. Bir daqiqadan so`ng urinib ko`ring.' },
 });
 

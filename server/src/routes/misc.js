@@ -104,9 +104,10 @@ router.get('/bootstrap', (_req, res) => {
 /* GET /api/settings — ommaviy (sayt egasi raqami). PATCH — faqat admin. */
 router.get('/settings', (_req, res) => res.json(publicSettings()));
 
+const BOOL01 = (v) => (v === true || v === 1 || v === '1' || v === 'true' || v === 'on' ? '1' : '0');
 router.patch('/settings', requireRole('admin'), (req, res) => {
   const b = req.body || {};
-  for (const k of KEYS) { if (b[k] != null) setSetting(k, b[k]); }
+  for (const k of KEYS) { if (b[k] != null && k !== 'pay_extra') setSetting(k, b[k]); }
   /* Frontend camelCase yuborsa ham qabul qilamiz */
   const camel = {
     ownerPhone: 'owner_phone', ownerName: 'owner_name',
@@ -114,6 +115,27 @@ router.patch('/settings', requireRole('admin'), (req, res) => {
     supportLink: 'support_link', supportNote: 'support_note',
   };
   for (const [c, k] of Object.entries(camel)) { if (b[c] != null) setSetting(k, b[c]); }
+  /* Boolean toggle'lar — "1"/"0" ga normallashtiriladi */
+  const bools = {
+    supportPhoneOn: 'support_phone_on', supportUsernameOn: 'support_username_on', supportLinkOn: 'support_link_on',
+    payCashOn: 'pay_cash_on', payCardOn: 'pay_card_on',
+  };
+  for (const [c, k] of Object.entries(bools)) { if (b[c] != null) setSetting(k, BOOL01(b[c])); }
+  /* Custom to'lov turlari — massiv, JSON matn sifatida saqlanadi */
+  if (b.payExtra != null || b.pay_extra != null) {
+    const raw = b.payExtra != null ? b.payExtra : b.pay_extra;
+    let arr = [];
+    try { arr = Array.isArray(raw) ? raw : JSON.parse(String(raw || '[]')); } catch (e) { arr = []; }
+    const clean = (Array.isArray(arr) ? arr : [])
+      .filter((x) => x && x.label)
+      .slice(0, 10)
+      .map((x, i) => ({
+        id: String(x.id || ('extra' + i)).replace(/[^a-z0-9_]/gi, '').slice(0, 30) || ('extra' + i),
+        label: String(x.label).slice(0, 40),
+        note: String(x.note || '').slice(0, 200),
+      }));
+    setSetting('pay_extra', JSON.stringify(clean));
+  }
   res.json(publicSettings());
 });
 

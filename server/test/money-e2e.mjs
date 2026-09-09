@@ -617,6 +617,153 @@ async function main() {
   const setForbidden = await api('PATCH', '/settings', { supportPhone: '+998000000000' }, KT);
   eq(setForbidden.status, 403, 'kuryer /settings PATCH ga kira olmaydi (403)');
 
+  /* ============ PART L: KURYER «Ishdan javob so'rash» oqimi ============ */
+  console.log('\n--- Kuryer ishdan javob (leave) oqimi ---');
+  /* 2-kuryer — 1-kuryer javobга chiqganда buyurtмa shunga o'tsin */
+  await api('POST', '/couriers', { name: 'E2E Kuryer 2', login: 'e2e_cour2', pass: 'c2-pass', fee: 10000, openH: 0, closeH: 24 }, AT);
+  const K2LOGIN = await api('POST', '/auth/login', { login: 'e2e_cour2', pass: 'c2-pass' });
+  const K2T = K2LOGIN.data.token;
+
+  /* Kuryer (e2e_cour) — hozircha ishда. Yangi login bilan kirdik (parol PART H da o'zgargan) */
+  const kNow = await api('POST', '/auth/login', { login: 'e2e_cour', pass: 'kuryer-yangi-789' });
+  const KT_NOW = kNow.data.token;
+
+  /* 1) Javob so'rash */
+  const lv1 = await api('POST', '/couriers/leave', { reason: 'Kasal bo\'lib qoldim' }, KT_NOW);
+  eq(lv1.status, 200, 'kuryer: javob so\'rovi yuborildi');
+  eq(lv1.data.courier.leaveStatus, 'pending', 'kuryer: holat = pending');
+  eq(lv1.data.courier.onLeave, false, 'kuryer: hali javobда emas (admin tasdiqlamagan)');
+
+  /* 2) Admin so'rovни ko'radi (/couriers ro'yxatида) */
+  const cListLv = (await api('GET', '/couriers', null, AT)).data;
+  const cLvRow = cListLv.find((x) => x.login === 'e2e_cour');
+  eq(cLvRow.leaveStatus, 'pending', 'admin: kuryer javob so\'rovini ko\'radi');
+  eq(cLvRow.leaveReason, 'Kasal bo\'lib qoldim', 'admin: sabab ko\'rinadi');
+
+  /* 3) Pending paytда buyurtмa HALI shu kuryerга tushadi (admin qaror qilmagunча ishда) */
+  const ordPending = await api('POST', '/orders', {
+    user: 'Nodira', phone: '+998901239001', pay: 'cash',
+    items: [{ id: 900001, qty: 1 }], addr: 'Pending ko\'cha',
+  });
+  eq(ordPending.status, 201, 'pending paytда buyurtмa yaratildi');
+  ok(['E2E Kuryer Aziz', 'E2E Kuryer 2'].includes(ordPending.data.courier), 'pending paytда buyurtмa biror kuryerга biriktirildi');
+
+  /* 4) Admin RAD ETADI — kuryer ishда qoladi */
+  const deny = await api('POST', '/couriers/leave-decision', { login: 'e2e_cour', approve: false }, AT);
+  eq(deny.status, 200, 'admin: so\'rov rad etildi');
+  eq(deny.data.courier.leaveStatus, 'denied', 'kuryer: holat = denied');
+  eq(deny.data.courier.onLeave, false, 'kuryer: rad etilgach ishда');
+  eq(deny.data.courier.active, true, 'kuryer: rad etilgach active');
+
+  /* 5) Qayta so'raydi va admin TASDIQLAYDI */
+  await api('POST', '/couriers/leave-cancel', {}, KT_NOW);   // denied -> none
+  await api('POST', '/couriers/leave', { reason: 'Dam olishim kerak' }, KT_NOW);
+  /* Tasdiqлашдан oldin — e2e_cour ga faol buyurtмa beramiz (reassign tekshiruvi uchun) */
+  const ordActive = await api('POST', '/orders', {
+    user: 'Jasur', phone: '+998901239002', pay: 'card',
+    items: [{ id: 900001, qty: 1 }], addr: 'Active ko\'cha',
+  });
+  /* Buyurtма qaysi kuryerда? Agar e2e_cour da bo'lmasa — 2-kuryerни vaqtinча o'chirib qayta beramiz */
+  let activeOrderId = ordActive.data.id;
+  if (ordActive.data.courier !== 'E2E Kuryer Aziz') {
+    /* 2-kuryerni javobга chiqarib, e2e_cour yagona bo'lсин */
+    await api('POST', '/couriers/leave', { reason: 'temp' }, K2T);
+    await api('POST', '/couriers/leave-decision', { login: 'e2e_cour2', approve: true }, AT);
+    const reOrd = await api('POST', '/orders', { user: 'Jasur2', phone: '+998901239003', pay: 'card', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+    activeOrderId = reOrd.data.id;
+    eq(reOrd.data.courier, 'E2E Kuryer Aziz', 'yagona faol kuryer — buyurtма e2e_cour ga tushdi');
+    /* 2-kuryerни qaytaramiz */
+    await api('POST', '/couriers/return', {}, K2T);
+  }
+
+  const approve = await api('POST', '/couriers/leave-decision', { login: 'e2e_cour', approve: true }, AT);
+  eq(approve.status, 200, 'admin: javob TASDIQLANDI');
+  eq(approve.data.courier.onLeave, true, 'kuryer: onLeave = true');
+  eq(approve.data.courier.active, false, 'kuryer: active = false (acount ishlamaydi)');
+  eq(approve.data.courier.leaveStatus, 'approved', 'kuryer: holat = approved');
+  ok(approve.data.reassigned >= 1, `kuryer: faol buyurtмalari boshqasiga o'tdi (${approve.data.reassigned} ta)`);
+
+  /* 6) Faol buyurtмa endi BOSHQA kuryerда */
+  const movedOrder = (await api('GET', '/orders', null, AT)).data.find((o) => o.id === activeOrderId);
+  ok(movedOrder && movedOrder.courier && movedOrder.courier !== 'E2E Kuryer Aziz', 'buyurtма javobдаги kuryerдан boshqasiга o\'tdi');
+
+  /* 7) JAVOBДАГИ kuryerга yangi buyurtма TUSHMAYDI */
+  for (let i = 0; i < 3; i++) {
+    const nb = await api('POST', '/orders', { user: 'T' + i, phone: '+99890123900' + (4 + i), pay: 'cash', items: [{ id: 900001, qty: 1 }], addr: 'N' });
+    ok(nb.data.courier !== 'E2E Kuryer Aziz', `yangi buyurtма #${i + 1} javobдаги kuryerга TUSHMADI`);
+  }
+
+  /* 8) Javobдаги kuryer login qila oladi (holatини ko'rish uchun), lekin "ishда emas" */
+  const lvLogin = await api('POST', '/auth/login', { login: 'e2e_cour', pass: 'kuryer-yangi-789' });
+  eq(lvLogin.status, 200, 'javobдаги kuryer login qila oladi (holatини ko\'rish uchun)');
+  const meLv = await api('GET', '/couriers/me', null, lvLogin.data.token);
+  eq(meLv.data.onLeave, true, '/couriers/me: onLeave = true');
+
+  /* 9) Ishga qaytadi — yana buyurtма tusha boshlaydi */
+  const ret = await api('POST', '/couriers/return', {}, lvLogin.data.token);
+  eq(ret.status, 200, 'kuryer: ishga qaytdi');
+  eq(ret.data.courier.onLeave, false, 'kuryer: onLeave = false');
+  eq(ret.data.courier.active, true, 'kuryer: active = true');
+  /* Endi yagona ish vaqtida bo'lsin uchun 2-kuryerni javobга chiqaramiz, keyin qaytaramiz */
+  await api('POST', '/couriers/leave', { reason: 't' }, K2T);
+  await api('POST', '/couriers/leave-decision', { login: 'e2e_cour2', approve: true }, AT);
+  const afterRet = await api('POST', '/orders', { user: 'Qaytdi', phone: '+998901239099', pay: 'cash', items: [{ id: 900001, qty: 1 }], addr: 'R' });
+  eq(afterRet.data.courier, 'E2E Kuryer Aziz', 'ishga qaytgach — buyurtма yana e2e_cour ga tushadi');
+  await api('POST', '/couriers/return', {}, K2T);
+
+  /* ============ PART M: TO'LOV TURLARI — admin boshqaradi ============ */
+  console.log('\n--- To\'lov turlari ---');
+  /* Standart: karta + naqd yoqilgan */
+  let ps = (await api('GET', '/settings', null)).data;
+  eq(ps.payCardOn, true, 'standart: kartadan to\'lov YOQILGAN');
+  eq(ps.payCashOn, true, 'standart: naqd to\'lov YOQILGAN');
+
+  /* Karta bilan buyurtма — o'tadi */
+  const okCard = await api('POST', '/orders', { user: 'P1', phone: '+998901240001', pay: 'card', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+  eq(okCard.status, 201, 'karta yoqilganда — karta buyurtмаsi o\'tadi');
+  await api('POST', '/orders/' + okCard.data.id + '/cancel', { token: okCard.data.token });
+
+  /* ADMIN kartadan to'lovni O'CHIRADI */
+  const pOff = await api('PATCH', '/settings', { payCardOn: false }, AT);
+  eq(pOff.status, 200, 'admin: kartadan to\'lov o\'chirildi');
+  eq(pOff.data.payCardOn, false, 'settings: payCardOn = false');
+  eq(pOff.data.payCashOn, true, 'settings: naqd hali yoqilgan');
+
+  /* Endi karta bilan buyurtма — O'TMAYDI (server rad etadi) */
+  const badCard = await api('POST', '/orders', { user: 'P2', phone: '+998901240002', pay: 'card', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+  eq(badCard.status, 409, 'karta o\'chirilgach — karta buyurtмаsi RAD etiladi (409)');
+  ok(/to.lov usuli/i.test(badCard.data.error || ''), 'xato matni: to\'lov usuli mavjud emas');
+
+  /* Naqd bilan — hali o'tadi */
+  const okCash = await api('POST', '/orders', { user: 'P3', phone: '+998901240003', pay: 'cash', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+  eq(okCash.status, 201, 'naqd bilan buyurtма o\'tadi (naqd yoqilgan)');
+  await api('POST', '/orders/' + okCash.data.id + '/cancel', { token: okCash.data.token });
+
+  /* Custom to'lov turi qo'shamiz */
+  const pExtra = await api('PATCH', '/settings', { payExtra: [{ id: 'payme', label: 'Payme', note: '8600 1111 2222 3333' }] }, AT);
+  eq(pExtra.status, 200, 'admin: custom to\'lov turi qo\'shildi');
+  eq(Array.isArray(pExtra.data.payExtra) && pExtra.data.payExtra.length, 1, 'settings: payExtra 1 ta');
+  eq(pExtra.data.payExtra[0].label, 'Payme', 'settings: custom to\'lov nomi');
+  eq(pExtra.data.payExtra[0].note, '8600 1111 2222 3333', 'settings: custom to\'lov izohi (karta raqami)');
+
+  /* Custom usul bilan buyurtма — o'tadi */
+  const okExtra = await api('POST', '/orders', { user: 'P4', phone: '+998901240004', pay: 'payme', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+  eq(okExtra.status, 201, 'custom usul (payme) bilan buyurtма o\'tadi');
+  eq(okExtra.data.pay, 'payme', 'buyurtмада pay = payme saqlandi');
+  await api('POST', '/orders/' + okExtra.data.id + '/cancel', { token: okExtra.data.token });
+
+  /* Mavjud bo'lmagan usul — rad etiladi */
+  const okNope = await api('POST', '/orders', { user: 'P5', phone: '+998901240005', pay: 'clickpay', items: [{ id: 900001, qty: 1 }], addr: 'X' });
+  eq(okNope.status, 409, 'ro\'yxatда yo\'q to\'lov usuli — rad etiladi');
+
+  /* /bootstrap.settings ham to'lov holatини beradi */
+  const bootPay = (await api('GET', '/bootstrap', null)).data;
+  eq(bootPay.settings.payCardOn, false, '/bootstrap.settings: payCardOn = false (mijoz sayti biladi)');
+  eq(bootPay.settings.payExtra[0].label, 'Payme', '/bootstrap.settings: custom usul ko\'rinadi');
+
+  /* Kartani qaytaramiz (keyingi testlar buzilmasin) */
+  await api('PATCH', '/settings', { payCardOn: true, payExtra: [] }, AT);
+
   /* ============ NATIJA ============ */
   console.log(`\n=== NATIJA: ${PASS} o'tdi, ${FAIL} yiqildi ===`);
   if (FAIL) { console.error('\nYiqilganlar:\n - ' + fails.join('\n - ')); process.exit(1); }

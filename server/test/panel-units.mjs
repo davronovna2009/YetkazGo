@@ -22,7 +22,8 @@ const JS = (name) => readFileSync(resolve(HERE, '..', '..', 'assets', 'js', name
 let PASS = 0, FAIL = 0;
 const eq = (a, b, m) => { if (a === b) { PASS++; } else { FAIL++; console.error(`  ✗ ${m}: kutildi ${b}, keldi ${a}`); } };
 
-/* `[async] function NAME(` dan balanslangan `}` gacha ajratadi */
+/* `[async] function NAME(` dan balanslangan `}` gacha ajratadi.
+   `methodOf(src, name)` — obyekt metodi (`name() { ... }`) ni funksiyaга aylantiradi. */
 function extract(src, name) {
   const m = new RegExp('(async\\s+)?function\\s+' + name + '\\s*\\(').exec(src);
   if (!m) throw new Error('funksiya topilmadi: ' + name);
@@ -32,6 +33,19 @@ function extract(src, name) {
     else if (src[j] === '}' && --depth === 0) return src.slice(m.index, j + 1);
   }
   throw new Error('qavs balansi buzuq: ' + name);
+}
+function methodOf(src, name) {
+  const re = new RegExp('(^|[\\s,{])' + name + '\\s*\\(([^)]*)\\)\\s*\\{', 'm');
+  const m = re.exec(src);
+  if (!m) throw new Error('metod topilmadi: ' + name);
+  const bodyStart = src.indexOf('{', m.index + m[0].length - 1);
+  let depth = 0, end = -1;
+  for (let j = bodyStart; j < src.length; j++) {
+    if (src[j] === '{') depth++;
+    else if (src[j] === '}' && --depth === 0) { end = j; break; }
+  }
+  if (end < 0) throw new Error('qavs balansi buzuq: ' + name);
+  return 'function ' + name + '(' + m[2] + ') ' + src.slice(bodyStart, end + 1);
 }
 
 /* Sinov buyurtmalari (A=72000/20%, B=36000/20%, C=54000/20%) — done;
@@ -274,6 +288,77 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   PROMOS = [{ rest: 'A', dish: 'Somsa', text: 'Somsa aksiyada', tag: 'AKSIYA' }];
   c = ctx.getPromoDishCards();
   eq(c.filter((x) => x.name === 'Somsa').length, 1, 'app.promo: Somsa 1 marta (chegирма+e\'lon dublikat emas)');
+}
+
+/* ---------- support.js — YZ_SUPPORT.get() (admin o'chirgan kontakt yashiriladi) ---------- */
+{
+  const src = JS('support.js');
+  let SETTINGS = {};
+  const root = {
+    YZ_SAFE: { esc: (s) => String(s == null ? '' : s) },
+    STORE: { settings: () => SETTINGS },
+  };
+  /* IIFE ni root bilan bajaramiz */
+  const ctx = { window: root, globalThis: root };
+  Object.assign(root, { window: root });
+  vm.createContext(root);
+  vm.runInContext(src, root);
+  const S = root.YZ_SUPPORT;
+  eq(typeof S, 'object', 'support.js: YZ_SUPPORT global yaratildi');
+
+  SETTINGS = {};
+  eq(S.get().hasAny, false, 'YZ_SUPPORT: hech narsa yozilmaган -> hasAny=false');
+
+  SETTINGS = { supportPhone: '+998901112233', supportPhoneOn: true };
+  eq(S.get().phone, '+998901112233', 'YZ_SUPPORT: telefon yozilgan va yoqilgan');
+  eq(S.get().hasAny, true, 'YZ_SUPPORT: hasAny=true');
+
+  SETTINGS = { supportPhone: '+998901112233', supportPhoneOn: false, supportUsername: '@yordam', supportUsernameOn: true };
+  eq(S.get().phone, '', 'YZ_SUPPORT: telefon O\'CHIRILGAN -> ko\'rinmaydi');
+  eq(S.get().username, '@yordam', 'YZ_SUPPORT: username yoqilgan -> ko\'rinadi');
+  eq(S.get().tgUrl, 'https://t.me/yordam', 'YZ_SUPPORT: username -> t.me havolasi');
+
+  SETTINGS = { supportLink: 'https://t.me/x', supportLinkOn: false };
+  eq(S.get().hasAny, false, 'YZ_SUPPORT: yagona havola ham o\'chirilgan -> hasAny=false');
+
+  /* Eski server (Он maydonlarsiz) — yozilgan bo'lsa ko'rsatadi */
+  SETTINGS = { supportPhone: '+998900000000' };
+  eq(S.get().phone, '+998900000000', 'YZ_SUPPORT: eski server (On yo\'q) -> yozilgan telefon ko\'rinadi');
+
+  const html = S.blockHtml({ title: 'X', intro: '' });
+  eq(/998900000000/.test(html) && /panel/.test(html), true, 'YZ_SUPPORT.blockHtml: telefon bilan panel qaytadi');
+  SETTINGS = {};
+  eq(S.blockHtml({}), '', 'YZ_SUPPORT.blockHtml: bo\'sh -> ""');
+}
+
+/* ---------- store.js — payMethods() (admin karta/naqd/custom boshqaradi) ---------- */
+{
+  const src = JS('store.js');
+  const cache = { settings: {} };
+  const ctx = { cache, Array, String, Object };
+  vm.createContext(ctx);
+  vm.runInContext(methodOf(src, 'payMethods') + ';this.payMethods=payMethods;', ctx);
+  const call = () => ctx.payMethods();
+
+  cache.settings = {};
+  let m = call();
+  eq(m.length, 2, 'store.payMethods: standart -> karta + naqd');
+  eq(m[0].id, 'card', 'store.payMethods: birinchi karta');
+
+  cache.settings = { payCardOn: false, payCashOn: true };
+  m = call();
+  eq(m.length, 1, 'store.payMethods: karta o\'chirilgan -> faqat naqd');
+  eq(m[0].id, 'cash', 'store.payMethods: naqd qoldi');
+
+  cache.settings = { payCardOn: true, payCashOn: true, payExtra: [{ id: 'payme', label: 'Payme', note: '8600...' }] };
+  m = call();
+  eq(m.length, 3, 'store.payMethods: karta + naqd + custom');
+  eq(m[2].label, 'Payme', 'store.payMethods: custom label');
+  eq(m[2].note, '8600...', 'store.payMethods: custom note');
+
+  cache.settings = { payCardOn: false, payCashOn: false, payExtra: [] };
+  m = call();
+  eq(m.length, 1, 'store.payMethods: hammasi o\'chirilса -> naqd majburan (buyurtма bo\'lsin)');
 }
 
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);

@@ -865,7 +865,7 @@
           ? "<span style=\"color:#16a34a\">✅ Qilingan"+(o.callBy?" ("+esc(o.callBy)+")":"")+"</span>"
           : "<span style=\"color:#c2410c\">📞 Kutilmoqda</span>"):"")+
         omr("Qayerdan kelgan",srcBadge(o))+
-        omr("Buyurtma summasi",money(o.amount)+" so'm")+((o.delivery||0)>0?omr("Yetkazish narxi",money(o.delivery)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>"):"")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+omr("Sana / vaqt",fmtDateTime(o))+
+        omr("Buyurtma summasi",money(o.amount)+" so'm")+((o.delivery||0)>0?omr("Yetkazish narxi",money(o.delivery)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>"):"")+omr("To'lov",(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta"))+omr("Sana / vaqt",fmtDateTime(o))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div></div>";
     document.body.appendChild(el);
@@ -2086,7 +2086,7 @@
         omr("Manzil",esc(o.addr)||"—")+
         omr("Buyurtma summasi",money(o.amount)+" so'm")+
         ((o.delivery||0)>0?omr("Yetkazish",money(o.delivery)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>"):"")+
-        omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
+        omr("To'lov",(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta"))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
         '</div></div>';
     }).join(""):'<p style="color:var(--grey)">Hali buyurtma bermagan.</p>';
@@ -2192,13 +2192,46 @@
     set("setName",ses.name); set("setPhone",ses.phone); set("setEmail",ses.email); set("setLogin",ses.login);
   }
   /* Sayt egasi raqami — serverdagi qiymatni maydonga qo'yamiz */
+  let PAY_EXTRA=[];   // admin qo'shgan custom to'lov turlari (xotirada, saqlanganда serverга ketadi)
   function fillOwnerSettings(){
     if(typeof STORE==="undefined" || !STORE.settings) return;
     const s=STORE.settings()||{};
     const set=(id,v)=>{ const el=document.getElementById(id); if(el && document.activeElement!==el) el.value=(v||""); };
+    const chk=(id,v)=>{ const el=document.getElementById(id); if(el) el.checked=!!v; };
     set("setOwnerPhone",s.ownerPhone); set("setOwnerName",s.ownerName);
     set("setSupportPhone",s.supportPhone); set("setSupportUsername",s.supportUsername);
     set("setSupportLink",s.supportLink); set("setSupportNote",s.supportNote);
+    chk("setSupportPhoneOn", s.supportPhoneOn!=null?s.supportPhoneOn:!!s.supportPhone);
+    chk("setSupportUsernameOn", s.supportUsernameOn!=null?s.supportUsernameOn:!!s.supportUsername);
+    chk("setSupportLinkOn", s.supportLinkOn!=null?s.supportLinkOn:!!s.supportLink);
+    chk("setPayCashOn", s.payCashOn!=null?s.payCashOn:true);
+    chk("setPayCardOn", s.payCardOn!=null?s.payCardOn:true);
+    PAY_EXTRA=Array.isArray(s.payExtra)?s.payExtra.map(x=>({id:x.id,label:x.label,note:x.note||""})):[];
+    renderPayExtra();
+  }
+  function renderPayExtra(){
+    const host=document.getElementById("payExtraList"); if(!host) return;
+    if(!PAY_EXTRA.length){ host.innerHTML='<p style="color:#9a8d83;font-size:13px;margin:0">Qo\'shimcha to\'lov turi yo\'q. Faqat naqd va karta.</p>'; return; }
+    host.innerHTML=PAY_EXTRA.map((x,i)=>
+      '<div style="display:flex;align-items:center;gap:8px;background:#f8f6f7;border:1px solid var(--line);border-radius:10px;padding:8px 10px">'+
+        '<div style="flex:1;min-width:0"><b>'+esc(x.label)+'</b>'+(x.note?'<div style="color:var(--grey);font-size:12px;word-break:break-all">'+esc(x.note)+'</div>':'')+'</div>'+
+        '<button class="add-action-btn pay-x-del" data-i="'+i+'" style="background:#ef4444;flex:none;padding:5px 9px;font-size:12px">🗑</button>'+
+      '</div>').join("");
+    host.querySelectorAll(".pay-x-del").forEach(b=>b.addEventListener("click",()=>{ PAY_EXTRA.splice(+b.dataset.i,1); renderPayExtra(); }));
+  }
+  async function savePaySettings(){
+    const on=(id)=>{ const el=document.getElementById(id); return el?!!el.checked:true; };
+    const cardOn=on("setPayCardOn"), cashOn=on("setPayCashOn");
+    if(!cardOn && !cashOn && !PAY_EXTRA.length){ toast("❌ Kamida bitta to'lov turi yoqilgan bo'lishi kerak"); return; }
+    const btn=document.getElementById("setPaySave"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.updateSettings)
+      ? await STORE.updateSettings({ payCardOn:cardOn, payCashOn:cashOn, payExtra:PAY_EXTRA })
+      : null;
+    if(btn) btn.disabled=false;
+    if(r && !r.error){
+      toast("✅ To'lov turlari saqlandi — sayt va kabinet darrov yangilanadi");
+      fillOwnerSettings();
+    } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   async function saveOwnerSettings(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -2212,6 +2245,7 @@
   }
   async function saveSupportSettings(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+    const on=(id)=>{ const el=document.getElementById(id); return el?!!el.checked:true; };
     const phone=f("setSupportPhone");
     if(phone && window.YZ_PHONE && !YZ_PHONE.valid(phone)){ toast("❌ Yordam telefoni noto'g'ri"); return; }
     let username=f("setSupportUsername");
@@ -2220,12 +2254,16 @@
     if(link && !/^https?:\/\//.test(link)) link="https://"+link;
     const btn=document.getElementById("setSupportSave"); if(btn) btn.disabled=true;
     const r=(typeof STORE!=="undefined"&&STORE.updateSettings)
-      ? await STORE.updateSettings({ supportPhone:phone, supportUsername:username, supportLink:link, supportNote:f("setSupportNote") })
+      ? await STORE.updateSettings({
+          supportPhone:phone, supportUsername:username, supportLink:link, supportNote:f("setSupportNote"),
+          supportPhoneOn:on("setSupportPhoneOn"), supportUsernameOn:on("setSupportUsernameOn"), supportLinkOn:on("setSupportLinkOn"),
+        })
       : null;
     if(btn) btn.disabled=false;
     if(r && !r.error){
-      toast("✅ Yordam kontaktlari saqlandi — mijoz/restoran/kuryer «Shikoyat / yordam» bo'limида ko'radi");
+      toast("✅ Yordam kontaktlari saqlandi — sayt, kabinet, restoran va kuryer «Yordam» qismларида ko'rinadi");
       fillOwnerSettings();
+      try{ if(typeof YZ_SUPPORT!=="undefined") YZ_SUPPORT.repaint(); }catch(e){}
     } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   async function saveProfile(){
@@ -2518,6 +2556,19 @@
     fillProfile();
     const sos=$("#setOwnerSave"); if(sos) sos.addEventListener("click",saveOwnerSettings);
     const sss=$("#setSupportSave"); if(sss) sss.addEventListener("click",saveSupportSettings);
+    const spySave=$("#setPaySave"); if(spySave) spySave.addEventListener("click",savePaySettings);
+    const pxa=$("#payExtraAdd"); if(pxa) pxa.addEventListener("click",function(){
+      const lbl=(($("#payExtraLabel")||{}).value||"").trim();
+      const note=(($("#payExtraNote")||{}).value||"").trim();
+      if(lbl.length<2){ toast("To'lov turi nomini yozing"); return; }
+      if(PAY_EXTRA.length>=10){ toast("Ko'pi bilan 10 ta"); return; }
+      const id="x"+Date.now().toString(36);
+      PAY_EXTRA.push({id:id,label:lbl.slice(0,40),note:note.slice(0,200)});
+      if($("#payExtraLabel")) $("#payExtraLabel").value="";
+      if($("#payExtraNote")) $("#payExtraNote").value="";
+      renderPayExtra();
+      toast("Qo'shildi — «To'lov turlarini saqlash» tugmasini bosing");
+    });
     fillOwnerSettings();
     if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone","setSupportPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} }); }

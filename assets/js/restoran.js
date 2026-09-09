@@ -929,7 +929,7 @@
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
         omr("Manzil",esc(o.addr)||"-")+
         (orderQty(o)?omr("Jami mahsulot",orderQty(o)+" dona"):"")+
-        omr("Summa",money(o.amount)+" so'm")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
+        omr("Summa",money(o.amount)+" so'm")+omr("To'lov",(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta"))+
         omr("Kuryer",esc(o.courier)||"-")+
         omr("🕐 Buyurtma berilgan",fmtDateTime(o))+
         (orderDelivered(o)
@@ -968,6 +968,7 @@
     var ses=curSession()||{};
     var li=$("#setLogin"); if(li) li.value=(CUR&&CUR.login)||ses.login||"";
     var nm=$("#setName");  if(nm) nm.value=(CUR&&CUR.name)||ses.name||"";
+    try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("restLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     /* Restoran ma'lumotlari (saytda ko'rinadigan) */
     var be=curRestBackend()||{};
     var set=function(id,v){ var el=$(id); if(el && document.activeElement!==el) el.value=(v==null?"":v); };

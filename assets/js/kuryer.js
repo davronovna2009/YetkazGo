@@ -321,7 +321,7 @@
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Manzil</span><b style="text-align:right">${esc(o.addr)||"-"}</b></div>
         ${orderQty(o)?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Jami mahsulot</span><b>${orderQty(o)} dona</b></div>`:""}
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Summa</span><b>${money(o.amount)} so'm</b></div>
-        <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${o.pay==="cash"?"💵 Naqd":"💳 Karta"}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta")}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Sana / vaqt</span><b>${fmtDateTime(o)}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Restoran</span><b>${esc(o.rest)||"-"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Qayerdan</span><b>${srcBadge(o)}</b></div>
@@ -440,6 +440,7 @@
     const hv=$("#kHoursView"), lg=$("#kSetLogin");
     if(hv) hv.textContent=courierHoursText();
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
+    try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("kurLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
     try{

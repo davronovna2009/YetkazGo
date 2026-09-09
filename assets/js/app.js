@@ -553,25 +553,22 @@
     renderFooterContact();
   }
 
-  /* Footer «Aloqa / yordam» — admin «Sozlamalar»да yozib qo'ygan kontaktlar
-     (publicSettings). Bo'sh bo'lsa — umumiy matn. */
+  /* Footer «Aloqa / yordam» — YAGONA manba: assets/js/support.js (YZ_SUPPORT).
+     Admin «Sozlamalar»да yozgan kontaktlar; bo'sh bo'lsa umumiy matn. */
   function renderFooterContact(){
     const box=$("#footerContact"); if(!box) return;
-    let s={}; try{ s=(typeof STORE!=="undefined"&&STORE.settings)?STORE.settings():{}; }catch(e){}
-    const phone=s.supportPhone||s.ownerPhone||"";
-    const username=s.supportUsername||"";
-    const link=s.supportLink||"";
-    const note=s.supportNote||"";
-    let h="";
-    if(phone) h+=`<p><a href="tel:${esc(String(phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">📞 ${esc(phone)}</a></p>`;
-    if(username){
-      const uhref=/^https?:\/\//.test(username)?username:("https://t.me/"+String(username).replace(/^@+/,""));
-      h+=`<p><a href="${esc(uhref)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">✈️ ${esc(username)}</a></p>`;
+    let c={hasAny:false};
+    try{ if(typeof YZ_SUPPORT!=="undefined") c=YZ_SUPPORT.get(); }catch(e){}
+    if(c.hasAny){
+      let h="";
+      if(c.phone) h+=`<p><a href="tel:${esc(String(c.phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">📞 ${esc(c.phone)}</a></p>`;
+      if(c.username) h+=`<p><a href="${esc(c.tgUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">✈️ ${esc(c.username)}</a></p>`;
+      if(c.link && c.link!==c.username) h+=`<p><a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;word-break:break-all">🔗 ${esc(c.link)}</a></p>`;
+      if(c.note) h+=`<p style="opacity:.8;font-size:13px">${esc(c.note)}</p>`;
+      box.innerHTML=h;
+    } else {
+      box.innerHTML='<p style="opacity:.85">Savol yoki muammo bo\'lsa — «Mening kabinetim → Yordam» bo\'limi orqali murojaat qiling.</p>';
     }
-    if(link && link!==username) h+=`<p><a href="${esc(link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;word-break:break-all">🔗 ${esc(link)}</a></p>`;
-    if(note) h+=`<p style="opacity:.8;font-size:13px">${esc(note)}</p>`;
-    if(!h) h='<p style="opacity:.85">Savol yoki muammo bo\'lsa — «Mening kabinetim → Yordam» bo\'limi orqali murojaat qiling.</p>';
-    box.innerHTML=h;
   }
 
   /* ---------- REVIEWS ---------- */
@@ -908,20 +905,31 @@
         <div class="row total"><span>${I18N.t("sum_total")}</span><span>${fmt(grand)} ${I18N.t("sum")}</span></div>
       </div>
       <div class="field"><label>${I18N.t("paymethod")}</label>
-        <div class="pay-opts">
-          <div class="pay-opt on" data-pay="card">💳 ${I18N.t("pay_card")}</div>
-          <div class="pay-opt" data-pay="cash">💵 ${I18N.t("pay_cash")}</div>
-        </div>
+        <div class="pay-opts" id="payOpts">${payOptionsHtml()}</div>
+        <div id="payNote" style="color:var(--grey);font-size:12px;margin-top:6px"></div>
       </div>
       <p style="color:var(--green);font-size:13px;font-weight:600;margin-bottom:14px">${debtOk?I18N.t("debt_warn"):""}</p>
       <button class="btn btn-primary btn-block" id="placeBtn">${I18N.t("place_order")}</button>`);
-    $$(".pay-opt").forEach(o=>o.addEventListener("click",()=>{$$(".pay-opt").forEach(x=>x.classList.remove("on"));o.classList.add("on");}));
+    const payNote=$("#payNote");
+    const showNote=()=>{ const el=document.querySelector(".pay-opt.on"); const n=el?el.dataset.note||"":""; if(payNote){ payNote.textContent=n; payNote.style.display=n?"":"none"; } };
+    $$(".pay-opt").forEach(o=>o.addEventListener("click",()=>{$$(".pay-opt").forEach(x=>x.classList.remove("on"));o.classList.add("on");showNote();}));
+    showNote();
     $("#placeBtn").addEventListener("click",()=>{
       if(cartTotal()<MIN_ORDER){ toast(I18N.t("t_min"),"error"); return; }
       if(user.debt>0){ toast("Qarz mavjud — buyurtma bloklandi","error"); return; }
-      window.__lastPay = (document.querySelector(".pay-opt.on")||{}).dataset?.pay || "card";
+      const sel=document.querySelector(".pay-opt.on");
+      if(!sel){ toast("To'lov usulini tanlang","error"); return; }
+      window.__lastPay = sel.dataset.pay;
       startTracking();
     });
+  }
+
+  /* Admin RUXSAT bergan to'lov turlari (STORE.payMethods). Karta o'chirilса —
+     bu yerда umuman ko'rinmaydi. */
+  function payOptionsHtml(){
+    let list=[{id:"card",label:"💳 "+I18N.t("pay_card")},{id:"cash",label:"💵 "+I18N.t("pay_cash")}];
+    try{ if(typeof STORE!=="undefined" && STORE.payMethods) list=STORE.payMethods(); }catch(e){}
+    return list.map((m,i)=>`<div class="pay-opt${i===0?' on':''}" data-pay="${esc(m.id)}" data-note="${esc(m.note||'')}">${esc(m.label)}</div>`).join("");
   }
 
   /* ============================================================

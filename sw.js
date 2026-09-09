@@ -3,12 +3,17 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v24 — Admin restoran/kuryer BARCHA maydonini tahrirlaydi (emoji, kirill nomi,
-   kw, eta, masofa, ish vaqti, avto raqami, pasport...). Admin «Sozlamalar»да
-   «Yordam / murojaat» kontaktlari (telefon/username/havola) — mijoz, restoran,
-   kuryer «Shikoyat / yordam» bo'limида va footerда ko'rsatiladi. Bosh sahifa
-   «Aksiya» bo'limi endi FAQAT aksiya/reklamaga tushgan taomlarni ko'rsatadi
-   (reklamasiz taom ko'rinmaydi; taom bo'lmasa karta chizilmaydi).
+/* v25 — «Yordam / murojaat» kontaktlari YAGONA manba (support.js): admin har
+   birini (telefon/username/havola) alohida yoqib/o'chiradi; "sayt ma'muriyatiga
+   murojaat qiling" degan matn o'rniga HAMMA joyда (sayt, kabinet, restoran,
+   kuryer login-eslatmasi, footer) shu kontaktlar chiqadi. Admin panelга «To'lov
+   turlari» bo'limi: naqd/karta yoqish-o'chirish + custom to'lov turi qo'shish;
+   karta o'chirilса — saytда, kabinetда va serverда kartadan to'lov to'siladi.
+   Kuryer «Ishdan javob so'rash» oqimi to'liq testlandi (E2E). npm test — 314 ta.
+   (v24 — Admin restoran/kuryer BARCHA maydonini tahrirlaydi (emoji, kirill nomi,
+   kw, eta, masofa, ish vaqti, avto raqami, pasport...). Yordam kontaktlari.
+   Bosh sahifa «Aksiya» bo'limi FAQAT aksiya/reklamaga tushgan taomlarni
+   ko'rsatadi (reklamasiz taom ko'rinmaydi; taom bo'lmasa karta chizilmaydi).
    (v23 — Panellararo hisob-kitob 1 so'mgacha moslashtirildi (kabinet "jami
    sarflagan" faqat done; buyurtma dublikati tuzatildi; restoran taom jadvali
    proporsional taqsimot; admin karta muhrlangan foizdan). Chegirмa zanjiri
@@ -43,12 +48,12 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v24';
+const CACHE = 'yetkaz-v25';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
   '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/order-items.js', '/assets/js/complaint-box.js',
-  '/assets/js/store.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
+  '/assets/js/store.js', '/assets/js/support.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',
   '/assets/js/pwa-install.js',
   '/assets/logo.png', '/assets/logo.svg', '/assets/favicon-64.png',
