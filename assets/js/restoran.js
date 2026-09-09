@@ -62,28 +62,78 @@
     catch(e){ return []; }
   }
   /* Restoranга tushadigan sof summa — server buyurtmaga MUHRLAGAN foiz bo'yicha
-     (o.restNet). Eski buyurtmalarda maydon bo'lmasa — joriy foiz bilan. */
+     (o.restNet). Eski buyurtmalarda maydon bo'lmasa — berilgan (yoki joriy) foiz bilan. */
   function netOf(o, pct){
     if(o && o.restNet!=null) return Number(o.restNet)||0;
-    return Math.round((Number(o&&o.amount)||0)*(100-pct)/100);
+    var p=(pct!=null && isFinite(pct)) ? Number(pct) : 18;
+    return Math.round((Number(o&&o.amount)||0)*(100-p)/100);
+  }
+
+  /* MUHIM: komissiya HAR BUYURTMAGA muhrlanadi (har xil foiz bo'lishi mumkin) va
+     bir buyurtmada bir necha taom bo'ladi — shuning uchun "bitta taomga qancha
+     komissiya" ANIQ emas. Yagona to'g'ri usul: butun restoran bo'yicha haqiqiy
+     qoldiq ulushi (net/gross) ni taomlarga PROPORSIONAL taqsimlash. */
+
+  /* Taomlar bo'yicha "sizga qoladi" ni ANIQ taqsimlaydi: yig'indi berilgan
+     `totalNet` ga TENG bo'ladi — 1 so'm ham yo'qolmaydi/qo'shilmaydi (eng katta
+     kasrli qoldiqqa ega taomlarga ortiqcha so'm(lar) beriladi — "largest remainder"). */
+  function allocNet(items, totalGross, totalNet){
+    var out={};
+    if(!items.length) return out;
+    if(!totalGross){ items.forEach(function(it){ out[it.key]=0; }); return out; }
+    var acc=0, fr=[];
+    items.forEach(function(it){
+      var exact=it.gross*totalNet/totalGross;
+      var fl=Math.floor(exact);
+      out[it.key]=fl; acc+=fl;
+      fr.push({key:it.key, f:exact-fl});
+    });
+    var left=Math.round(totalNet-acc);
+    fr.sort(function(a,b){return b.f-a.f;});
+    for(var i=0;i<fr.length && i<left;i++) out[fr[i].key]+=1;
+    if(left>fr.length && fr.length) out[fr[0].key]+=(left-fr.length);
+    return out;
+  }
+
+  /* Bir buyurtma ro'yxati (done) bo'yicha taom -> {qty, gross, orders, net}.
+     `net` — taomlar yig'indisi KO'RSATILGAN taomlarning sof daromadiga teng
+     bo'ladigan qilib taqsimlangan. «Taomlar» va «Daromad» jadvallari SHUNI
+     ishlatadi — ikkalasi bir xil. */
+  function dishTable(doneOrders, dishes, r){
+    var sales=salesMap(doneOrders);
+    var totGross=doneOrders.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
+    var totNet=doneOrders.reduce(function(s,o){return s+netOf(o, restPct(r));},0);
+    var keepRate=totGross ? (totNet/totGross) : ((100-restPct(r))/100);
+    /* Ko'rsatilgan taomlar bo'yicha tushum (o'chirilgan taom tarixi bo'lsa —
+       undan kamroq); shu qismning sof daromadi = shownGross*keepRate. */
+    var shownGross=(dishes||[]).reduce(function(s,d){return s+((sales[d.name]&&sales[d.name].gross)||0);},0);
+    var shownNet=Math.round(shownGross*keepRate);
+    var items=(dishes||[]).map(function(d){return {key:d.name, gross:(sales[d.name]&&sales[d.name].gross)||0};});
+    var alloc=allocNet(items, shownGross, shownNet);
+    var out={};
+    (dishes||[]).forEach(function(d){
+      var s=sales[d.name];
+      out[d.name]={ qty:s?s.qty:0, gross:s?s.gross:0, orders:s?s.orders:0, net:alloc[d.name]||0 };
+    });
+    out.__totals={ gross:totGross, net:totNet, shownGross:shownGross, shownNet:shownNet };
+    return out;
   }
 
   function recompute(r){
-    const C=restPct(r)/100;
-    /* Har bir taomning HAQIQIY sotuvi — yetkazilgan buyurtmalar tarkibidan */
-    const sales=salesMap(doneOrdersOf(r&&r.name));
+    var done=doneOrdersOf(r&&r.name);
+    var dt=dishTable(done, r.dishes, r);
     r.dishes.forEach(d=>{
-      const s=sales[d.name];
+      var t=dt[d.name]||{qty:0,gross:0,net:0};
       d.eff=priceOf(d);
-      d.sold=s?s.qty:0;                       // REAL dona soni (katalog ustuni emas)
-      d.gross=s?s.gross:0;                    // REAL tushum (chegirma qo'llangan holda)
-      d.commission=Math.round(d.gross*C);
-      d.net=d.gross-d.commission;
+      d.sold=t.qty;                           // REAL dona soni (katalog ustuni emas)
+      d.gross=t.gross;                        // REAL tushum (chegirma qo'llangan holda)
+      d.net=t.net;                            // taqsimlangan sof ulush
+      d.commission=d.gross-d.net;
     });
-    r.gross=r.dishes.reduce((s,d)=>s+d.gross,0);
-    r.commission=Math.round(r.gross*C);
-    r.net=r.gross-r.commission;
-    r.orders=doneOrdersOf(r&&r.name).length;
+    r.gross=dt.__totals.gross;
+    r.net=dt.__totals.net;
+    r.commission=r.gross-r.net;
+    r.orders=done.length;
   }
   RESTS.forEach(r=>{ r.discount=0; r.announcements=[]; r.dishes.forEach(d=>d.discount=d.discount||0); recompute(r); });
 
@@ -657,7 +707,7 @@
 
   function renderIncome(){
     const r=CUR;
-    const pct=restPct(r), keep=100-pct;
+    const pct=restPct(r);
     /* REAL: pul faqat mijoz tasdiqlagan (done) buyurtmalardan yoziladi */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
     /* Davr tanlovi dashboarddan SHU YERGA ko'chdi — daromad endi faqat shu
@@ -683,15 +733,14 @@
        ko'p taomli buyurtmada faqat BIRINCHI taom sanalar va BUTUN buyurtma
        summasi o'shanga yozilardi. Endi buyurtma tarkibidagi har bir qator
        o'z dona soni va o'z summasi bilan hisoblanadi (salesMap). */
-    const sales=salesMap(doneOrders);
-    /* Taomlar jadvalining yig'indisi yuqoridagi xulosa bilan MOS kelishi uchun
-       haqiqiy (o'rtacha) qoldiq ulushini ishlatamiz: turli buyurtmalar turli
-       foiz bilan muhrlangan bo'lishi mumkin. */
-    const keepRate = gross ? (net/gross) : (keep/100);
+    /* Taomlar jadvali — «Taomlar» tabidagi bilan AYNAN bir xil usul (dishTable):
+       taomlar bo'yicha "sizga qoladi" yig'indisi restoran sof daromadiga
+       (ko'rsatilgan taomlar qismiga) TENG — 1 so'm ham farq yo'q. */
+    const dt=dishTable(doneOrders, r.dishes, r);
     const dishStats=function(dish){
-      var s=sales[dish.name];
-      if(!s) return { sold:0, qty:0, gross:0, net:0 };
-      return { sold:s.orders, qty:s.qty, gross:s.gross, net:Math.round(s.gross*keepRate) };
+      var t=dt[dish.name];
+      if(!t || !t.qty) return { sold:0, qty:0, gross:0, net:0 };
+      return { sold:t.orders, qty:t.qty, gross:t.gross, net:t.net };
     };
     /* Eng ko'p sotilgan taomlar (nima ko'p sotilyapti) — DONA bo'yicha */
     const rows=r.dishes.map(d=>({d, st:dishStats(d)}));
@@ -729,9 +778,13 @@
           <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi (dona)</th><th>Tushum</th><th>Sizga qoladi</th></tr></thead>
           <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}</div></td>
             <td>${money(d.price)}</td>
-            <td>${money(st.qty)}</td><td>${money(st.gross)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}</tbody></table>
+            <td>${money(st.qty)}</td><td>${money(st.gross)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}
+            ${(dt.__totals.gross-dt.__totals.shownGross)>0?`<tr style="color:var(--grey)"><td><i>Menyudan olib tashlangan taomlar</i></td><td>—</td><td>—</td><td>${money(dt.__totals.gross-dt.__totals.shownGross)}</td><td class="money">${money(dt.__totals.net-dt.__totals.shownNet)}</td></tr>`:''}
+          </tbody>
+          <tfoot><tr style="font-weight:800;border-top:2px solid var(--line)"><td>Jami</td><td></td><td></td><td>${money(dt.__totals.gross)}</td><td class="money" style="color:var(--green)">${money(dt.__totals.net)}</td></tr></tfoot>
+          </table>
         </div></div>
-      <p style="color:var(--grey);font-size:13px;padding:4px">Eslatma: bu yerda faqat sizning taomlaringizdan keladigan daromad ko'rsatiladi.</p>`;
+      <p style="color:var(--grey);font-size:13px;padding:4px">Jadval «Sizga qoladi» ustunining yig'indisi yuqoridagi «Sizning daromadingiz» bilan bir xil (${money(net)} so'm).</p>`;
     $$("#incomeBody .inc-seg").forEach(function(b){
       b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; renderIncome(); });
     });
@@ -969,38 +1022,9 @@
     }catch(e){ toast("Xatolik — qayta urinib ko'ring"); }
     if(btn) btn.disabled=false;
   }
-  async function saveLogin(){
-    var li=$("#setLogin"); if(!li) return;
-    var v=li.value.trim();
-    if(v.length<3){ toast("Login kamida 3 belgi bo'lsin"); return; }
-    var cur=(CUR&&CUR.login)||(curSession()||{}).login||"";
-    if(v===cur){ toast("Login o'zgarmadi"); return; }
-    var btn=$("#setLoginBtn"); if(btn) btn.disabled=true;
-    try{
-      var acc=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({login:v}) : null;
-      if(acc && !acc.error && acc.login){ CUR&&(CUR.login=acc.login); $("#sbName")&&($("#sbName").textContent=CUR?CUR.name:$("#sbName").textContent); toast("Login yangilandi ✓"); }
-      else toast((acc&&acc.error)||"Bu login band yoki serverga ulanib bo'lmadi");
-    }catch(e){ toast("Xatolik — qayta urinib ko'ring"); }
-    if(btn) btn.disabled=false;
-    fillSettings();
-  }
-  async function savePass(){
-    var p1=$("#setPass"), p2=$("#setPass2");
-    var a=p1?p1.value:"", b=p2?p2.value:"";
-    if(a.length<4){ toast("Parol kamida 4 belgi bo'lsin"); return; }
-    if(a!==b){ toast("Parollar mos kelmadi"); return; }
-    var btn=$("#setPassBtn"); if(btn) btn.disabled=true;
-    try{
-      var acc=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({pass:a}) : null;
-      if(acc && !acc.error){ if(p1)p1.value=""; if(p2)p2.value=""; toast("Parol yangilandi ✓"); }
-      else toast((acc&&acc.error)||"Serverga ulanib bo'lmadi — qayta urinib ko'ring");
-    }catch(e){ toast("Xatolik — qayta urinib ko'ring"); }
-    if(btn) btn.disabled=false;
-  }
-  function togglePassShow(){
-    var on=$("#setPassShow")&&$("#setPassShow").checked;
-    ["#setPass","#setPass2"].forEach(function(s){ var el=$(s); if(el) el.type=on?"text":"password"; });
-  }
+  /* Login/parolni o'zgartirish restoran panelidan OLIB TASHLANDI — buni FAQAT
+     admin bajaradi (admin panel «Loginlar» bo'limi). #setLogin/#setName endi
+     faqat ko'rsatish uchun (readonly). */
 
   /* Admin qo'shgan (lokal demo massivда yo'q) restoran uchun backenddan minimal panel */
   function buildBackendRest(ses){
@@ -1073,9 +1097,6 @@
     var ddb=$("#discDishBtn"); if(ddb) ddb.addEventListener("click",openDishPicker);
     $("#discBtn").addEventListener("click",applyDiscount);
     /* Sozlamalar */
-    var slb=$("#setLoginBtn"); if(slb) slb.addEventListener("click",saveLogin);
-    var spb=$("#setPassBtn");  if(spb) spb.addEventListener("click",savePass);
-    var sps=$("#setPassShow");  if(sps) sps.addEventListener("change",togglePassShow);
     var sib=$("#setInfoBtn");  if(sib) sib.addEventListener("click",saveRestInfo);
     /* Ish vaqti maydonlari o'zgarganda "hozir ochiq/yopiq" darrov ko'rinsin */
     ["#setOpenH","#setCloseH"].forEach(function(id){

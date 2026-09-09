@@ -623,4 +623,47 @@ router.post('/accounts/reset-password', requireRole('admin'), (req, res) => {
   res.json({ ok: true, login: acc.login, role: acc.role, name: acc.name || '', pass });
 });
 
+/* POST /api/accounts/update — istalgan akkaunt LOGIN va/yoki PAROLINI o'zgartirish.
+   FAQAT ADMIN. Restoran/kuryer/mijoz o'zi login/parolini O'ZGARTIRA OLMAYDI —
+   /api/auth/me endi bularni qabul qilmaydi.
+   body: { login (joriy), newLogin?, pass? }
+   Javob: { ok, login, role, name, pass? } — pass FAQAT o'zgartirilsa va shu javobда. */
+router.post('/accounts/update', requireRole('admin'), (req, res) => {
+  const b = req.body || {};
+  const login = String(b.login || '').trim();
+  if (!login) return res.status(400).json({ error: 'login kerak' });
+  const acc = db.prepare('SELECT * FROM accounts WHERE login = ?').get(login);
+  if (!acc) return res.status(404).json({ error: 'Akkaunt topilmadi' });
+
+  const newLogin = b.newLogin != null ? String(b.newLogin).trim() : '';
+  const pass = b.pass != null ? String(b.pass).trim() : '';
+  if (!newLogin && !pass) return res.status(400).json({ error: 'newLogin yoki pass kerak' });
+
+  const tx = db.transaction(() => {
+    if (newLogin && newLogin !== acc.login) {
+      if (newLogin.length < 3) throw Object.assign(new Error('Login kamida 3 belgi bo`lsin'), { code: 400 });
+      if (db.prepare('SELECT 1 FROM accounts WHERE login = ? AND id <> ?').get(newLogin, acc.id)) {
+        throw Object.assign(new Error('Bu login band'), { code: 409 });
+      }
+      db.prepare('UPDATE accounts SET login = ? WHERE id = ?').run(newLogin, acc.id);
+      /* Login nusxasi restaurants/couriers jadvalида ham turadi (ko'p so'rov shu
+         nusxa bo'yicha kalitlanadi) — birga yangilaymiz, aks holda "ikki joyда
+         ikki xil" bo'lib qolardi. */
+      if (acc.role === 'restoran') db.prepare('UPDATE restaurants SET login = ? WHERE login = ?').run(newLogin, acc.login);
+      else if (acc.role === 'kuryer') db.prepare('UPDATE couriers SET login = ? WHERE login = ?').run(newLogin, acc.login);
+    }
+    if (pass) {
+      if (pass.length < 4) throw Object.assign(new Error('Parol kamida 4 belgi bo`lsin'), { code: 400 });
+      db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(pass), acc.id);
+    }
+  });
+  try { tx(); }
+  catch (e) { return res.status(e.code || 500).json({ error: e.message || 'Yangilab bo`lmadi' }); }
+
+  const n = db.prepare('SELECT login, role, name FROM accounts WHERE id = ?').get(acc.id);
+  const out = { ok: true, login: n.login, role: n.role, name: n.name || '' };
+  if (pass) out.pass = pass;
+  res.json(out);
+});
+
 export default router;

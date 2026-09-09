@@ -3,7 +3,13 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v22 — Sayt komissiyasi MIJOZGA ko'rinmaydi: ommaviy bootstrap/restaurants
+/* v23 — Panellararo hisob-kitob 1 so'mgacha moslashtirildi (kabinet "jami
+   sarflagan" faqat done; buyurtma dublikati tuzatildi; restoran taom jadvali
+   proporsional taqsimot; admin karta muhrlangan foizdan). Chegirмa zanjiri
+   testlandi. Login/parolni FAQAT admin o'zgartiradi — restoran/kuryer/mijoz
+   panellaridan olib tashlandi; admin «Loginlar» bo'limi kartali qilindi va
+   ishonchli yuklanadi. To'liq test: server/test (npm test — 203 tekshiruv).
+   (v22 — Sayt komissiyasi MIJOZGA ko'rinmaydi: ommaviy bootstrap/restaurants
    javobidан komissiya olib tashlandi. Restoran o'z komissiyasini sessiyadан
    (login/me), admin esa /admin/restaurants (autentifikatsiyalangan) orqali
    oladi — panellar buzilmaydi. To'liq E2E test o'tdi (32/32).
@@ -31,7 +37,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v22';
+const CACHE = 'yetkaz-v23';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

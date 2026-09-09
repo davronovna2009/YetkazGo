@@ -150,9 +150,10 @@
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><h3 data-kt="set_login">🔒 Login va parol</h3></div>
             <div class="panel-body" style="max-width:560px">
-              <div class="set-field"><label data-kt="login_l">Login</label><input id="stLogin" data-kt-ph="login_l" placeholder="Login" /></div>
-              <div class="set-field"><label data-kt="f_newpass">Yangi parol (bo'sh = o'zgarmaydi)</label><input id="stPass" type="password" placeholder="••••••" autocomplete="new-password" /></div>
-              <button class="set-save" id="stSaveLogin" data-kt="saqlash">💾 Saqlash</button>
+              <div class="set-field"><label data-kt="login_l">Login</label><input id="stLogin" readonly style="opacity:.7;cursor:not-allowed" /></div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.55">
+                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa sayt ma'muriyatiga murojaat qiling.
+              </div>
               <div id="stMsg2" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>

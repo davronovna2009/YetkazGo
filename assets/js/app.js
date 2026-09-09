@@ -875,12 +875,14 @@
     const fee=deliveryFee();
     const grand=total+fee;
     const debtOk = user.debt<=0;
+    /* Yetkazish qatori faqat haq bo'lganда ko'rsatiladi. Hozir yetkazish bepul
+       (deliveryFee()=0) — "0 so'm" qatori chalkashtirмасин, "Jami" = taomlar summasi. */
     openModal(`
       <h2>${I18N.t("order_title")}</h2>
       <p class="modal-sub">${user.name} · ${user.phone}</p>
       <div class="modal-summary">
         <div class="row"><span>${I18N.t("sum_items")} (${cart.reduce((s,i)=>s+i.qty,0)})</span><span>${fmt(total)} ${I18N.t("sum")}</span></div>
-        <div class="row"><span>${I18N.t("sum_delivery")}</span><span>${fmt(fee)} ${I18N.t("sum")}</span></div>
+        ${fee>0?`<div class="row"><span>${I18N.t("sum_delivery")}</span><span>${fmt(fee)} ${I18N.t("sum")}</span></div>`:`<div class="row"><span>${I18N.t("sum_delivery")}</span><span style="color:var(--green)">${I18N.t("free")||"Bepul"}</span></div>`}
         <div class="row total"><span>${I18N.t("sum_total")}</span><span>${fmt(grand)} ${I18N.t("sum")}</span></div>
       </div>
       <div class="field"><label>${I18N.t("paymethod")}</label>

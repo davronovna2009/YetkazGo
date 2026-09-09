@@ -79,12 +79,40 @@
 
   const USERS=[];
 
-  /* Kesh ustidan yengil qayta hisob. Aniq qiymatlar syncEntitiesFromBackend()
-     da haqiqiy buyurtmalardan quriladi — bu yerda faqat backend hali
-     javob bermaganда ko'rsatiladigan taxminiy holat. */
+  /* ===== YAGONA MOLIYA HISOBI (restoran / kuryer kartasi) =====
+     Komissiya HAR BUYURTMAGA muhrlanadi (server: o.commission), kuryer haqi ham
+     (o.courierFee). Shuning uchun BARCHA joyда (recompute ham, sync ham) AYNAN
+     shu yig'indi ishlatiladi — admin edit qilgandan keyin ham karta noto'g'ri
+     foiz ko'rsatmaydi (ilgari `rev * yangi_foiz` butun tarixga qo'llanardi). */
+  function restFinance(b, orders){
+    const done=(orders||[]).filter(o=>o.rest===b.name && o.status==="done");
+    const rev=done.reduce((s,o)=>s+(Number(o.amount)||0),0);
+    const fb=(b.commission!=null?b.commission:18);
+    const siteCut=done.reduce((s,o)=>s+(o.commission!=null?(Number(o.commission)||0):Math.round((Number(o.amount)||0)*fb/100)),0);
+    return { rev:rev, orders:done.length, siteCut:siteCut, restGets:rev-siteCut };
+  }
+  function courierFinance(b, orders){
+    const done=(orders||[]).filter(o=>o.courier===b.name && o.status==="done");
+    const earn=done.reduce((s,o)=>s+(o.courierFee!=null?(Number(o.courierFee)||0):(Number(b.fee)||0)),0);
+    return { deliveries:done.length, earn:earn };
+  }
+
+  /* Kesh ustidan qayta hisob (admin edit qilgandan keyin darrov, backend
+     javobини kutmasdan). Aniq qiymatlar — HAQIQIY buyurtmalardan, sync bilan
+     bir xil usulда. */
   function recompute(){
-    RESTS.forEach(r=>{ const c=(r.commission!=null?r.commission:18)/100; r.siteCut=Math.round((r.rev||0)*c); r.restGets=(r.rev||0)-r.siteCut; });
-    COURIERS.forEach(c=>{ if(c.earn==null) c.earn=(c.deliveries||0)*(c.fee||0); });
+    const orders=(typeof STORE!=="undefined" && STORE.orders && STORE.orders())||[];
+    RESTS.forEach(r=>{
+      const f=restFinance(r, orders);
+      r.rev=f.rev; r.orders=f.orders; r.siteCut=f.siteCut; r.restGets=f.restGets;
+    });
+    COURIERS.forEach(c=>{
+      /* earned backenddan kelgan bo'lsa — o'shani saqlaymiz (server = manba) */
+      if(c.earned!=null){ c.earn=c.earned; return; }
+      const f=courierFinance(c, orders);
+      c.deliveries=(c.deliveries!=null?c.deliveries:f.deliveries);
+      c.earn=f.earn;
+    });
   }
 
   /* =========================================================
@@ -115,15 +143,11 @@
          (STORE hali tayyor emas) va bizda eski kesh bor bo'lsa — wipe qilmaymiz. */
       if(beR.length || flags.adminRests || flags.bootstrap){
         RESTS=beR.map(b=>{
-          /* Aylanma FAQAT yetkazilgan buyurtmalardan. Ilgari bekor qilingan va
-             hali yo'ldagi buyurtmalar ham qo'shilardi — restoran aylanmasi
-             haqiqatdan katta ko'rinardi va komissiya ham shunga yarasha. */
-          const ord=orders.filter(o=>o.rest===b.name && o.status==="done");
-          const rev=ord.reduce((s,o)=>s+(o.amount||0),0);
+          /* Aylanma/komissiya FAQAT yetkazilgan buyurtmalardan, har buyurtmaning
+             O'Z muhrlangan foizidan (restFinance — recompute bilan bir xil). */
           const comm=b.commission!=null?b.commission:18;
-          /* Komissiya har buyurtmaning O'Z foizidan (server muhrlagan) yig'iladi */
-          const siteCut=ord.reduce((s,o)=>s+(o.commission!=null?(Number(o.commission)||0):Math.round((o.amount||0)*comm/100)),0);
-          return Object.assign({}, b, { rev:rev, orders:ord.length, commission:comm, siteCut:siteCut, restGets:rev-siteCut, status:(b.active===false?"warn":"ok") });
+          const f=restFinance(b, orders);
+          return Object.assign({}, b, { rev:f.rev, orders:f.orders, commission:comm, siteCut:f.siteCut, restGets:f.restGets, status:(b.active===false?"warn":"ok") });
         });
         save(SK.rests,RESTS);
       }
@@ -135,16 +159,12 @@
          yubormaslik uchun). Flag'ni fetchCouriers o'rnatadi. */
       if(beC.length || flags.couriers){
         COURIERS=beC.map(b=>{
-          /* Yetkazishlar soni va to'langan haq — HAQIQIY buyurtmalardan.
-             Ilgari `deliveries` admin qo'lда kiritgan son edi va u hech qachon
-             o'zi ko'paymasdi; daromad ham shu soxta sondan hisoblanardi.
-             Endi backend (routes/misc.js:courierDone) real qiymatni beradi;
-             bu yerда faqat mahalliy buyurtma keshi bilan tekshiramiz. */
-          const done=orders.filter(o=>o.courier===b.name && o.status==="done");
-          const deliveries=(b.deliveries!=null?b.deliveries:done.length);
-          const earn=(b.earned!=null)
-            ? b.earned
-            : done.reduce((s,o)=>s+(o.courierFee!=null?(Number(o.courierFee)||0):(b.fee||0)),0);
+          /* Yetkazishlar soni va to'langan haq — HAQIQIY buyurtmalardan
+             (server: routes/misc.js:courierDone). Backend `earned`/`deliveries`
+             bergan bo'lsa — O'SHA manba; aks holda buyurtma keshidan (courierFinance). */
+          const f=courierFinance(b, orders);
+          const deliveries=(b.deliveries!=null?b.deliveries:f.deliveries);
+          const earn=(b.earned!=null)?b.earned:f.earn;
           return Object.assign({}, b, { deliveries:deliveries, earn:earn, status:"ok" });
         });
         save(SK.couriers,COURIERS);
@@ -228,80 +248,141 @@
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
     if(view==="complaints") loadComplaints();
-    if(view==="logins") loadAccounts();
+    if(view==="logins"){
+      /* Qidiruvni tozalab kiramiz — aks holda oldingi filtr "hech narsa yo'q"
+         ko'rsatib turishi mumkin edi (foydalanuvchi buni "yuklanmadi" deb tushunardi). */
+      loginQuery=""; var lsEl=document.getElementById("loginSearch"); if(lsEl) lsEl.value="";
+      loadAccounts();
+    }
     if(view==="settings"){ fillOwnerSettings(); renderAnnList(); }
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
   }
 
   /* =========================================================
-     LOGINLAR — barcha akkaunt (login) + parol yangilash
+     LOGINLAR — barcha akkaunt: har biri ALOHIDA KARTA.
+     Har kartadan LOGIN va PAROLNI o'zgartirish mumkin — FAQAT ADMIN.
+     Restoran/kuryer/mijoz panellaridan bu imkoniyat OLIB TASHLANDI
+     (server /api/auth/me endi login/parolni qabul qilmaydi).
      ========================================================= */
-  let ACCOUNTS=[], loginQuery="";
-  const ROLE_INFO={admin:{t:"🛡 Adminlar",c:"#7c3aed"},restoran:{t:"🏪 Restoranlar",c:"#C8102E"},kuryer:{t:"🛵 Kuryerlar",c:"#2563eb"},user:{t:"👥 Foydalanuvchilar",c:"#16a34a"}};
+  let ACCOUNTS=[], loginQuery="", accountsLoaded=false, accountsLoading=false;
+  const ROLE_INFO={
+    admin:{t:"🛡 Adminlar",label:"Admin",c:"#7c3aed"},
+    restoran:{t:"🏪 Restoranlar",label:"Restoran",c:"#C8102E"},
+    kuryer:{t:"🛵 Kuryerlar",label:"Kuryer",c:"#2563eb"},
+    user:{t:"👥 Foydalanuvchilar",label:"Mijoz",c:"#16a34a"}
+  };
+  /* Ishonchli yuklash: qayta-qayta kirilса ham ishlaydi. Xato bo'lsa OXIRGI
+     ma'lumot saqlanadi (ro'yxat bo'shab qolmaydi). */
   async function loadAccounts(){
-    if(typeof STORE==="undefined" || !STORE.fetchAccounts) return;
-    const host=$("#loginsList"); if(host && !ACCOUNTS.length) host.innerHTML='<p style="color:#9a8d83;padding:16px">Yuklanmoqda...</p>';
-    const list=await STORE.fetchAccounts();
-    ACCOUNTS=Array.isArray(list)?list:[];
+    if(typeof STORE==="undefined" || !STORE.fetchAccounts){ renderLogins(); return; }
+    accountsLoading=true;
+    renderLogins();                                   // joriy holat (yoki "Yuklanmoqda")
+    let list=null;
+    try{ list=await STORE.fetchAccounts(); }catch(e){ /* eski ACCOUNTS qoladi */ }
+    accountsLoading=false;
+    if(Array.isArray(list) && (list.length || !accountsLoaded)){
+      ACCOUNTS=list; accountsLoaded=true;
+    }
+    /* Bo'sh javob + allaqachon yuklangan — eski ro'yxat saqlanadi (tarmoq uzilса ekran bo'shab qolmasin) */
     renderLogins();
+  }
+  function acctCard(a){
+    const info=ROLE_INFO[a.role]||{label:a.role,c:"#777"};
+    return '<div class="lg-card" data-login="'+esc(a.login)+'" style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;background:#fff">'+
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+
+        '<span style="background:'+info.c+';color:#fff;font-size:11px;font-weight:800;border-radius:8px;padding:3px 9px">'+esc(info.label)+'</span>'+
+        '<b style="font-size:15px">'+esc(a.name||"—")+'</b>'+
+        (a.phone?'<span style="color:var(--grey);font-size:13px">📞 '+esc(a.phone)+'</span>':'')+
+      '</div>'+
+      '<div class="lg-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+        '<span style="color:var(--grey);font-size:13px;min-width:60px">Login</span>'+
+        '<b class="mono" style="font-size:14px">'+esc(a.login)+'</b>'+
+        '<button class="lg-edit-login add-action-btn" style="background:#0ea5e9;flex:none;font-size:12px;padding:6px 10px">✏️ Login</button>'+
+      '</div>'+
+      '<div class="lg-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+        '<span style="color:var(--grey);font-size:13px;min-width:60px">Parol</span>'+
+        '<span class="mono" style="font-size:14px;letter-spacing:2px">••••••</span>'+
+        '<button class="lg-edit-pass add-action-btn" style="background:#2563eb;flex:none;font-size:12px;padding:6px 10px">🔑 Parol</button>'+
+      '</div>'+
+    '</div>';
   }
   function renderLogins(){
     const host=$("#loginsList"); if(!host) return;
+    if(!accountsLoaded && accountsLoading && !ACCOUNTS.length){
+      host.innerHTML='<p style="color:#9a8d83;padding:16px">Yuklanmoqda...</p>'; return;
+    }
     const q=loginQuery.trim().toLowerCase();
     let list=ACCOUNTS.slice();
     if(q) list=list.filter(a=>[a.login,a.name,a.phone].some(v=>String(v||"").toLowerCase().indexOf(q)>=0));
-    if(!list.length){ host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">'+(q?"Mos akkaunt topilmadi.":"Akkaunt yo'q.")+'</p>'; return; }
-    /* Rol bo'yicha guruhlab */
+    if(!list.length){
+      host.innerHTML='<p style="color:#9a8d83;text-align:center;padding:24px;font-size:14px">'+
+        (q?"Mos akkaunt topilmadi.":(accountsLoaded?"Akkaunt yo'q.":"Yuklanmoqda..."))+'</p>';
+      return;
+    }
     const order=["admin","restoran","kuryer","user"];
     let html="";
     order.forEach(function(role){
       const rows=list.filter(a=>a.role===role);
       if(!rows.length) return;
       const info=ROLE_INFO[role]||{t:role,c:"#777"};
-      html+='<div style="margin:6px 0 4px;font-weight:800;color:'+info.c+';font-size:14px">'+info.t+' <span style="color:var(--grey);font-weight:600">('+rows.length+')</span></div>';
-      html+=rows.map(function(a){
-        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">'+
-          '<div style="flex:1;min-width:160px">'+
-            '<div style="font-weight:700">'+esc(a.name||"—")+'</div>'+
-            '<div style="color:var(--grey);font-size:13px">🔑 <span class="mono">'+esc(a.login)+'</span>'+(a.phone?' · 📞 '+esc(a.phone):'')+'</div>'+
-          '</div>'+
-          '<button class="add-action-btn" data-resetpw="'+esc(a.login)+'" style="background:#2563eb;flex:none">🔑 Parol yangilash</button>'+
-        '</div>';
-      }).join("");
+      html+='<div style="margin:14px 0 8px;font-weight:800;color:'+info.c+';font-size:14px">'+info.t+
+            ' <span style="color:var(--grey);font-weight:600">('+rows.length+')</span></div>';
+      html+=rows.map(acctCard).join("");
     });
     host.innerHTML=html;
-    host.querySelectorAll("[data-resetpw]").forEach(function(b){ b.addEventListener("click",function(){ openResetPw(b.dataset.resetpw); }); });
+    host.querySelectorAll(".lg-card").forEach(function(card){
+      const login=card.dataset.login;
+      const acc=ACCOUNTS.find(a=>a.login===login);
+      const be=card.querySelector(".lg-edit-login"), bp=card.querySelector(".lg-edit-pass");
+      if(be) be.addEventListener("click",function(){ openAccountEdit(acc, "login"); });
+      if(bp) bp.addEventListener("click",function(){ openAccountEdit(acc, "pass"); });
+    });
   }
-  /* Parol yangilash oynasi — yangi parol yozasiz yoki avtomatik yaratiladi */
-  function openResetPw(login){
-    const acc=ACCOUNTS.find(a=>a.login===login); if(!acc) return;
-    var el=document.getElementById("resetPwModal"); if(el) el.remove();
-    el=document.createElement("div"); el.id="resetPwModal";
+  /* Login YOKI parolni o'zgartirish oynasi (bitta modal, ikki maydon).
+     `focus` — qaysi maydonga birinchi e'tibor beriladi ("login" | "pass"). */
+  function openAccountEdit(acc, focus){
+    if(!acc) return;
+    const info=ROLE_INFO[acc.role]||{label:acc.role};
+    var el=document.getElementById("acctEditModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="acctEditModal";
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
-    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px">'+
-      '<h3 style="margin:0 0 6px">🔑 Parol yangilash</h3>'+
-      '<p style="color:var(--grey);font-size:13px;margin:0 0 12px"><b>'+esc(acc.name||acc.login)+'</b> ('+(ROLE_INFO[acc.role]?ROLE_INFO[acc.role].t.replace(/^\S+\s/,''):acc.role)+') · login: <b class="mono">'+esc(acc.login)+'</b></p>'+
-      '<div class="add-field"><label>Yangi parol (bo\'sh qoldirsangiz — avtomatik yaratiladi)</label>'+
-        '<input id="resetPwInput" type="text" placeholder="Masalan: Osh#2026 yoki bo\'sh qoldiring" autocomplete="new-password"></div>'+
-      '<div style="display:flex;gap:10px;margin-top:12px">'+
-        '<button id="resetPwCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
-        '<button id="resetPwOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Yangilash</button>'+
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px;max-height:92vh;overflow:auto">'+
+      '<h3 style="margin:0 0 6px">🔐 Kirish ma\'lumotlari</h3>'+
+      '<p style="color:var(--grey);font-size:13px;margin:0 0 14px"><b>'+esc(acc.name||acc.login)+'</b> · '+esc(info.label||acc.role)+
+        ' · joriy login: <b class="mono">'+esc(acc.login)+'</b></p>'+
+      '<div class="add-field"><label>Yangi login (bo\'sh — o\'zgarmaydi)</label>'+
+        '<input id="aeLogin" type="text" value="'+esc(acc.login)+'" autocomplete="off" spellcheck="false"></div>'+
+      '<div class="add-field"><label>Yangi parol (bo\'sh — o\'zgarmaydi; kamida 4 belgi)</label>'+
+        '<input id="aePass" type="text" placeholder="Masalan: Osh#2026" autocomplete="new-password"></div>'+
+      '<div id="aeErr" style="color:#C8102E;font-size:13px;min-height:16px;margin:2px 0 8px"></div>'+
+      '<div style="display:flex;gap:10px">'+
+        '<button id="aeCancel" style="flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;cursor:pointer">Yopish</button>'+
+        '<button id="aeOk" style="flex:1;padding:11px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:700;cursor:pointer">Saqlash</button>'+
       '</div></div>';
     document.body.appendChild(el);
-    const inp=el.querySelector("#resetPwInput"); inp.focus();
-    el.querySelector("#resetPwCancel").addEventListener("click",function(){ el.remove(); });
-    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
-    el.querySelector("#resetPwOk").addEventListener("click",async function(){
-      var pass=inp.value.trim();
-      if(pass && pass.length<4){ toast("Parol kamida 4 belgi bo'lsin"); return; }
-      this.disabled=true; this.textContent="Yangilanmoqda...";
-      const r=(typeof STORE!=="undefined"&&STORE.resetAccountPassword)? await STORE.resetAccountPassword(login, pass||undefined) : null;
-      el.remove();
-      if(r && !r.error && r.pass){
-        toast("✅ Parol yangilandi");
-        showNewPassOnce(acc.name||acc.login, r.pass);
-      } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+    const li=el.querySelector("#aeLogin"), pi=el.querySelector("#aePass"), err=el.querySelector("#aeErr");
+    (focus==="pass"?pi:li).focus();
+    const close=()=>el.remove();
+    el.querySelector("#aeCancel").addEventListener("click",close);
+    el.addEventListener("click",function(e){ if(e.target===el) close(); });
+    el.querySelector("#aeOk").addEventListener("click",async function(){
+      err.textContent="";
+      const newLogin=li.value.trim(), pass=pi.value.trim();
+      const loginChanged = newLogin && newLogin!==acc.login;
+      if(!loginChanged && !pass){ err.textContent="Hech narsa o'zgartirilmadi."; return; }
+      if(loginChanged && newLogin.length<3){ err.textContent="Login kamida 3 belgi bo'lsin."; return; }
+      if(pass && pass.length<4){ err.textContent="Parol kamida 4 belgi bo'lsin."; return; }
+      this.disabled=true; this.textContent="Saqlanmoqda...";
+      const r=(typeof STORE!=="undefined"&&STORE.updateAccount)
+        ? await STORE.updateAccount(acc.login, { newLogin: loginChanged?newLogin:undefined, pass: pass||undefined })
+        : { error:"Serverga ulanib bo'lmadi" };
+      if(r && r.error){ this.disabled=false; this.textContent="Saqlash"; err.textContent=r.error; return; }
+      close();
+      /* Ro'yxatni yangilaymiz (yangi login ko'rinsin) */
+      await loadAccounts();
+      if(r && r.pass){ toast("✅ Saqlandi"); showNewPassOnce(acc.name||newLogin||acc.login, r.pass); }
+      else toast("✅ "+(loginChanged?"Login yangilandi":"Saqlandi"));
     });
   }
 
@@ -784,7 +865,7 @@
           ? "<span style=\"color:#16a34a\">✅ Qilingan"+(o.callBy?" ("+esc(o.callBy)+")":"")+"</span>"
           : "<span style=\"color:#c2410c\">📞 Kutilmoqda</span>"):"")+
         omr("Qayerdan kelgan",srcBadge(o))+
-        omr("Buyurtma narxi",money(o.amount)+" so'm")+omr("Yetkazish narxi",money(o.delivery||0)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+omr("Sana / vaqt",fmtDateTime(o))+
+        omr("Buyurtma summasi",money(o.amount)+" so'm")+((o.delivery||0)>0?omr("Yetkazish narxi",money(o.delivery)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>"):"")+omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+omr("Sana / vaqt",fmtDateTime(o))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div></div>";
     document.body.appendChild(el);
@@ -1110,7 +1191,9 @@
     var mine=orders.filter(function(o){return String(o.phone||"").replace(/\D/g,"")===dig;});
     if(!mine.length) return;
     var name=mine[0].user||"Mijoz", phone=mine[0].phone||"—";
-    var spent=mine.reduce(function(s,o){return s+(o.amount||0);},0);
+    /* "Jami sarflagan" — FAQAT yetkazilgan (done) buyurtmalar (kabinet / boshqa
+       mijoz kartochkalari bilan bir xil; bekor qilingan/yo'ldagi hisobga olinmaydi). */
+    var spent=mine.filter(function(o){return o.status==="done";}).reduce(function(s,o){return s+(o.amount||0);},0);
     var hist=mine.map(function(o){ var st=OSM[o.status]||[o.status,"warn"];
       return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between"><b>'+(o.emoji||"🍽️")+' '+esc(o.item)+'</b><span class="pill '+st[1]+'">'+st[0]+'</span></div><div style="color:var(--grey);font-size:12px;margin-top:4px">'+fmtDateTime(o)+' · '+money(o.amount)+" so'm · "+esc(o.rest||"—")+'</div></div>'; }).join("");
     infoModal("🕶️ "+esc(name)+" (mehmon)",
@@ -1299,12 +1382,29 @@
           reviews:revs.filter(r=>r.name===u.name).length,
           last:last, joined:u.joined||"—", reg:true, guest:false };
       });
-      /* Mehmonlar — backend telefon bo'yicha yig'ib bergan (id = "g_998...") */
-      GUEST_USERS=guests.map((g,i)=>({
-        id: 200000+i, guestId:g.id, name:g.name||"Mehmon", emoji:"🕶️",
-        phone:g.phone||"", email:"", orders:g.orders||0, done:g.orders||0,
-        cancelled:0, spent:g.spent||0, fav:(g.rests?g.rests+" restoran":"—"),
-        addr:g.addr||"", reviews:0, last:g.last||"—", joined:"—", reg:false, guest:true }));
+      /* Mehmonlar — backend telefon bo'yicha yig'ib beradi (id = "g_998..."), lekin
+         PUL/sanoqni admin O'ZI buyurtma keshidan (STORE.orders — hamma buyurtma)
+         qayta hisoblaydi: "Jami sarflagan" FAQAT yetkazilgan (done), aynan
+         ro'yxatdan o'tgan mijozlardagidek. Server soni turli statusni
+         qo'shib yuborardi — panellararo farq chiqardi. */
+      const digs=(s)=>String(s||"").replace(/\D/g,"");
+      GUEST_USERS=guests.map((g,i)=>{
+        const gd=digs(g.phone);
+        const mine=gd?all.filter(o=>digs(o.phone)===gd):[];
+        const done=mine.filter(o=>o.status==="done");
+        const spent=done.reduce((s,o)=>s+(o.amount||0),0);
+        const restSet={}; mine.forEach(o=>{ if(o.rest) restSet[o.rest]=1; });
+        const nRest=Object.keys(restSet).length || g.rests || 0;
+        return {
+          id: 200000+i, guestId:g.id, name:g.name||"Mehmon", emoji:"🕶️",
+          phone:g.phone||"", email:"",
+          orders: mine.length || g.orders || 0,
+          done: done.length,
+          cancelled: mine.filter(o=>o.status==="cancelled").length,
+          spent: spent,
+          fav:(nRest?nRest+" restoran":"—"),
+          addr:g.addr||"", reviews:0, last:g.last||"—", joined:"—", reg:false, guest:true };
+      });
       renderUsers();
     }).catch(()=>{});
   }
@@ -1490,11 +1590,16 @@
           <div class="k"><span>Holati</span><b>${r.status==="ok"?"Faol":"Nazoratda"}</b></div>
           <div class="k"><span>Kuryerlar</span><b>${myCouriers.length}</b></div>
         </div></div>
-      <div class="dd-sec"><h4>Moliya (${r.commission!=null?r.commission:18}% komissiya)</h4>
+      ${(()=>{ const curPct=(r.commission!=null?r.commission:18);
+               /* Ko'rsatilgan foiz — HAQIQIY yig'indidan (eski buyurtmalar boshqa
+                  foiz bilan muhrlangan bo'lishi mumkin). Joriy foiz alohida yoziladi. */
+               const effPct=r.rev?Math.round(r.siteCut/r.rev*100):curPct;
+               const same=(effPct===curPct);
+        return `<div class="dd-sec"><h4>Moliya${same?` (${curPct}% komissiya)`:` (joriy ${curPct}%, o'rtacha ${effPct}%)`}</h4>
         <div class="fin-row"><span>Aylanma (yetkazilgan ${money(r.orders||0)} ta)</span><b>${money(r.rev)} so'm</b></div>
-        <div class="fin-row"><span>Restoranga (${100-(r.commission!=null?r.commission:18)}%)</span><b>${money(r.restGets)} so'm</b></div>
-        <div class="fin-row tot"><span>Menga (${r.commission!=null?r.commission:18}%)</span><b>${money(r.siteCut)} so'm</b></div>
-      </div>
+        <div class="fin-row"><span>Restoranga${same?` (${100-curPct}%)`:''}</span><b>${money(r.restGets)} so'm</b></div>
+        <div class="fin-row tot"><span>Menga${same?` (${curPct}%)`:` (${effPct}%)`}</span><b>${money(r.siteCut)} so'm</b></div>
+      </div>`; })()}
       <div class="dd-sec"><h4>Kirish ma'lumotlari</h4>
         <div class="kv">
           <div class="k"><span>Login</span><b class="mono">${r.login}</b></div>
@@ -1949,9 +2054,8 @@
         omr("Restoran",esc(o.rest)||"—")+
         omr("Kuryer",esc(o.courier)||"—")+
         omr("Manzil",esc(o.addr)||"—")+
-        omr("Buyurtma narxi",money(o.amount)+" so'm")+
-        omr("Yetkazish",money(o.delivery||0)+" so'm")+
-        omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>")+
+        omr("Buyurtma summasi",money(o.amount)+" so'm")+
+        ((o.delivery||0)>0?omr("Yetkazish",money(o.delivery)+" so'm")+omr("Yakuniy summa","<b>"+money((o.amount||0)+(o.delivery||0))+" so'm</b>"):"")+
         omr("To'lov",o.pay==="cash"?"💵 Naqd":"💳 Karta")+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
         '</div></div>';

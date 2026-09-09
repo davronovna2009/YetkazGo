@@ -37,6 +37,7 @@ const STORE = (function () {
     restaurants: lsRead(K.rests, []),
     couriers: [],
     adminRests: [],   // admin uchun restoranlar (komissiya bilan) — faqat xotirada
+    accounts: null,   // admin «Loginlar» ro'yxati (xotirada; xato bo'lsa oxirgi holat qoladi)
     ratings: lsRead("yz_ratings", { dishes: {}, couriers: {} }),
     settings: lsRead("yz_settings", {}),
   };
@@ -423,11 +424,26 @@ const STORE = (function () {
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
-    /* ---- LOGINLAR (admin): barcha akkaunt + parol yangilash ---- */
-    fetchAccounts() { return api("/accounts", { auth: true }).catch(() => []); },
+    /* ---- LOGINLAR (admin): barcha akkaunt + login/parol yangilash ----
+       Xato bo'lsa OXIRGI keshni qaytaradi (ro'yxat bo'shab qolmasin). */
+    fetchAccounts() {
+      return api("/accounts", { auth: true })
+        .then(list => { if (Array.isArray(list)) cache.accounts = list; return cache.accounts || []; })
+        .catch(() => cache.accounts || []);
+    },
     resetAccountPassword(login, pass) {
       const body = pass ? { login, pass } : { login };
       return api("/accounts/reset-password", { method: "POST", body, auth: true })
+        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+    },
+    /* ADMIN: istalgan akkaunt LOGIN va/yoki PAROLINI o'zgartiradi.
+       opts: { newLogin?, pass? }. Javob: { ok, login, role, name, pass? } yoki { error }. */
+    updateAccount(login, opts) {
+      const o = opts || {};
+      const body = { login };
+      if (o.newLogin) body.newLogin = o.newLogin;
+      if (o.pass) body.pass = o.pass;
+      return api("/accounts/update", { method: "POST", body, auth: true })
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
     },
     /* Admin foydalanuvchi ma'lumotini tahrirlaydi (restoran/kuryerdagi kabi) */
@@ -538,9 +554,16 @@ const STORE = (function () {
         return { offline: true };           // serverga/internetga ulanib bo'lmadi
       }
     },
+    /* O'Z profili — FAQAT ism/telefon/email. Login va parolni FAQAT admin
+       o'zgartiradi (server /auth/me ham bularni qabul qilmaydi). */
     async updateProfile(data) {
+      const d = data || {};
+      const body = {};
+      if (d.name != null) body.name = d.name;
+      if (d.phone != null) body.phone = d.phone;
+      if (d.email != null) body.email = d.email;
       try {
-        const r = await api("/auth/me", { method: "PATCH", body: data, auth: true });
+        const r = await api("/auth/me", { method: "PATCH", body, auth: true });
         if (r && r.token) { setToken(r.token); this.setSession(r.account); return r.account; }
         return r || { error: "Xatolik" };
       } catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }

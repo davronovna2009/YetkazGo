@@ -8,7 +8,9 @@
     "start": "node --env-file-if-exists=.env src/app.js",
     "dev": "node --env-file-if-exists=.env --watch src/app.js",
     "seed": "node src/seed.js --force",
-    "set-admin-pass": "node --env-file-if-exists=.env scripts/set-admin-pass.mjs"
+    "set-admin-pass": "node --env-file-if-exists=.env scripts/set-admin-pass.mjs",
+    "test": "node test/run.mjs",
+    "test:units": "node test/panel-units.mjs"
   },
   "engines": {
     "node": ">=22"

@@ -153,8 +153,11 @@
             <div class="panel-body tbl-wrap">
               <table class="tbl">
                 <!-- "Sotildi" — HAQIQIY dona soni (yetkazilgan buyurtmalar
-                     tarkibidan hisoblanadi, restoran.js:salesMap) -->
-                <thead><tr><th>Nomi</th><th>Narx</th><th>Reyting</th><th>Sotildi (dona)</th><th>Daromad</th><th>Amal</th></tr></thead>
+                     tarkibidan hisoblanadi, restoran.js:salesMap).
+                     "Sizga qoladi (jami)" — BUTUN DAVR bo'yicha, har buyurtmaning
+                     muhrlangan komissiyasi hisobga olingan holda. «Daromad»
+                     bo'limidagi davr bo'yicha jadval bilan bir xil usulda. -->
+                <thead><tr><th>Nomi</th><th>Narx</th><th>Reyting</th><th>Sotildi (dona, jami)</th><th>Sizga qoladi (jami)</th><th>Amal</th></tr></thead>
                 <tbody id="dishTbody"></tbody>
               </table>
             </div>
@@ -337,56 +340,30 @@
             </div>
           </div>
 
-          <!-- Hisob ma'lumotlari -->
+          <!-- Hisob ma'lumotlari (faqat ko'rish) -->
           <div class="settings-group">
             <div class="settings-group-title">👤 Hisob ma'lumotlari</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Login</span>
-                <span class="setting-desc">Tizimga kirish uchun foydalanuvchi nomi (kamida 3 belgi)</span>
+                <span class="setting-desc">Tizimga kirish nomi</span>
               </div>
-              <input id="setLogin" class="set-input" placeholder="restoran logini" autocomplete="username" />
+              <input id="setLogin" class="set-input" readonly style="opacity:.7;cursor:not-allowed" autocomplete="username" />
             </div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Restoran nomi</span>
-                <span class="setting-desc">Saytda ko'rinadigan nom — o'zgartirish uchun admin bilan bog'laning</span>
+                <span class="setting-desc">Saytda ko'rinadigan nom</span>
               </div>
               <input id="setName" class="set-input" readonly style="opacity:.7;cursor:not-allowed" />
             </div>
-            <div class="settings-footer">
-              <button class="btn-save" id="setLoginBtn">💾 Loginni saqlash</button>
+            <div class="setting-item" style="padding:12px 16px">
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.55">
+                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b>
+                Login, parol yoki restoran nomini yangilash kerak bo'lsa — sayt ma'muriyatiga murojaat qiling.
+              </div>
             </div>
           </div>
-
-          <!-- Parolni o'zgartirish -->
-          <div class="settings-group">
-            <div class="settings-group-title">🔒 Parolni o'zgartirish</div>
-            <div class="setting-item column" style="padding:14px 16px">
-              <div class="setting-label">
-                <span class="setting-name">Yangi parol</span>
-                <span class="setting-desc">Kamida 4 belgi</span>
-              </div>
-              <input id="setPass" type="password" class="set-input" placeholder="yangi parol" autocomplete="new-password" />
-            </div>
-            <div class="setting-item column" style="padding:14px 16px">
-              <div class="setting-label">
-                <span class="setting-name">Parolni tasdiqlang</span>
-                <span class="setting-desc">Yangi parolni yana bir bor kiriting</span>
-              </div>
-              <input id="setPass2" type="password" class="set-input" placeholder="yana bir bor" autocomplete="new-password" />
-            </div>
-            <div class="setting-item" style="padding:6px 16px 0">
-              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--grey);cursor:pointer">
-                <input type="checkbox" id="setPassShow" style="width:16px;height:16px" /> Parolni ko'rsatish
-              </label>
-            </div>
-            <div class="settings-footer">
-              <button class="btn-save" id="setPassBtn">🔒 Parolni yangilash</button>
-            </div>
-          </div>
-
-          <p style="color:var(--grey);font-size:13px;padding:4px 4px 20px">Login yoki parolni o'zgartirgach, keyingi kirishda yangi ma'lumotlardan foydalaning. Ma'lumotlar xavfsiz (xeshlangan) saqlanadi.</p>
 
         </section>
       </div>

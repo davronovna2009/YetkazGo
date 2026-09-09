@@ -116,22 +116,14 @@
             </div>
           </div>
 
-          <!-- Login -->
-          <div class="panel" style="margin-bottom:16px">
+          <!-- Login (faqat ko'rish) -->
+          <div class="panel">
             <div class="panel-head"><h3>👤 Login</h3></div>
             <div class="panel-body">
-              <div class="field"><label>Login</label><input id="kSetLogin" placeholder="login" autocomplete="username"></div>
-              <button class="set-save" id="kSaveLogin">Loginni saqlash</button>
-            </div>
-          </div>
-
-          <!-- Parol -->
-          <div class="panel">
-            <div class="panel-head"><h3>🔒 Parolni o'zgartirish</h3></div>
-            <div class="panel-body">
-              <div class="field"><label>Yangi parol</label><input id="kSetPass" type="password" placeholder="••••••" autocomplete="new-password"></div>
-              <div class="field"><label>Takror parol</label><input id="kSetPass2" type="password" placeholder="••••••" autocomplete="new-password"></div>
-              <button class="set-save" id="kSavePass">Parolni yangilash</button>
+              <div class="field"><label>Login</label><input id="kSetLogin" readonly style="opacity:.7;cursor:not-allowed" autocomplete="username"></div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.55;margin-top:6px">
+                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa sayt ma'muriyatiga murojaat qiling.
+              </div>
             </div>
           </div>
         </section>

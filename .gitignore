@@ -5,6 +5,9 @@ server/node_modules/
 # Ma'lumotlar bazasi (SQLite)
 server/data/
 
+# Test vaqtinchalik bazasi (test/run.mjs o'zi tozalaydi, lekin uzilib qolsa qolib ketmasin)
+server/test/.tmp-test.db*
+
 # Zaxira nusxalar (backup)
 server/backups/
 

@@ -5,7 +5,9 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
-  /* Daromad bo'limi olib tashlangan — kuryer haqi (fee) endi panelда ko'rsatilmaydi */
+  /* «Daromad» bo'limi (nav: data-view="income") MAVJUD va ishlaydi — renderIncome().
+     Kuryer daromadi = HAR yetkazilgan buyurtmaga muhrlangan haq (o.courierFee)
+     yig'indisi; admin panelidagi "kuryer xarajati" bilan 1 so'mgacha mos. */
 
   /* Parollar bu yerda saqlanmaydi — kirish backend orqali (xeshlangan) tekshiriladi */
   const COURIERS=[];
@@ -209,7 +211,7 @@
     /* Real reyting — mijozlar bergan kuryer baholari o'rtachasi */
     var _rv=(typeof STORE!=="undefined"?STORE.reviews():[]).filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
     const rating=_rv.length?(_rv.reduce(function(s,r){return s+(r.rating||0);},0)/_rv.length).toFixed(1):(c.rating||0);
-    /* Daromad ko'rsatkichi olib tashlandi — panelда faqat buyurtma ma'lumoti */
+    /* Dashboard kartalarida PUL yo'q — daromad alohida «Daromad» bo'limida (renderIncome) */
     $("#statCards").innerHTML=`
       <div class="scard c3"><div class="si">🚀</div><b>${active}</b><span>Faol buyurtma</span></div>
       <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan (jami)</span></div>
@@ -345,8 +347,8 @@
   /* App ortga: modal ochiq bo'lsa back uni yopadi (sahifadan chiqmaydi) */
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });
 
-  /* Daromad bo'limi va to'lov QR-kodi paneli OLIB TASHLANDI —
-     kuryer paneli faqat buyurtmalarга qaratilgan. */
+  /* To'lov QR-kodi paneli olib tashlangan. «Daromad» bo'limi MAVJUD (renderIncome,
+     pastda) — nav orqali ochiladi. */
 
   function renderAll(){ renderDash(); renderOrders(); updateStatusBadge(); checkDeadlines(); if(document.querySelector("#view-income.show")) renderIncome(); }
 
@@ -543,22 +545,8 @@
     else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
 
-  /* Ish vaqti FAQAT admin tomonidan belgilanadi — kuryer o'zgartira olmaydi. */
-  async function saveCourierLogin(){
-    var v=(($("#kSetLogin")||{}).value||"").trim();
-    if(v.length<3){ toast("Login kamida 3 belgi bo'lsin"); return; }
-    var acc=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({login:v}) : null;
-    if(acc && !acc.error && acc.login){ if(CUR) CUR.login=acc.login; toast("Login yangilandi ✓"); }
-    else toast((acc&&acc.error)||"Bu login band yoki serverga ulanib bo'lmadi");
-  }
-  async function saveCourierPass(){
-    var a=(($("#kSetPass")||{}).value||""), b=(($("#kSetPass2")||{}).value||"");
-    if(a.length<4){ toast("Parol kamida 4 belgi bo'lsin"); return; }
-    if(a!==b){ toast("Parollar mos kelmadi"); return; }
-    var acc=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({pass:a}) : null;
-    if(acc && !acc.error){ var p1=$("#kSetPass"),p2=$("#kSetPass2"); if(p1)p1.value=""; if(p2)p2.value=""; toast("Parol yangilandi ✓"); }
-    else toast((acc&&acc.error)||"Serverga ulanib bo'lmadi");
-  }
+  /* Ish vaqti, LOGIN va PAROL — FAQAT admin belgilaydi. Kuryer paneldan
+     login/parolni o'zgartira OLMAYDI (admin panel «Loginlar» bo'limi). */
   let kToastT; function toast(m){ var e=$("#toast2"); if(!e){ return; } e.textContent=m; e.classList.add("show"); clearTimeout(kToastT); kToastT=setTimeout(function(){ e.classList.remove("show"); },2600); }
 
   /* Sessiyadan panelni ochish (rol allaqachon tasdiqlangan bo'lishi kerak) */
@@ -593,8 +581,6 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#klPass").value=""; CUR=null; try{location.href="index.html";}catch(e){} });
     /* Sozlamalar tugmalari (ish vaqti tugmasi yo'q — uni admin belgilaydi) */
     var spr=$("#kSaveProfile"); if(spr) spr.addEventListener("click",saveCourierProfile);
-    var sl=$("#kSaveLogin"); if(sl) sl.addEventListener("click",saveCourierLogin);
-    var sp=$("#kSavePass"); if(sp) sp.addEventListener("click",saveCourierPass);
     // menuToggle — HTML dagi script boshqaradi (ikki listener bo'lmasin)
   });
 

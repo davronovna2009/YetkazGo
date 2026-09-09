@@ -75,33 +75,34 @@ router.post('/register', (req, res) => {
   res.status(201).json({ token: signToken(acc), account });
 });
 
-/* PATCH /api/auth/me — joriy foydalanuvchi o'z profilini tahrirlaydi (login/parol/ism/telefon/email) */
+/* PATCH /api/auth/me — joriy foydalanuvchi o'z profilini tahrirlaydi (ism/telefon/email).
+   MUHIM: LOGIN va PAROL bu yerда O'ZGARMAYDI. Ularni FAQAT ADMIN o'zgartiradi
+   (POST /api/accounts/update). Restoran/kuryer/mijoz panellaridan bu imkoniyat
+   olib tashlangan — `login`/`pass` maydonlari e'tiborsiz qoldiriladi. */
 router.patch('/me', authRequired, (req, res) => {
   const acc = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.user.id);
   if (!acc) return res.status(404).json({ error: 'Topilmadi' });
   const b = req.body || {};
-  if (b.name != null && String(b.name).trim().length >= 2) db.prepare('UPDATE accounts SET name = ? WHERE id = ?').run(String(b.name).trim(), acc.id);
-  if (b.phone != null) db.prepare('UPDATE accounts SET phone = ? WHERE id = ?').run(String(b.phone), acc.id);
-  if (b.email != null) db.prepare('UPDATE accounts SET email = ? WHERE id = ?').run(String(b.email), acc.id);
-  if (b.login != null && String(b.login).trim().length >= 3) {
-    const newLogin = String(b.login).trim();
-    if (newLogin !== acc.login) {
-      const taken = db.prepare('SELECT 1 FROM accounts WHERE login = ? AND id <> ?').get(newLogin, acc.id);
-      if (taken) return res.status(409).json({ error: 'Bu login band' });
-      db.prepare('UPDATE accounts SET login = ? WHERE id = ?').run(newLogin, acc.id);
-      /* ===== MUHIM: login ikkita jadvalда saqlanadi =====
-         `accounts.login` — haqiqiy kirish; `restaurants.login`/`couriers.login`
-         — nusxa (ko'p so'rov shu nusxa bo'yicha kalitlanadi). Ilgari bu yerда
-         faqat accounts yangilanardi va nusxa ESKI qolardi: admin «Restoranlar»
-         bo'limi eski loginni, «Loginlar» bo'limi yangisini ko'rsatardi —
-         ya'ni "ikki joyda ikki xil". Endi ikkalasi birga yangilanadi. */
-      if (acc.role === 'restoran') db.prepare('UPDATE restaurants SET login = ? WHERE login = ?').run(newLogin, acc.login);
-      else if (acc.role === 'kuryer') db.prepare('UPDATE couriers SET login = ? WHERE login = ?').run(newLogin, acc.login);
+
+  /* ISM:
+     - user (mijoz): o'zgartirsa bo'ladi — LEKIN buyurtmalardagi `user` ham
+       birga yangilanadi (aks holda mijoz o'z buyurtmalar tarixini yo'qotardi:
+       GET /api/orders `user = ?` bo'yicha filtrlaydi).
+     - restoran / kuryer: nom ENTITY va buyurtmalarга bog'langan (orders.rest /
+       orders.courier). Uni FAQAT admin o'zgartiradi (u ikkala jadvalни sinxron
+       qiladi). Shu sabab bu yerда e'tiborsiz qoldiriladi. */
+  if (b.name != null && String(b.name).trim().length >= 2 && acc.role === 'user') {
+    const nn = String(b.name).trim();
+    if (nn !== acc.name) {
+      db.prepare('UPDATE accounts SET name = ? WHERE id = ?').run(nn, acc.id);
+      db.prepare('UPDATE orders SET user = ? WHERE user = ?').run(nn, acc.name);
     }
   }
-  if (b.pass && String(b.pass).length >= 4) db.prepare('UPDATE accounts SET pass_hash = ? WHERE id = ?').run(hashPassword(String(b.pass)), acc.id);
+  if (b.phone != null) db.prepare('UPDATE accounts SET phone = ? WHERE id = ?').run(String(b.phone), acc.id);
+  if (b.email != null) db.prepare('UPDATE accounts SET email = ? WHERE id = ?').run(String(b.email), acc.id);
+  /* b.login / b.pass — ATAYLAB e'tiborsiz qoldiriladi (faqat admin o'zgartiradi) */
   const updated = db.prepare('SELECT * FROM accounts WHERE id = ?').get(acc.id);
-  res.json({ token: signToken(updated), account: sessionAccount(updated) });
+  res.json({ token: signToken(updated), account: sessionAccount(updated), loginLocked: true });
 });
 
 /* GET /api/auth/me — joriy token egasini qaytaradi.

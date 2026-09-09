@@ -59,16 +59,48 @@
     return { id:o.id, dish:o.item, emoji:o.emoji, rest:o.rest, date:date, amount:o.amount,
       addr:o.addr, pay:o.pay, deliveredIn:o.eta, promised:(o.eta||15)+3, reviewed:rid.has(String(o.id)), status:o.status, reason:o.reason||"" };
   }
-  /* Backenddagi buyurtmalarni mavjudlarga qo'shish (id bo'yicha, dublikatsiz) */
+  /* Optimistik (hali serverga bog'lanmagan) yozuvning imzosi — restoran + taom + to'lov.
+     Shu imzo bo'yicha backend buyurtmasi bilan yarashtirlади (id emas: lokal id
+     Date.now(), backend id kichik son — hech qachon teng emas). */
+  function orderSig(rest, dish, pay){
+    return String(rest||"").trim()+"||"+String(dish||"").trim()+"||"+String(pay||"card");
+  }
+  /* Backenddagi buyurtmalarni mavjudlarga qo'shish. DUBLIKATSIZ:
+       1) id bo'yicha topilsa — status/summa/sana yangilanadi
+       2) topilmasa, lekin bog'lanmagan optimistik yozuv (_local) imzosi mos kelsa
+          — O'SHA yozuv haqiqiy id/summa bilan YANGILANADI (yangi qator qo'shilmaydi)
+       3) aks holda — yangi qator */
   function hydrateOrders(){
     if(typeof STORE==="undefined" || !STORE.ordersForUser) return;
     const byId={}; USER.orders.forEach(o=>{ byId[String(o.id)]=o; });
     STORE.ordersForUser(USER.name).forEach(o=>{
       const ex=byId[String(o.id)];
-      if(ex){ ex.status=o.status; if(o.reason) ex.reason=o.reason; }
-      else USER.orders.push(beOrderToLocal(o));
+      if(ex){
+        ex.status=o.status;
+        ex.amount=(Number(o.amount)||0);           // server summasi — YAGONA haqiqat
+        if(o.created_at){ ex.date=YZ_TIME.fmtDate(o.created_at)||ex.date; }
+        if(o.reason) ex.reason=o.reason;
+        delete ex._local;
+        return;
+      }
+      /* Bog'lanmagan optimistik yozuvni imzo bo'yicha topamiz */
+      const sig=orderSig(o.rest, o.item, o.pay);
+      const pend=USER.orders.find(x=>x._local && orderSig(x.rest,x.dish,x.pay)===sig);
+      if(pend){
+        pend.id=o.id;
+        pend.amount=(Number(o.amount)||0);
+        pend.status=o.status;
+        if(o.created_at){ pend.date=YZ_TIME.fmtDate(o.created_at)||pend.date; }
+        if(o.reason) pend.reason=o.reason;
+        delete pend._local;
+        byId[String(o.id)]=pend;
+      } else {
+        USER.orders.push(beOrderToLocal(o));
+      }
     });
-    USER.orders.sort((a,b)=>String(b.id).localeCompare(String(a.id)));
+    /* Yangi buyurtma tepada — id bo'yicha SONLI tartib (backend id kichik son,
+       hali bog'lanmagan optimistik yozuv Date.now(); ikkalasi ham son). */
+    USER.orders.sort((a,b)=>(Number(b.id)||0)-(Number(a.id)||0));
   }
 
   function enterUser(acc){
@@ -190,7 +222,11 @@
     try{ if(snd) snd.checked = localStorage.getItem("yz_sound")!=="0"; }catch(e){}
   }
   function renderProfil(){
-    const spent=USER.orders.reduce((s,o)=>s+o.amount,0);
+    /* "Jami sarflagan" — FAQAT yetkazilgan (done) buyurtmalar. Bekor qilingan
+       yoki hali yo'ldagi buyurtma pul sarflangan degani emas. Admin/restoran/
+       kuryer panellari ham aynan shunday (status==="done") hisoblaydi. */
+    const doneOrders=USER.orders.filter(o=>o.status==="done");
+    const spent=doneOrders.reduce((s,o)=>s+(Number(o.amount)||0),0);
     $("#statCards").innerHTML=`
       <div class="scard c1"><div class="si">🧾</div><b>${USER.orders.length}</b><span>Buyurtmalar</span></div>
       <div class="scard c2"><div class="si">⭐</div><b>${USER.reviews.length}</b><span>Izohlarim</span></div>
@@ -651,7 +687,7 @@
       </div>
       <div class="ko-summary">
         <div class="ko-row"><span>Taomlar (${cart.reduce((s,i)=>s+i.qty,0)} ta)</span><span>${money(total)} so'm</span></div>
-        <div class="ko-row"><span>Yetkazish</span><span>${money(fee)} so'm</span></div>
+        <div class="ko-row"><span>Yetkazish</span><span>${fee>0?money(fee)+" so'm":'<b style="color:var(--green)">Bepul</b>'}</span></div>
         <div class="ko-row tot"><span>Jami</span><span>${money(total+fee)} so'm</span></div>
       </div>
       <button class="set-save" id="koConfirm" style="width:100%;margin-top:4px">${kt3('tasdiq')||'✅ Buyurtmani tasdiqlash'}</button>`;
@@ -693,19 +729,37 @@
     }catch(e){}
     const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=(Math.random()<0.5?10:20);
     const orderLocalId=Date.now();
+    const itemLabel=first.name+more;
     const savedCart=cart.map(i=>({...i}));   // server rad etsa — savatni qaytaramiz
-    USER.orders.unshift({id:orderLocalId, dish:first.name+more, emoji:first.emoji, rest:first.rest,
+    /* `_local:true` — bu yozuv hali serverga bog'lanmagan. `amount` bu yerda
+       TAXMINIY (client hisobi); server javob bergач haqiqiy summa bilan
+       almashadi (onOk yoki hydrateOrders — imzo bo'yicha). Shuning uchun bir
+       buyurtma IKKI marta ko'rinib qolmaydi va "Jami sarflagan" ikkilanmaydi. */
+    USER.orders.unshift({id:orderLocalId, _local:true, dish:itemLabel, emoji:first.emoji, rest:first.rest,
       date:new Date().toLocaleDateString("ru-RU"), amount:total, addr:addr, pay:koPay, deliveredIn:eta, promised:eta+3, reviewed:false, status:"new"});
     const addrFull = addr + (USER.geo ? " · 📍GPS: " + USER.geo.lat.toFixed(5) + "," + USER.geo.lng.toFixed(5) : "");
     let created=null;
     /* Summani SERVER hisoblaydi — biz faqat nima/nechta olayotganimizni aytamiz.
        Quyidagi rest/item/amount local ko'rinish uchun; server ularni e'tiborsiz
        qoldiradi. Rad etsa (min. summa / sotuvda yo'q taom) — orqaga qaytaramiz. */
-    try{ created = STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:first.name+more, emoji:first.emoji,
+    try{ created = STORE.addOrder({ user:USER.name, phone:USER.phone||"", rest:first.rest, item:itemLabel, emoji:first.emoji,
       /* `note` — mijozning shu taomga yozgan tilagi (restoran/kuryer ko'radi) */
       items:cart.map(i=>({id:i.id, qty:i.qty, note:(i.note||"")})),
       amount:total, delivery:(typeof koDeliveryFee==="function"?koDeliveryFee():0), addr:addrFull, pay:koPay, courier:STORE.courierForRest(first.rest), status:"new", eta:eta,
       time:new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}) },{
+      /* Server qabul qildi — optimistik yozuvni HAQIQIY id/summa/status bilan
+         yangilaymiz (app.js:attachBackendId dagi kabi). */
+      onOk: saved => {
+        const a=USER.orders.find(o=>o.id===orderLocalId) ||
+                USER.orders.find(o=>o._local && orderSig(o.rest,o.dish,o.pay)===orderSig(first.rest,itemLabel,koPay));
+        if(a && saved && saved.id){
+          a.id=saved.id;
+          a.amount=(Number(saved.amount)||a.amount);
+          a.status=saved.status||a.status;
+          delete a._local;
+        }
+        try{ hydrateOrders(); renderProfil(); }catch(e){}
+      },
       onFail: err => koOrderRejected(orderLocalId, savedCart, err)
     }); }catch(e){}
     cart=[]; renderCart(); updateKMenuQty(); renderProfil();
@@ -1116,18 +1170,8 @@
           if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Profil saqlandi ✓","success"); }
         else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
       });
-      var sl=document.getElementById("stSaveLogin");
-      if(sl) sl.addEventListener("click", async function(){
-        var msg=document.getElementById("stMsg2");
-        var login=v("stLogin"), pass=v("stPass"); var body={};
-        if(login && login.length<3){ if(msg){msg.style.color="#C8102E";msg.textContent="Login kamida 3 belgi";} return; }
-        if(login) body.login=login; if(pass){ if(pass.length<4){ if(msg){msg.style.color="#C8102E";msg.textContent="Parol kamida 4 belgi";} return; } body.pass=pass; }
-        if(!Object.keys(body).length){ if(msg){msg.style.color="#777";msg.textContent="O'zgarish yo'q";} return; }
-        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile(body) : {error:"Serverga ulanmadi"};
-        if(r && !r.error){ if(login) USER.login=login; var p=document.getElementById("stPass"); if(p) p.value="";
-          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Login/parol saqlandi ✓","success"); }
-        else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
-      });
+      /* Login/parolni o'zgartirish mijoz panelidan OLIB TASHLANDI —
+         buni FAQAT administrator bajaradi (admin panel «Loginlar» bo'limi). */
       /* Sozlamalar > Til. Ilgari bu tugmalar burger varaqdagi tugmani
          "click" qilardi va I18N.setLang yo'qligi sabab til almashmasdi.
          Endi to'g'ridan-to'g'ri umumiy applyKabLang chaqiriladi. */
