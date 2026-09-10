@@ -3,7 +3,13 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v26 — Kabinet «Taomlar» bo'limida bosh saytdagi kabi AKSIYA banneri: restoran
+/* v27 — MUAMMO TUZATILDI: bitta brauzerда admin + kuryer (yoki restoran)
+   bir vaqtда ochiq bo'lsa, token bir-birini bosib ketardi -> "Ruxsat berilmagan"
+   (403): kuryer javob so'rasa yoki admin kuryer loginini o'zgartirsa. Endi HAR
+   PANEL O'Z tokenini saqlaydi (yz_token_admin / _kuryer / _restoran / _user) —
+   hamma panelга bir vaqtда kirib turish mumkin. Bosh saytdан xodim kirса token
+   to'g'ri panel kalitiga yoziladi (qayta kirish shart emas).
+   (v26 — Kabinet «Taomlar» bo'limida bosh saytdagi kabi AKSIYA banneri: restoran
    e'lonlari navbatма-navbat aylanadi, bosilганda «Aksiyalar» modali; e'lon/chegirма
    yo'q bo'lsa yashiriladi. (v25 — «Yordam / murojaat» kontaktlari YAGONA manba (support.js): admin har
    birini (telefon/username/havola) alohida yoqib/o'chiradi; "sayt ma'muriyatiga
@@ -50,7 +56,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v26';
+const CACHE = 'yetkaz-v27';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

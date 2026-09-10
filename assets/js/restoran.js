@@ -1,5 +1,6 @@
 /* ===== Yetkaz.uz — Restoran egasi paneli ===== */
 (function(){
+  try{ if(typeof STORE!=="undefined") STORE.setPanelRole("restoran"); }catch(e){}
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   const mln=n=>(n/1e6).toFixed(1).replace(".",",")+" mln";

@@ -1,5 +1,6 @@
 /* ===== Yetkaz.uz — Admin panel (to'liq) ===== */
 (function(){
+  try{ if(typeof STORE!=="undefined") STORE.setPanelRole("admin"); }catch(e){}
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   /* Summa formati — KICHIK summa ham ko'rinsin (avval hammasi "0,0 mln" edi):

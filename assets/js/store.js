@@ -60,9 +60,44 @@ const STORE = (function () {
     try { listeners.forEach(cb => { try { cb(); } catch (e) {} }); } finally { firing = false; }
   }
 
-  /* ---- Token / sessiya ---- */
-  function getToken() { return lsRead(K.token, null); }
-  function setToken(t) { if (t) lsWrite(K.token, t); else try { localStorage.removeItem(K.token); } catch (e) {} }
+  /* ---- Token / sessiya — HAR PANEL O'ZINIKI =====
+     Muammo: bitta brauzerда admin.html va kuryer.html bir xil origin -> bir xil
+     localStorage. Ilgari token BITTA kalitда (`yz_token`) edi: kuryer panelга
+     kirsangiz admin tokeni ustiga yozilib, admin panelидаги amallar 403
+     («Ruxsat berilmagan») berardi (va aksincha). Endi har panel O'Z kalitини
+     ishlatadi: yz_token_admin / yz_token_kuryer / yz_token_restoran / yz_token_user.
+     Shu sabab hamma panelга bir vaqtда kirib turish mumkin.
+     `STORE.setPanelRole('kuryer')` — panel yuklanganда CHAQIRILADI. */
+  let PANEL_ROLE = "";
+  function setPanelRole(r) {
+    PANEL_ROLE = String(r || "").trim();
+    /* Migratsiya: shu panelга tegishli eski (umumiy) token bo'lsa — ko'chiramiz */
+    try {
+      if (PANEL_ROLE && !localStorage.getItem(tokenKey())) {
+        const legacyTok = localStorage.getItem(K.token);
+        const legacySess = lsRead(K.sess, null);
+        if (legacyTok && legacySess && legacySess.role === PANEL_ROLE) {
+          localStorage.setItem(tokenKey(), legacyTok);
+          lsWrite(sessKey(), legacySess);
+          localStorage.removeItem(K.token);
+          try { localStorage.removeItem(K.sess); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+  function tokenKey() { return PANEL_ROLE ? (K.token + "_" + PANEL_ROLE) : K.token; }
+  function sessKey() { return PANEL_ROLE ? (K.sess + "_" + PANEL_ROLE) : K.sess; }
+  function getToken() {
+    const t = lsRead(tokenKey(), null);
+    /* Per-panel kalit bo'sh bo'lsa — eski umumiy tokenga vaqtincha tayanamiz
+       (verifySession rol mos kelmasa login ekranini ko'rsatadi). */
+    return t || (PANEL_ROLE ? lsRead(K.token, null) : null);
+  }
+  function setToken(t) {
+    const key = tokenKey();
+    if (t) lsWrite(key, t);
+    else try { localStorage.removeItem(key); } catch (e) {}
+  }
 
   /* ---- MAXFIY keshni tozalash (akkaunt almashganда aralashmasin) ----
      Buyurtmalar HAR AKKAUNTGA XOS (restoran o'ziniki, kuryer o'ziniki). Ular
@@ -104,11 +139,20 @@ const STORE = (function () {
   function onAuthLost() {
     if (authLost) return;
     authLost = true;
-    try { localStorage.removeItem(K.sess); } catch (e) {}
+    try { localStorage.removeItem(sessKey()); } catch (e) {}
     setToken(null);
     try { clearPrivateCache(); } catch (e) {}   // maxfiy kesh qolmasin
     try { localStorage.setItem("yz_session_expired", "1"); } catch (e) {}
     try { location.reload(); } catch (e) {}
+  }
+
+  /* 401/403 xatoni "sessiya muammosi" deb qaytaradi (panel foydalanuvchiga
+     "qayta kiring" deydi). Boshqa xatolar odatdagidek. */
+  function authAwareErr(e) {
+    if (e && (e.status === 401 || e.status === 403)) {
+      return { error: 'Sessiya muammosi — shu panelга qaytadan kiring (bir brauzerда bir nechta panel ochiq bo\'lsa shunday bo\'ladi).', authIssue: true };
+    }
+    return { error: (e && e.data && e.data.error) || (e && e.message) || 'Xatolik' };
   }
 
   /* Yozish so'rovlari — xatoni yutadi (optimistik kesh allaqachon yangilangan).
@@ -436,19 +480,19 @@ const STORE = (function () {
     /* Restoran egasi o'z rasmini saqlaydi */
     setRestaurantPhoto(photo) { return send("/restaurants/photo", { method: "POST", body: { photo } }).then(r => { refreshPublic(); return r; }); },
     /* Restoran egasi o'z ommaviy ma'lumotini saqlaydi (tavsif/manzil/ish vaqti/hudud) */
-    updateRestaurantInfo(data) { return api("/restaurants/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshPublic(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    updateRestaurantInfo(data) { return api("/restaurants/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshPublic(); return r; }).catch(authAwareErr); },
     editCourier(data) { return send("/couriers", { method: "PATCH", body: data }); },
     /* ---- KURYER O'ZI: ish vaqti, ishdan javob (leave), ishga qaytish ---- */
-    updateCourierInfo(data) { return api("/couriers/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    updateCourierInfo(data) { return api("/couriers/me", { method: "PATCH", body: data, auth: true }).then(r => { refreshAll(); return r; }).catch(authAwareErr); },
     fetchCourierMe() { return api("/couriers/me", { auth: true }).catch(() => null); },
     /* Kuryer O'Z doimiy to'lov QR'ini oladi (rasm + havola) */
     fetchMyPayQR() { return api("/couriers/me/qr", { auth: true }).catch(() => null); },
-    courierLeave(reason) { return api("/couriers/leave", { method: "POST", body: { reason }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    courierLeave(reason) { return api("/couriers/leave", { method: "POST", body: { reason }, auth: true }).then(r => { refreshAll(); return r; }).catch(authAwareErr); },
     /* Kuryer so'rovini bekor qiladi / rad javobini tan oladi (leave_status -> none) */
-    courierLeaveCancel() { return api("/couriers/leave-cancel", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
-    courierReturn() { return api("/couriers/return", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    courierLeaveCancel() { return api("/couriers/leave-cancel", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(authAwareErr); },
+    courierReturn() { return api("/couriers/return", { method: "POST", auth: true }).then(r => { refreshAll(); return r; }).catch(authAwareErr); },
     /* ADMIN: ishdan-javob so'rovini tasdiqlash/rad etish */
-    courierLeaveDecision(login, approve) { return api("/couriers/leave-decision", { method: "POST", body: { login, approve }, auth: true }).then(r => { refreshAll(); return r; }).catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" })); },
+    courierLeaveDecision(login, approve) { return api("/couriers/leave-decision", { method: "POST", body: { login, approve }, auth: true }).then(r => { refreshAll(); return r; }).catch(authAwareErr); },
     /* Restoran/admin/kuryer uchun minimal kuryer holati ro'yxati */
     fetchCourierStatus() { return api("/couriers/status", { auth: true }).catch(() => []); },
     fetchUsers() { return api("/users", { auth: true }).catch(() => []); },
@@ -472,7 +516,7 @@ const STORE = (function () {
       if (o.newLogin) body.newLogin = o.newLogin;
       if (o.pass) body.pass = o.pass;
       return api("/accounts/update", { method: "POST", body, auth: true })
-        .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
+        .catch(authAwareErr);
     },
     /* Admin foydalanuvchi ma'lumotini tahrirlaydi (restoran/kuryerdagi kabi) */
     editUser(data) {
@@ -573,7 +617,17 @@ const STORE = (function () {
              keyin token o'rnatib, O'Z ma'lumotini yuklaymiz. Shunда eski
              buyurtmalar bir lahza ham ko'rinmaydi. */
           clearPrivateCache();
-          setToken(r.token); this.setSession(r.account); refreshOrders(); return r.account;
+          /* Bosh saytdан restoran/kuryer kirса — tokenни O'SHA panel kalitiga
+             yozamiz (yz_token_restoran / _kuryer), yo'naltirilgan panel darrov
+             tayyor bo'lsin (qayta kirish shart emas). */
+          const accRole = (r.account && r.account.role) || PANEL_ROLE;
+          if (accRole && accRole !== PANEL_ROLE) {
+            lsWrite(K.token + "_" + accRole, r.token);
+            lsWrite(K.sess + "_" + accRole, r.account);
+          } else {
+            setToken(r.token); this.setSession(r.account);
+          }
+          refreshOrders(); return r.account;
         }
         return null;                       // server javob berdi, lekin token yo'q
       } catch (e) {
@@ -607,14 +661,16 @@ const STORE = (function () {
     findAccount() { return null; },
     userExists() { return false; },
 
-    session() { return lsRead(K.sess, null); },
-    setSession(s) { lsWrite(K.sess, s); },
+    setPanelRole,
+    session() { return lsRead(sessKey(), null) || (PANEL_ROLE ? lsRead(K.sess, null) : null); },
+    setSession(s) { lsWrite(sessKey(), s); },
     /* Chiqishда FAQAT sessiya emas, MAXFIY (akkauntga tegishli) keshni ham
        tozalaymiz. Aks holda restoran A chiqib, kuryer B shu qurilmaга kirса,
        B paneli A ning buyurtmalarini (mijoz telefoni/manzili bilan) keshda
        ko'rib qolardi — akkauntlar ma'lumoti aralashardi. */
     clearSession() {
-      try { localStorage.removeItem(K.sess); } catch (e) {}
+      try { localStorage.removeItem(sessKey()); } catch (e) {}
+      try { if (PANEL_ROLE) localStorage.removeItem(K.sess); } catch (e) {}   // eski umumiy sessiya ham
       setToken(null);
       clearPrivateCache();
     },
@@ -628,7 +684,7 @@ const STORE = (function () {
              chaqiruvchi keshdagi sessiya bilan davom etishi mumkin (offline PWA).
     */
     async verifySession() {
-      const cached = lsRead(K.sess, null);
+      const cached = this.session();
       if (!getToken()) { this.clearSession(); return { ok: false, reason: "auth" }; }
       try {
         const r = await api("/auth/me", { auth: true });

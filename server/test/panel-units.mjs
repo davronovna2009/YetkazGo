@@ -361,5 +361,97 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   eq(m.length, 1, 'store.payMethods: hammasi o\'chirilса -> naqd majburan (buyurtма bo\'lsin)');
 }
 
+/* ---------- store.js — HAR PANEL O'Z tokeni (bitta brauzerда admin+kuryer) ---------- */
+{
+  const src = JS('store.js');
+  /* Soxta localStorage + window */
+  const LS = new Map();
+  const localStorage = {
+    getItem: (k) => (LS.has(k) ? LS.get(k) : null),
+    setItem: (k, v) => LS.set(k, String(v)),
+    removeItem: (k) => LS.delete(k),
+  };
+  const fakeEl = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, appendChild() {}, addEventListener() {}, remove() {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '', textContent: '' });
+  const doc = {
+    readyState: 'complete', addEventListener: () => {},
+    getElementById: () => null, querySelector: () => null, querySelectorAll: () => [],
+    createElement: () => fakeEl(), head: fakeEl(), body: fakeEl(), documentElement: fakeEl(),
+  };
+  const win = {
+    localStorage,
+    location: { protocol: 'https:', origin: 'https://x', href: 'https://x/' },
+    addEventListener: () => {}, setInterval: () => 0, setTimeout: (f) => { try { f(); } catch (e) {} },
+    fetch: () => Promise.reject(new Error('offline')),
+    navigator: {}, document: doc,
+  };
+  win.window = win;
+  const ctx = { ...win, globalThis: win, console, JSON, Date, Promise, Math, Object, Array, String, Number };
+  vm.createContext(ctx);
+  vm.runInContext(src + '\n;this.STORE=STORE;', ctx);
+  const S = ctx.STORE;
+  eq(typeof S.setPanelRole, 'function', 'store: setPanelRole mavjud');
+
+  /* Admin panel kirdi */
+  S.setPanelRole('admin');
+  S.setSession({ role: 'admin', name: 'AdminUser', login: 'admin' });
+  /* Kuryer panel kirdi (BIR XIL brauzer/localStorage) */
+  S.setPanelRole('kuryer');
+  S.setSession({ role: 'kuryer', name: 'KuryerUser', login: 'kur1' });
+  /* Restoran panel kirdi */
+  S.setPanelRole('restoran');
+  S.setSession({ role: 'restoran', name: 'RestUser', login: 'rest1' });
+
+  /* Har panel O'Z sessiyasini ko'radi — bir-birini bosib ketmaydi */
+  S.setPanelRole('admin');
+  eq(S.session().name, 'AdminUser', 'store: admin panel -> admin sessiyasi (kuryer bosib ketmadi)');
+  S.setPanelRole('kuryer');
+  eq(S.session().name, 'KuryerUser', 'store: kuryer panel -> kuryer sessiyasi');
+  S.setPanelRole('restoran');
+  eq(S.session().name, 'RestUser', 'store: restoran panel -> restoran sessiyasi');
+
+  /* localStorage'да alohida kalitlar */
+  eq(LS.has('yz_session_admin') && LS.has('yz_session_kuryer') && LS.has('yz_session_restoran'), true,
+    'store: yz_session_<rol> alohida saqlanadi');
+
+  /* Kuryer chiqdi — admin/restoran sessiyasiga TEGMAYDI */
+  S.setPanelRole('kuryer');
+  S.clearSession();
+  eq(S.session(), null, 'store: kuryer chiqdi -> kuryer sessiyasi yo\'q');
+  S.setPanelRole('admin');
+  eq(S.session().name, 'AdminUser', 'store: kuryer chiqqач ham admin sessiyasi joyida');
+
+  /* Bosh saytdан (PANEL_ROLE=user) restoran kirса — token yz_token_restoran ga yoziladi */
+  LS.clear();
+  ctx.fetch = (url, opt) => {
+    const body = opt && opt.body ? JSON.parse(opt.body) : {};
+    if (String(url).includes('/auth/login')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ token: 'RESTOK', account: { role: 'restoran', name: 'R', login: body.login } }) });
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+  };
+  S.setPanelRole('user');
+  await S.login('rest1', 'p');
+  eq(LS.get('yz_token_restoran'), '"RESTOK"', 'store: bosh saytdан restoran kirса -> yz_token_restoran ga yozildi');
+  eq(LS.has('yz_token_user'), false, 'store: user kalitига yozilmadi (restoran token)');
+  S.setPanelRole('restoran');
+  eq(S.session().name, 'R', 'store: restoran panelига o\'tganда sessiya tayyor (qayta kirish shart emas)');
+  ctx.fetch = () => Promise.reject(new Error('offline'));
+
+  /* Migratsiya: eski umumiy yz_token/yz_session -> shu panelniki */
+  LS.clear();
+  LS.set('yz_token', '"legacyKuryerTok"');
+  LS.set('yz_session', JSON.stringify({ role: 'kuryer', name: 'Old', login: 'k' }));
+  S.setPanelRole('kuryer');
+  eq(LS.get('yz_token_kuryer'), '"legacyKuryerTok"', 'store: eski token -> yz_token_kuryer ga ko\'chdi');
+  eq(LS.has('yz_token'), false, 'store: eski umumiy token tozalandi');
+  /* Rol mos kelmasa — ko'chirilmaydi */
+  LS.clear();
+  LS.set('yz_token', '"legacyAdminTok"');
+  LS.set('yz_session', JSON.stringify({ role: 'admin', name: 'A', login: 'admin' }));
+  S.setPanelRole('kuryer');
+  eq(LS.has('yz_token_kuryer'), false, 'store: admin tokeni kuryer panelга ko\'chmaydi');
+  eq(LS.get('yz_token'), '"legacyAdminTok"', 'store: admin uchun eski token saqlanib qoldi');
+}
+
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);
 process.exit(FAIL ? 1 : 0);

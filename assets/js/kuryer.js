@@ -1,5 +1,6 @@
 /* ===== Yetkaz.uz — Kuryer paneli ===== */
 (function(){
+  try{ if(typeof STORE!=="undefined") STORE.setPanelRole("kuryer"); }catch(e){}
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape

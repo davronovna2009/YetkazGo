@@ -1,5 +1,6 @@
 /* ===== Yetkaz.uz — Asosiy mantiq ===== */
 (function(){
+  try{ if(typeof STORE!=="undefined") STORE.setPanelRole("user"); }catch(e){}
   const $ = (s,r=document)=>r.querySelector(s);
   const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
   const fmt = n => n.toLocaleString("ru-RU");
