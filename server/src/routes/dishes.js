@@ -20,7 +20,8 @@ function restFor(req) {
 }
 
 function addedRow(r, live) {
-  const lr = live && live.dishes[r.name];
+  /* Reyting kaliti "restoran|taom" (bir xil nomli taom boshqa restoranда alohida) */
+  const lr = live && (live.dishes[r.rest + '|' + r.name] || live.dishes[r.name]);
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr || '', emoji: r.emoji, price: r.price,
     rest: r.rest, cat: r.cat, kw: r.kw, photo: r.photo,

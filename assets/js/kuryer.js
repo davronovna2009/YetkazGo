@@ -216,11 +216,14 @@
     /* Real reyting — mijozlar bergan kuryer baholari o'rtachasi */
     var _rv=(typeof STORE!=="undefined"?STORE.reviews():[]).filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
     const rating=_rv.length?(_rv.reduce(function(s,r){return s+(r.rating||0);},0)/_rv.length).toFixed(1):(c.rating||0);
+    /* O'RTACHA yetkazish vaqti — buyurtma kelgan paytdan "Yetkazdim"gacha (server: deliveryMin) */
+    const _dm=doneAll.map(o=>Number(o.deliveryMin)||0).filter(v=>v>0);
+    const avgDelivAll=_dm.length?Math.round(_dm.reduce((a,b)=>a+b,0)/_dm.length):0;
     /* Dashboard kartalarida PUL yo'q — daromad alohida «Daromad» bo'limida (renderIncome) */
     $("#statCards").innerHTML=`
       <div class="scard c3"><div class="si">🚀</div><b>${active}</b><span>Faol buyurtma</span></div>
       <div class="scard c2"><div class="si">📦</div><b>${money(doneCount)}</b><span>Yetkazilgan (jami)</span></div>
-      <div class="scard c1"><div class="si">⏰</div><b>${late}</b><span>Kechikkan</span></div>
+      <div class="scard c1"><div class="si">⏱</div><b style="font-size:${avgDelivAll>=60?'16px':''}">${avgDelivAll>0?kMins(avgDelivAll):"—"}</b><span>O'rtacha yetkazish vaqti</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${rating||"—"}</b><span>Reyting</span></div>`;
     /* Mijoz izohlari (barcha panelda ko'rinadi) */
     var host=$("#statCards");

@@ -42,22 +42,26 @@ function dishRestMap() {
 
 /* ===== REAL SOTUV — yetkazilgan buyurtmalar tarkibidan (dona bilan) =====
    items_json: [{id,name,emoji,qty,...}]. Buyurtma yorlig'i ("Osh +2 ta") emas,
-   HAR QATOR o'z dona soni bilan sanaladi. Qaytaradi: Map<taom nomi, dona>. */
+   HAR QATOR o'z dona soni bilan sanaladi. Kalit "restoran|taom" — bir xil
+   nomli taom BOSHQA restoranда alohida hisoblanadi (adashmasin).
+   Qaytaradi: Map<"restoran|taom", dona>. */
 export function dishSales() {
   const m = new Map();
   let rows = [];
   try {
-    rows = db.prepare("SELECT items_json, item FROM orders WHERE status = 'done'").all();
+    rows = db.prepare("SELECT items_json, rest FROM orders WHERE status = 'done'").all();
   } catch (e) { return m; }
   for (const r of rows) {
     let lines = [];
     try { lines = JSON.parse(r.items_json || '[]'); } catch (e) { lines = []; }
+    const rest = String(r.rest || '').trim();
     if (Array.isArray(lines) && lines.length) {
       for (const l of lines) {
         const name = String((l && l.name) || '').trim();
         if (!name) continue;
         const qty = Math.max(0, Number(l && l.qty) || 0) || 1;
-        m.set(name, (m.get(name) || 0) + qty);
+        const k = rest ? (rest + '|' + name) : name;
+        m.set(k, (m.get(k) || 0) + qty);
       }
     }
   }
@@ -83,9 +87,12 @@ export function liveRatings() {
       push(byCour, dish.replace(KURYER_RE, '').trim(), r);
       continue;
     }
-    push(byDish, dish, r);
     /* Restoran: izohdagi `rest`, bo'lmasa taom katalogidan topamiz */
-    push(byRest, String(r.rest || '') || dr.get(dish) || '', r);
+    const rest = String(r.rest || '') || dr.get(dish) || '';
+    /* Taom bahosi "restoran|taom" kalitida — bir xil nomli taom boshqa
+       restoranда alohida. Restoran topilmasa — eski "taom" kaliti. */
+    push(byDish, rest ? (rest + '|' + dish) : dish, r);
+    push(byRest, rest, r);
   }
 
   const outAvg = (map) => {
@@ -94,23 +101,22 @@ export function liveRatings() {
     return o;
   };
 
-  /* ===== TAOM yulduzchasi ===== */
+  /* ===== TAOM yulduzchasi ===== kalit "restoran|taom" (yoki eski "taom") */
   const src = dishRatingSrc();
   const thr = dishStarThresholds();
   const sales = dishSales();
   const dishes = {};
-  /* Barcha nomlar: sotilganlar + baho olganlar */
-  const names = new Set([...sales.keys(), ...byDish.keys()]);
-  for (const name of names) {
-    if (!name) continue;
-    const sold = sales.get(name) || 0;
-    const revs = byDish.get(name) || [];
+  const keys = new Set([...sales.keys(), ...byDish.keys()]);
+  for (const k of keys) {
+    if (!k) continue;
+    const sold = sales.get(k) || 0;
+    const revs = byDish.get(k) || [];
     const revAvg = avg(revs);
     let rating;
     if (src === 'reviews') rating = revAvg;
     else if (src === 'blend') rating = revs.length >= 3 ? revAvg : starsForSales(sold, thr);
     else rating = starsForSales(sold, thr);        // 'sales' (standart)
-    dishes[name] = { rating, count: revs.length, sold, reviewAvg: revAvg };
+    dishes[k] = { rating, count: revs.length, sold, reviewAvg: revAvg };
   }
 
   return { rests: outAvg(byRest), dishes, couriers: outAvg(byCour) };

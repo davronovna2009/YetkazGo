@@ -119,19 +119,23 @@ async function main() {
   eq(bRest2.rating, 5, 'restoran reytingi izohdан hisoblandi (5)');
   /* ===== TAOM yulduzchasi — STANDART 'sales' (sotuvга qarab), admin bosqichlari.
      Osh 2 dona sotildi (< 5) -> 0 yulduz. Mijoz bahosi `reviewAvg` da qoladi. ===== */
-  const oshRating = boot2.ratings.dishes['Osh'];
+  const RK = 'Osh Markazi|Osh';   // reyting kaliti: "restoran|taom"
+  const oshRating = boot2.ratings.dishes[RK];
   eq(oshRating && oshRating.sold, 2, 'Osh REAL sotuvi = 2 dona (yetkazilgan buyurtmadan)');
+  const oshCard = (boot2.overrides.added || []).find((d) => d.rest === 'Osh Markazi' && d.name === 'Osh');
+  eq(oshCard && oshCard.rating, 0, 'katalog: Osh kartasi yulduzchasi 0');
+  eq(oshCard && oshCard.sold, 2, 'katalog: Osh kartasi sotuvi 2 (rest|name kaliti)');
   eq(oshRating && oshRating.rating, 0, 'Osh yulduzchasi 0 (2 dona < 5 — standart 1★ bosqichi)');
   eq(oshRating && oshRating.reviewAvg, 5, 'Osh mijoz bahosi o\'rtachasi = 5 (reviewAvg)');
   eq(boot2.settings.dishRatingSrc, 'sales', 'standart taom reyting manbai = sales');
   /* Admin 1★ bosqichini 2 ga tushirsa -> Osh 1 yulduz oladi */
   await api('PATCH', '/settings', { dishStarThresholds: [2, 5, 10, 20, 40] }, AT);
   let bootT = (await api('GET', '/bootstrap', null)).data;
-  eq(bootT.ratings.dishes['Osh'].rating, 1, 'bosqich 2 ga tushdi -> Osh 1★');
+  eq(bootT.ratings.dishes[RK].rating, 1, 'bosqich 2 ga tushdi -> Osh 1★');
   /* Admin manbани 'reviews' qilsa -> mijoz bahosi (5) ko'rinadi */
   await api('PATCH', '/settings', { dishRatingSrc: 'reviews' }, AT);
   bootT = (await api('GET', '/bootstrap', null)).data;
-  eq(bootT.ratings.dishes['Osh'].rating, 5, "manba 'reviews' -> Osh yulduzchasi = 5");
+  eq(bootT.ratings.dishes[RK].rating, 5, "manba 'reviews' -> Osh yulduzchasi = 5");
   /* Standartga qaytaramiz (qolgan tekshiruvlar buzilmasin) */
   await api('PATCH', '/settings', { dishRatingSrc: 'sales', dishStarThresholds: [5, 15, 30, 60, 100] }, AT);
   const kurRating = boot2.ratings.couriers['Kuryer Vali'];
