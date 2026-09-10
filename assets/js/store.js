@@ -147,10 +147,16 @@ const STORE = (function () {
   }
 
   /* 401/403 xatoni "sessiya muammosi" deb qaytaradi (panel foydalanuvchiga
-     "qayta kiring" deydi). Boshqa xatolar odatdagidek. */
+     "qayta kiring" deydi). Boshqa xatolar odatdagidek.
+     MUHIM: bu SERVER bergan HTTP 401/403 (tarmoq xatosi emas — u .status siz
+     keladi va pastdagi qatorга tushadi). Ya'ni token haqiqatan yaroqsiz:
+     eskirgan (JWT 7 kun), yoki bir brauzerда boshqa rol ustiga yozilgan.
+     Shu holда panelни login ekraniga qaytaramiz — qayta kirish yangi token
+     beradi va muammo yo'qoladi. Aks holда tugma "ishlamaydi"gа o'xshab qolardi. */
   function authAwareErr(e) {
     if (e && (e.status === 401 || e.status === 403)) {
-      return { error: 'Sessiya muammosi — shu panelга qaytadan kiring (bir brauzerда bir nechta panel ochiq bo\'lsa shunday bo\'ladi).', authIssue: true };
+      try { onAuthLost(); } catch (_) {}
+      return { error: 'Sessiyangiz tugagan — qaytadan kiring.', authIssue: true };
     }
     return { error: (e && e.data && e.data.error) || (e && e.message) || 'Xatolik' };
   }

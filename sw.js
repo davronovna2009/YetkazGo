@@ -3,7 +3,12 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v28 — Bosh sayt buyurtма modallari tuzatildi: bir nechta buyurtма berilса
+/* v29 — Kuryer "Ishdan javob so'rash" (va boshqa panel amallari) tokeni eskirган
+   (JWT 7 kun) yoki bir brauzerда boshqa rol ustiga yozilган bo'lса, server 401
+   "Avtorizatsiya talab qilinadi" berardi va tugma "ishlamaydi"gа o'xshаб qolardi.
+   Endi bunday HTTP 401/403 da panel avtomatik login ekraniga qaytadi
+   ("Sessiyangiz tugagan — qaytadan kiring") — qayta kirish yangi token beradi.
+   (v28 — Bosh sayt buyurtма modallari tuzatildi: bir nechta buyurtма berilса
    modallar aralashib chiqar, soat raqamlari sakrar edi. Endi "Buyurtma qabul
    qilindi" oynasi FAQAT oxirgi buyurtма uchun avto ochiladi; qolganlari faol
    buyurtмalar ro'yxatida — ustiga bossa o'sha buyurtмaning oynasi. Taymer
@@ -62,7 +67,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v28';
+const CACHE = 'yetkaz-v29';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',
