@@ -6,7 +6,7 @@ server/node_modules/
 server/data/
 
 # Test vaqtinchalik bazasi (test/run.mjs o'zi tozalaydi, lekin uzilib qolsa qolib ketmasin)
-server/test/.tmp-test.db*
+server/test/.tmp-*.db*
 
 # Zaxira nusxalar (backup)
 server/backups/
