@@ -358,32 +358,28 @@
      daromadi. Saytga qoladigan qism kuryerga UMUMAN ko'rsatilmaydi.
      Davr tanlovi + karta/naqd bo'linishi (necha mijoz karta, nechasi naqd). */
   let kIncomePeriod="oylik";
-  function kInPeriod(o,p){
-    var t=YZ_TIME.stamp((o&&o.created_at)||""); if(!t) return p==="oylik";
-    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
-    var d=(Date.now()-t)/86400000;
-    if(p==="haftalik") return d<7; if(p==="yillik") return d<366; return d<31;
-  }
   function renderIncome(){
     const host=$("#kIncomeBody"); if(!host) return;
     const fee=Math.max(0, Number(CUR&&CUR.fee)||0);
     const done=ORDERS.filter(o=>o.status==="done");
-    const inP=done.filter(o=>kInPeriod(o,kIncomePeriod));
     /* Haq HAR BUYURTMAGA yetkazilgan paytda muhrlanadi (server: courier_fee).
        Admin haqni keyin oshirsa/kamaytirsa, O'TGAN buyurtmalar daromadi
        qayta yozilmaydi — kuryer ko'rgan raqam haqiqiy to'lovga mos turadi. */
     const feeOf=o=>(o&&o.courierFee!=null)?(Number(o.courierFee)||0):fee;
+    /* Davr/ustun mantiqi — YZ_TIME.incomeChart (admin/restoran bilan bir xil).
+       "Shu davr" kartasi = grafikning OXIRGI ustuni (1 so'mgacha teng). */
+    const IC=YZ_TIME.incomeChart(kIncomePeriod);
+    const inP=done.filter(o=>IC.isCurrent(o.created_at));
     const earn=inP.reduce((s,o)=>s+feeOf(o),0);
     const card=inP.filter(o=>o.pay!=="cash"), cash=inP.filter(o=>o.pay==="cash");
-    const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[kIncomePeriod];
+    const pLabel=IC.periodLabel;
     const seg=(k,t)=>`<button class="kinc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
-    /* Oylik grafik — so'nggi 6 oy, yetkazilgan buyurtmalar bo'yicha */
-    const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-    const now=new Date(); const slots=[];
-    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],n:0,sum:0}); }
-    done.forEach(function(o){ const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/); if(!mm) return; const sl=slots.find(x=>x.y===+mm[1]&&x.m===(+mm[2]-1)); if(sl){ sl.n++; sl.sum+=feeOf(o); } });
-    const max=Math.max.apply(null,slots.map(x=>x.sum).concat([1]));
-    const chart=slots.map(function(x){ const v=x.sum; return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:#8a7f76">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,#16a34a,#4ade80);height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+    /* REAL grafik — TANLANGAN davrga qarab (kunlik→7 kun, haftalik→8 hafta,
+       oylik→6 oy, yillik→5 yil). Ustunlar yetkazilgan buyurtmalar haqidan. */
+    const sums=IC.series(done, feeOf);
+    const max=Math.max.apply(null,sums.concat([1]));
+    const chart=IC.buckets.map(function(x,i){ const v=sums[i]; const cur=i===IC.curIndex;
+      return '<div style="flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:'+(cur?'#15803d':'#8a7f76')+'">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:'+(cur?'linear-gradient(180deg,#15803d,#22c55e)':'linear-gradient(180deg,#86c9a3,#b9e3cb)')+';height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
     host.innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
@@ -405,8 +401,9 @@
           <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--grey);margin-top:5px"><span>💳 ${inP.length?Math.round(card.length/inP.length*100):0}%</span><span>💵 ${inP.length?Math.round(cash.length/inP.length*100):0}%</span></div>
         </div></div>
       </div>
-      <div class="panel"><div class="panel-head"><h3>Oylik daromad (so'nggi 6 oy)</h3></div>
-        <div class="panel-body"><div style="display:flex;align-items:flex-end;gap:8px;height:170px;overflow-x:auto;padding:10px 4px">${chart}</div></div></div>
+      <div class="panel"><div class="panel-head"><h3>Daromad grafigi</h3><span style="color:var(--grey);font-size:13px">${IC.spanLabel}</span></div>
+        <div class="panel-body"><div style="display:flex;align-items:flex-end;gap:8px;height:170px;overflow-x:auto;padding:10px 4px">${chart}</div>
+        <p style="color:var(--grey);font-size:12px;margin:8px 2px 0">Oxirgi (yashil) ustun — «${pLabel}» daromadingiz: <b>${money(earn)} so'm</b>. Har ustun yetkazilgan buyurtmalar haqidan hisoblangan.</p></div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Daromadingiz har yetkazilgan buyurtma uchun belgilangan haq bo'yicha hisoblanadi. Haqni admin belgilaydi.</p>`;
     host.querySelectorAll(".kinc-seg").forEach(function(b){ b.addEventListener("click",function(){ kIncomePeriod=b.dataset.kp; renderIncome(); }); });
   }

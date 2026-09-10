@@ -883,17 +883,9 @@
     if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); }
   });
 
-  /* Admin daromad davri: kunlik/haftalik/oylik/yillik */
+  /* Admin daromad davri: kunlik/haftalik/oylik/yillik.
+     Davr/ustun bo'linishi YZ_TIME.incomeChart da (restoran/kuryer bilan bir xil). */
   let aIncomePeriod="oylik";
-  function aOrderTime(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
-  function aInPeriod(o,p){
-    var t=aOrderTime(o); if(!t) return p==="oylik";
-    /* "Kunlik" yorlig'i «bugun» deb ko'rsatiladi — demak AYNAN bugungi kun
-       (Toshkent), oxirgi 24 soat emas. */
-    if(p==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
-    var d=(Date.now()-t)/86400000;
-    if(p==="haftalik")return d<7; if(p==="yillik")return d<366; return d<31;
-  }
   /* ===== SAYT MOLIYASI — YAGONA hisoblash joyi =====
      Server har buyurtmaga yaratilgan paytdagi komissiya foizini (commission),
      yetkazilgan paytdagi kuryer haqini (courierFee) va sof foydani (siteProfit)
@@ -943,12 +935,15 @@
   function renderIncome(){
     const live=(typeof STORE!=="undefined")?STORE.orders():[];
     const done=live.filter(o=>o.status==="done");
-    const periodDone=done.filter(o=>aInPeriod(o,aIncomePeriod));
+    /* Davr/ustun mantiqi — YZ_TIME.incomeChart (restoran/kuryer bilan AYNAN bir xil).
+       "Shu davr" kartasi = grafikning oxirgi (joriy) ustuni — 1 so'mgacha teng. */
+    const IC=YZ_TIME.incomeChart(aIncomePeriod);
+    const periodDone=done.filter(o=>IC.isCurrent(o.created_at));
     const periodSite=periodDone.reduce((s,o)=>s+commOf(o),0);
     /* XARAJAT va SOF FOYDA — kuryerlarga to'langan haq komissiyadan chiqadi */
     const periodFee=periodDone.reduce((s,o)=>s+feeOf(o),0);
     const periodProfit=periodSite-periodFee;
-    const apLabel={kunlik:"bugun",haftalik:"haftalik",oylik:"oylik",yillik:"yillik"}[aIncomePeriod];
+    const apLabel=IC.periodLabel;
     const aseg=(k,t)=>`<button class="a-inc-seg" data-ap="${k}" style="border:none;border-radius:8px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;margin:2px 4px 0 0;background:${aIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${aIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     const sc=$("#incStatCards");
     if(sc){
@@ -960,38 +955,22 @@
         <div class="scard c4"><div class="si">🧾</div><div class="scard-info"><b>${money(periodDone.length)}</b><span>Yetkazilgan (${apLabel})</span></div></div>`;
       sc.querySelectorAll(".a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderIncome(); }); });
     }
-    /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab ko'tariladi/tushadi.
-       Davr tugmasi (kunlik/haftalik/oylik/yillik) komissiya kartasining ichida;
-       o'zgartirilsa diagramma ham shu davrga moslashadi:
-         kunlik  -> so'nggi 7 kun (kunma-kun)
-         haftalik-> so'nggi 8 hafta
-         oylik   -> so'nggi 6 oy
-         yillik  -> so'nggi 5 yil */
+    /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab (YZ_TIME.incomeChart):
+         kunlik → so'nggi 7 kun ·  haftalik → 8 hafta ·  oylik → 6 oy ·  yillik → 5 yil
+       Ustunlar KOMISSIYA daromadidan (commOf) — oxirgi (joriy) ustun yuqoridagi
+       «Komissiya daromadi» kartasiga TENG. */
     (function(){
-      const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-      const WD=["Yak","Dush","Sesh","Chor","Pay","Jum","Shan"];
-      const now=new Date();
-      const slots=[];
-      const ms=o=>YZ_TIME.stamp((o&&o.created_at)||"");
-      if(aIncomePeriod==="kunlik"){
-        for(let i=6;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i); slots.push({label:WD[dt.getDay()]+" "+dt.getDate(),key:dt.getFullYear()+"-"+dt.getMonth()+"-"+dt.getDate(),sum:0,match:o=>{const d=new Date(ms(o));return d.getFullYear()===dt.getFullYear()&&d.getMonth()===dt.getMonth()&&d.getDate()===dt.getDate();}}); }
-      } else if(aIncomePeriod==="haftalik"){
-        for(let i=7;i>=0;i--){ const start=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i*7-now.getDay()); const s=start.getTime(), e=s+7*86400000; slots.push({label:(start.getMonth()+1)+"/"+start.getDate(),sum:0,match:o=>{const t=ms(o);return t>=s&&t<e;}}); }
-      } else if(aIncomePeriod==="yillik"){
-        for(let i=4;i>=0;i--){ const y=now.getFullYear()-i; slots.push({label:String(y),sum:0,match:o=>{const mm=String(o.created_at||"").match(/^(\d{4})/);return mm&&+mm[1]===y;}}); }
-      } else {
-        for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({label:MON[dt.getMonth()],y:dt.getFullYear(),m:dt.getMonth(),sum:0,match:o=>{const mm=String(o.created_at||"").match(/^(\d{4})-(\d{2})/);return mm&&+mm[1]===dt.getFullYear()&&(+mm[2]-1)===dt.getMonth();}}); }
-      }
-      done.forEach(function(o){ const sl=slots.find(x=>x.match(o)); if(sl) sl.sum+=commOf(o); });
-      const max=Math.max.apply(null,slots.map(x=>x.sum).concat([1]));
+      const sums=IC.series(done, commOf);
+      const max=Math.max.apply(null,sums.concat([1]));
       const el=$("#revChart"); if(!el) return;
       el.style.cssText="display:flex;align-items:flex-end;gap:8px;padding:12px 6px;height:180px;overflow-x:auto";
-      el.innerHTML=slots.map(function(x){ return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
-        '<div style="font-size:11px;font-weight:700;color:#8a7f76">'+(x.sum?mln(x.sum).replace(" mln",""):"0")+'</div>'+
-        '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--red,#C8102E),#ff7a5c);height:'+Math.max(4,Math.round(x.sum/max*130))+'px"></div>'+
+      el.innerHTML=IC.buckets.map(function(x,i){ const v=sums[i]; const cur=i===IC.curIndex;
+        return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
+        '<div style="font-size:11px;font-weight:700;color:'+(cur?'#C8102E':'#8a7f76')+'">'+(v?mln(v).replace(" mln",""):"0")+'</div>'+
+        '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:'+(cur?'linear-gradient(180deg,#a30d24,#C8102E)':'linear-gradient(180deg,#e88,#ffb3a0)')+';height:'+Math.max(4,Math.round(v/max*130))+'px"></div>'+
         '<small style="font-size:10px;color:#8a7f76;white-space:nowrap">'+x.label+'</small></div>'; }).join("");
-      /* Diagramma sarlavhasidagi davr yorlig'i */
-      const badge=$("#incChartBadge"); if(badge) badge.textContent={kunlik:"7 kun",haftalik:"8 hafta",oylik:"6 oy",yillik:"5 yil"}[aIncomePeriod]||"6 oy";
+      const badge=$("#incChartBadge"); if(badge) badge.textContent=IC.spanLabel;
+      const note=$("#revChartNote"); if(note) note.innerHTML="Oxirgi (qizil) ustun — «"+apLabel+"» komissiya daromadi: <b>"+money(periodSite)+" so'm</b>. Har ustun yetkazilgan buyurtmalar komissiyasidan.";
     })();
     /* ===== TOP restoranlar — FAQAT yetkazilgan (pul tushgan) buyurtmalar =====
        Ilgari bekor qilingan va hali yo'ldagi buyurtmalar ham aylanmaga
@@ -1057,13 +1036,15 @@
       if(gmv && gmv.nextSibling) host.insertBefore(box, gmv.nextSibling);
       else host.appendChild(box);
     }
-    var inP=(done||[]).filter(function(o){ return aInPeriod(o,aIncomePeriod); });
+    /* AYNAN grafik/karta bilan bir xil davr (YZ_TIME.incomeChart — joriy ustun) */
+    var FIC=YZ_TIME.incomeChart(aIncomePeriod);
+    var inP=(done||[]).filter(function(o){ return FIC.isCurrent(o.created_at); });
     var gmv=inP.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
     var comm=inP.reduce(function(s,o){return s+commOf(o);},0);
     var fee=inP.reduce(function(s,o){return s+feeOf(o);},0);
     var toRest=gmv-comm;
     var profit=comm-fee;
-    var label={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[aIncomePeriod]||"so'nggi oy";
+    var label=FIC.periodLabel;
 
     /* Kuryerlar bo'yicha xarajat — kimga qancha to'langan */
     var byC={};

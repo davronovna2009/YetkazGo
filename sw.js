@@ -3,7 +3,15 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v29 — Kuryer "Ishdan javob so'rash" (va boshqa panel amallari) tokeni eskirган
+/* v30 — (1) Bosh sayt HAR YANGI TASHRIFDA kirillcha ochiladi; foydalanuvchi
+   lotinga o'zi o'tса, tanlov faqat shu sessiyaga eslanadi (sessionStorage).
+   Kabinet tili esa doimiy saqlanadi (hisob sozlamasi).
+   (2) Admin/restoran/kuryer «Daromad grafigi» — endi TANLANGAN davrga qarab
+   (kunlik→7 kun, haftalik→8 hafta, oylik→6 oy, yillik→5 yil). Ustunlar
+   Toshkent kalendari bo'yicha REAL buyurtмалардан; grafikning oxirgi (joriy)
+   ustuni «shu davr» kartasidagi songa 1 so'мgacha teng (YZ_TIME.incomeChart —
+   uch panel uchun yagona mantiq). Test: income-chart.test.mjs (37 tekshiruv).
+   (v29 — Kuryer "Ishdan javob so'rash" (va boshqa panel amallari) tokeni eskirган
    (JWT 7 kun) yoki bir brauzerда boshqa rol ustiga yozilган bo'lса, server 401
    "Avtorizatsiya talab qilinadi" berardi va tugma "ishlamaydi"gа o'xshаб qolardi.
    Endi bunday HTTP 401/403 da panel avtomatik login ekraniga qaytadi
@@ -67,7 +75,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v29';
+const CACHE = 'yetkaz-v30';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

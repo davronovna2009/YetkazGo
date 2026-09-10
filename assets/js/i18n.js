@@ -120,7 +120,26 @@ const I18N = (function(){
       got_it:"Раҳмат, олдим!", rate_thanks:"Раҳмат! Баҳоингиз юборилди"
     }
   };
-  let lang = (function(){ try{ return localStorage.getItem('yz_lang')||"cyr"; }catch(e){ return "cyr"; } })();
+  /* ===== TIL SAQLASH JOYI =====
+     Bosh sayt (index.html): HAR YANGI TASHRIF kirillcha ochilsin — tanlov
+     faqat SHU sessiya uchun eslanadi (sessionStorage). Foydalanuvchi o'zi
+     lotinga o'tsa, o'sha oynada shunday qoladi; brauzerни qayta ochса yana
+     kirillcha. Kabinet (kabinet.html) — bu yerда til hisob sozlamasi,
+     shuning uchun DOIMIY saqlanadi (localStorage). */
+  var IS_KAB = false;
+  try{ IS_KAB = /kabinet/i.test((typeof location!=="undefined" && location.pathname) || ""); }catch(e){}
+  function langRead(){
+    try{
+      var v = (IS_KAB ? localStorage : sessionStorage).getItem('yz_lang');
+      return (v==='lat'||v==='cyr') ? v : null;
+    }catch(e){ return null; }
+  }
+  function langWrite(v){
+    try{ (IS_KAB ? localStorage : sessionStorage).setItem('yz_lang', v); }catch(e){}
+    /* Kabinet KT() localStorage'ni o'qiydi — shu sessiyada ham mos bo'lsin */
+    if(!IS_KAB){ try{ localStorage.setItem('yz_lang', v); }catch(e){} }
+  }
+  let lang = langRead() || "cyr";
   function t(key){ return (DICT[lang] && DICT[lang][key]) || (DICT.lat[key]||key); }
   function apply(){
     document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
@@ -133,12 +152,12 @@ const I18N = (function(){
      ilgari bu funksiya yo'q edi, shuning uchun til almashmasdi. */
   function setLang(l){
     lang = (l==="cyr") ? "cyr" : "lat";
-    try{ localStorage.setItem('yz_lang',lang); }catch(e){}
+    langWrite(lang);
     return lang;
   }
-  /* localStorage boshqa sahifada/tabda o'zgargan bo'lsa — sinxronlash */
+  /* Boshqa sahifada/tabda o'zgargan bo'lsa — sinxronlash */
   function sync(){
-    let saved; try{ saved = localStorage.getItem('yz_lang'); }catch(e){}
+    var saved = langRead();
     if(saved && saved!==lang) lang = saved;
     return lang;
   }
@@ -283,9 +302,14 @@ const I18N = (function(){
     }
   };
 
+  /* Joriy til — I18N (bosh sayt: sessiya; kabinet: doimiy) bilan bir xil manba */
+  function KLANG(){
+    try{ if(typeof I18N!=="undefined" && I18N.current) return I18N.current(); }catch(e){}
+    try{ return localStorage.getItem('yz_lang')||'cyr'; }catch(e){ return 'cyr'; }
+  }
   /* Kabinet uchun tarjima funksiyasi */
   window.KT = function(key, vars){
-    const lang = localStorage.getItem('yz_lang')||'cyr';
+    const lang = KLANG();
     const dict = KAB[lang]||KAB.lat;
     let str = dict[key]||KAB.lat[key]||key;
     if(vars) Object.keys(vars).forEach(k=>{ str=str.replace('{'+k+'}',vars[k]); });
@@ -294,7 +318,7 @@ const I18N = (function(){
 
   /* DOM elementlarini yangilash */
   window.KT_APPLY = function(){
-    const lang = localStorage.getItem('yz_lang')||'cyr';
+    const lang = KLANG();
     const dict = KAB[lang]||KAB.lat;
 
     /* data-kt atributli elementlarni yangilash */

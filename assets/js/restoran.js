@@ -258,25 +258,15 @@
     var inp=document.getElementById("restPhotoInput");
     if(inp) inp.addEventListener("change",function(e){ if(e.target.files&&e.target.files[0]) uploadRestPhoto(e.target.files[0]); });
   }
-  /* Sof daromad davri: 'kunlik' | 'haftalik' | 'oylik' (restoran o'zi almashtiradi) */
+  /* Sof daromad davri: 'kunlik' | 'haftalik' | 'oylik' | 'yillik'.
+     Davr/ustun bo'linishi YZ_TIME.incomeChart da (admin/kuryer bilan bir xil). */
   let incomePeriod="oylik";
-  function orderTimeMs(o){ return YZ_TIME.stamp((o&&o.created_at)||""); }
-  function inIncomePeriod(o, period){
-    var t=orderTimeMs(o); if(!t) return period==="oylik";  // sanasi yo'q bo'lsa oylikka kirsin
-    /* "Kunlik" — AYNAN bugungi kun (Toshkent), oxirgi 24 soat emas */
-    if(period==="kunlik") return YZ_TIME.isToday((o&&o.created_at)||"");
-    var days=(Date.now()-t)/86400000;
-    if(period==="haftalik") return days<7;
-    if(period==="yillik") return days<366;
-    return days<31;  // oylik
-  }
   function renderDash(){
     const r=CUR;
     /* REAL hisob-kitob: pul FAQAT mijoz tasdiqlagan (done) buyurtmalardan yoziladi.
        Bekor qilinganlar daromadga kirmaydi. Davr (kunlik/haftalik/oylik) tanlanadi. */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
     const paid=live.filter(o=>o.status==="done");            // mijoz qabul qilgan = to'lov yozilgan
-    const pct=restPct(r);
     const orders=live.filter(o=>o.status!=="cancelled").length;
     /* Dashboard PUL ko'rsatmaydi — daromad faqat "Daromad hisoboti" bo'limida.
        Bu yerda restoranga kundalik ish uchun kerakli sonlar turadi. */
@@ -287,24 +277,8 @@
       <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
       <div class="scard c3"><div class="si">🛵</div><b>${money(faol)}</b><span>Hozir jarayonda</span></div>
       <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
-    /* REAL oylik daromad — buyurtmalarni created_at oyiga guruhlab (so'nggi 6 oy) */
-    const MON=["Yan","Fev","Mar","Apr","May","Iyun","Iyul","Avg","Sen","Okt","Noy","Dek"];
-    const now=new Date();
-    const slots=[];
-    for(let i=5;i>=0;i--){ const dt=new Date(now.getFullYear(),now.getMonth()-i,1); slots.push({y:dt.getFullYear(),m:dt.getMonth(),label:MON[dt.getMonth()],sum:0}); }
-    paid.forEach(function(o){
-      const raw=String(o.created_at||""); const mm=raw.match(/^(\d{4})-(\d{2})/);
-      const y=mm?+mm[1]:now.getFullYear(), mo=mm?(+mm[2]-1):now.getMonth();
-      /* Sof daromad — buyurtmaga MUHRLANGAN komissiya foizi bo'yicha (server
-         hisoblab beradi). Admin foizni keyin o'zgartirsa, o'tgan oy grafigi
-         qayta yozilib ketmaydi. */
-      const slot=slots.find(function(x){return x.y===y&&x.m===mo;});
-      if(slot) slot.sum+=netOf(o,pct);
-    });
-    const max=Math.max.apply(null,slots.map(function(x){return x.sum;}).concat([1]));
-    $("#revChart").innerHTML=slots.map(function(x){return `
-      <div class="bar-col"><div class="bv">${x.sum?mln(x.sum).replace(" mln",""):"0"}</div>
-        <div class="bar" style="height:${Math.max(4,Math.round(x.sum/max*150))}px"></div><small>${x.label}</small></div>`;}).join("");
+    /* Daromad grafigi «Daromad hisoboti» bo'limida (renderIncome) — davrga
+       qarab o'zgaradi va ustunlar yig'indisi kartadagi raqamga teng bo'ladi. */
     /* REAL: eng ko'p sotilgan va talab — buyurtma TARKIBI bo'yicha.
        Har taom o'z dona soni bilan sanaladi (yorliq emas — salesMap izohiga q.). */
     const agg=salesMap(paid);
@@ -711,10 +685,11 @@
     const pct=restPct(r);
     /* REAL: pul faqat mijoz tasdiqlagan (done) buyurtmalardan yoziladi */
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
-    /* Davr tanlovi dashboarddan SHU YERGA ko'chdi — daromad endi faqat shu
-       bo'limda ko'rinadi. Ilgari sarlavhada "(oy)" yozilar, hisob esa BUTUN
-       davr bo'yicha ketardi — ya'ni yorliq bilan raqam mos kelmasdi. */
-    const doneOrders=live.filter(o=>o.status==="done" && inIncomePeriod(o, incomePeriod));
+    /* Davr/ustun mantiqi — YZ_TIME.incomeChart (admin/kuryer bilan AYNAN bir xil).
+       "Shu davr" = grafikning oxirgi (joriy) ustuni; ular 1 so'mgacha teng. */
+    const IC=YZ_TIME.incomeChart(incomePeriod);
+    const allDone=live.filter(o=>o.status==="done");
+    const doneOrders=allDone.filter(o=>IC.isCurrent(o.created_at));
     const gross=doneOrders.reduce((s,o)=>s+(o.amount||0),0);
     /* Sof daromad HAR BUYURTMANING O'Z foizidan yig'iladi (netOf) — umumiy
        summaga bitta foiz qo'llash noto'g'ri bo'lardi: admin foizni o'zgartirgan
@@ -727,7 +702,19 @@
     const cashOrders=doneOrders.filter(o=>o.pay==="cash");
     const cardNet=cardOrders.reduce((s,o)=>s+netOf(o,pct),0);
     const cashNet=cashOrders.reduce((s,o)=>s+netOf(o,pct),0);
-    const pLabel={kunlik:"bugun",haftalik:"so'nggi hafta",oylik:"so'nggi oy",yillik:"so'nggi yil"}[incomePeriod];
+    const pLabel=IC.periodLabel;
+    /* REAL grafik — TANLANGAN davrga qarab (kunlik→7 kun ... yillik→5 yil).
+       Ustun = o'sha davrdagi SOF daromad (netOf, har buyurtmaning o'z foizidan).
+       Oxirgi ustun = yuqoridagi «Sizning daromadingiz» (net) — 1 so'm farq yo'q. */
+    const barSums=IC.series(allDone,o=>netOf(o,pct));
+    const barMax=Math.max.apply(null,barSums.concat([1]));
+    const revBars=IC.buckets.map(function(x,i){ const v=barSums[i]; const cur=i===IC.curIndex;
+      return '<div class="bar-col"><div class="bv" style="color:'+(cur?'#15803d':'')+'">'+(v?mln(v).replace(" mln",""):"0")+'</div>'+
+        '<div class="bar" style="height:'+Math.max(4,Math.round(v/barMax*150))+'px'+(cur?';background:linear-gradient(180deg,#15803d,#22c55e)':'')+'"></div><small>'+x.label+'</small></div>'; }).join("");
+    const revChartEl=$("#revChart"); if(revChartEl) revChartEl.innerHTML=revBars;
+    const rct=$("#revChartTitle"); if(rct) rct.textContent="Daromad grafigi (mln so'm)";
+    const rcs=$("#revChartSpan"); if(rcs) rcs.textContent=IC.spanLabel;
+    const rcn=$("#revChartNote"); if(rcn) rcn.innerHTML="Oxirgi (yashil) ustun — «"+pLabel+"» sof daromadingiz: <b>"+money(net)+" so'm</b>. Har ustun sof daromad (komissiya chegirilgan).";
     const seg=(k,t)=>`<button class="inc-seg" data-period="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${incomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${incomePeriod===k?'#fff':'#777'}">${t}</button>`;
     /* ===== Har bir taom bo'yicha REAL sotuv =====
        Ilgari buyurtma YORLIG'I ("Osh +2 ta") taom nomi bilan solishtirilardi:

@@ -133,6 +133,76 @@
     return dayKey(d) === dayKey();
   }
 
+  /* ===== DAROMAD GRAFIGI — panellar uchun YAGONA davr/ustun mantiqi =====
+     Admin, restoran va kuryer panellari AYNAN shu bo'linishni ishlatadi.
+     Kafolat: grafikning OXIRGI (joriy) ustuni «shu davr» kartasidagi songa
+     TENG bo'ladi — chunki karta ham, ustun ham bir xil `bucketOf` bilan
+     tekshiriladi. Barcha sanalar Toshkent kalendari bo'yicha (oy/hafta
+     chegarasida ham 1 so'm adashmaydi).
+       kunlik   -> so'nggi 7 kun (kunma-kun);   joriy ustun = bugun
+       haftalik -> so'nggi 8 hafta (Dush-Yak);  joriy ustun = shu hafta
+       oylik    -> so'nggi 6 oy;                joriy ustun = shu oy
+       yillik   -> so'nggi 5 yil;               joriy ustun = shu yil */
+  function incomeChart(period) {
+    var MON = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+    var P = parts();               // hozir — Toshkent
+    var b = [], i;
+    if (period === 'kunlik') {
+      for (i = 6; i >= 0; i--) {
+        var dd = new Date(Date.UTC(P.y, P.mo - 1, P.d - i));
+        b.push({ unit: 'day', y: dd.getUTCFullYear(), mo: dd.getUTCMonth() + 1, d: dd.getUTCDate(),
+          label: pad(dd.getUTCDate()) + '.' + pad(dd.getUTCMonth() + 1) });
+      }
+    } else if (period === 'haftalik') {
+      var dow = (new Date(Date.UTC(P.y, P.mo - 1, P.d)).getUTCDay() + 6) % 7;  // 0 = Dushanba
+      for (i = 7; i >= 0; i--) {
+        var w = new Date(Date.UTC(P.y, P.mo - 1, P.d - dow - i * 7));
+        b.push({ unit: 'week', ws: w.getTime(),
+          label: pad(w.getUTCDate()) + '.' + pad(w.getUTCMonth() + 1) });
+      }
+    } else if (period === 'yillik') {
+      for (i = 4; i >= 0; i--) b.push({ unit: 'year', y: P.y - i, label: String(P.y - i) });
+    } else {  // oylik
+      for (i = 5; i >= 0; i--) {
+        var mm = P.mo - 1 - i, yy = P.y;
+        while (mm < 0) { mm += 12; yy--; }
+        b.push({ unit: 'month', y: yy, mo: mm + 1, label: MON[mm] });
+      }
+    }
+    function bucketOf(raw) {
+      var dt = parseUTC(raw); if (!dt) return -1;
+      var q = parts(dt);
+      var od = Date.UTC(q.y, q.mo - 1, q.d);
+      for (var k = 0; k < b.length; k++) {
+        var x = b[k];
+        if (x.unit === 'year' && q.y === x.y) return k;
+        if (x.unit === 'month' && q.y === x.y && q.mo === x.mo) return k;
+        if (x.unit === 'day' && q.y === x.y && q.mo === x.mo && q.d === x.d) return k;
+        if (x.unit === 'week' && od >= x.ws && od < x.ws + 7 * 86400000) return k;
+      }
+      return -1;
+    }
+    var lastIdx = b.length - 1;
+    return {
+      buckets: b,
+      curIndex: lastIdx,
+      periodLabel: { kunlik: 'bugun', haftalik: 'shu hafta', oylik: 'shu oy', yillik: 'shu yil' }[period] || 'shu oy',
+      spanLabel: { kunlik: "so'nggi 7 kun", haftalik: "so'nggi 8 hafta", oylik: "so'nggi 6 oy", yillik: "so'nggi 5 yil" }[period] || "so'nggi 6 oy",
+      bucketOf: bucketOf,
+      /* buyurtma «shu davr» (joriy = oxirgi ustun) ichidami — karta shuni sanaydi */
+      isCurrent: function (raw) { return bucketOf(raw) === lastIdx; },
+      /* har ustunga qiymat yig'ish: orders + har buyurtmadan pul oluvchi fn */
+      series: function (orders, amountOf) {
+        var sums = b.map(function () { return 0; });
+        (orders || []).forEach(function (o) {
+          var k = bucketOf(o && o.created_at);
+          if (k >= 0) sums[k] += Number(amountOf ? amountOf(o) : 0) || 0;
+        });
+        return sums;
+      },
+    };
+  }
+
   function fmtDate(raw) {
     var d = parseUTC(raw); if (!d) return '';
     var p = parts(d); return pad(p.d) + '.' + pad(p.mo) + '.' + p.y;
@@ -161,6 +231,7 @@
     courOpen: courOpen, courHours: courHours,
     isRestOpenByName: isRestOpenByName, restHoursByName: restHoursByName, findRest: findRest,
     parseUTC: parseUTC, stamp: stamp, dayKey: dayKey, isToday: isToday,
+    incomeChart: incomeChart,
     fmtDate: fmtDate, fmtTime: fmtTime, fmtDateTime: fmtDateTime, fmtPlus: fmtPlus,
   };
 })(typeof window !== 'undefined' ? window : this);
