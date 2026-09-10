@@ -158,6 +158,10 @@
   }
   /* Muddat qatori — buyurtma kartochkasida ko'rinadi */
   function kTimeBadge(o){
+    /* Yetkazilgan buyurtма — necha daqiqada yetkazganini ko'rsatamiz */
+    if((o.status==="done"||o.status==="arrived") && Number(o.deliveryMin)>0){
+      return '<div style="margin-top:6px;display:inline-block;background:#f0fdf4;color:#16a34a;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:800">✅ '+kMins(o.deliveryMin)+' ichida yetkazildi</div>';
+    }
     if(KACTIVE.indexOf(o.status)<0) return "";
     var m=kMinutesLeft(o); if(m===null) return "";
     var lv=kLevel(o);
@@ -296,6 +300,8 @@
   function fmtDateTime(o){
     return YZ_TIME.fmtDateTime((o&&o.created_at)||"") || (o&&o.time) || "—";
   }
+  /* Daqiqani "X daq" yoki "X soat Y daq" ko'rinishida */
+  function kMins(n){ n=Math.max(0,Math.round(Number(n)||0)); return n>=60?(Math.floor(n/60)+" soat "+(n%60)+" daq"):(n+" daqiqa"); }
   function openOrderModal(o){
     if(!o) return;
     const s=STT[o.status]||{t:o.status,p:"warn"};
@@ -324,6 +330,7 @@
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Summa</span><b>${money(o.amount)} so'm</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta")}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Sana / vaqt</span><b>${fmtDateTime(o)}</b></div>
+        ${(o.status==="done"||o.status==="arrived")&&o.deliveryMin>0?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Yetkazish vaqti</span><b style="color:#16a34a">${kMins(o.deliveryMin)} ichida yetkazildi</b></div>`:""}
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Restoran</span><b>${esc(o.rest)||"-"}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Qayerdan</span><b>${srcBadge(o)}</b></div>
         ${o.reason?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Bekor sababi</span><b style="color:#C8102E;text-align:right">${esc(o.reason)}</b></div>`:""}
@@ -373,6 +380,9 @@
     const earn=inP.reduce((s,o)=>s+feeOf(o),0);
     const card=inP.filter(o=>o.pay!=="cash"), cash=inP.filter(o=>o.pay==="cash");
     const pLabel=IC.periodLabel;
+    /* O'RTACHA yetkazish vaqti (shu davrda) — buyurtma kelgandan yetkazilgangacha */
+    const dmins=inP.map(o=>Number(o.deliveryMin)||0).filter(v=>v>0);
+    const avgDeliv=dmins.length?Math.round(dmins.reduce((a,b)=>a+b,0)/dmins.length):0;
     const seg=(k,t)=>`<button class="kinc-seg" data-kp="${k}" style="border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:0 4px 4px 0;background:${kIncomePeriod===k?'var(--red,#C8102E)':'#f1eef0'};color:${kIncomePeriod===k?'#fff':'#777'}">${t}</button>`;
     /* REAL grafik — TANLANGAN davrga qarab (kunlik→7 kun, haftalik→8 hafta,
        oylik→6 oy, yillik→5 yil). Ustunlar yetkazilgan buyurtmalar haqidan. */
@@ -390,6 +400,7 @@
           <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>Yetkazilgan</span><b>${money(inP.length)} ta</b></div>
           <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>1 yetkazish haqi (hozirgi)</span><b>${money(fee)} so'm</b></div>
           <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>O'rtacha haq (shu davrda)</span><b>${money(inP.length?Math.round(earn/inP.length):fee)} so'm</b></div>
+          <div class="fin-row" style="display:flex;justify-content:space-between;padding:8px 0"><span>O'rtacha yetkazish vaqti</span><b>${avgDeliv>0?kMins(avgDeliv):"—"}</b></div>
           <div class="fin-row tot" style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid var(--line);margin-top:6px"><span>Sizning daromadingiz</span><b style="color:var(--green);font-size:17px">${money(earn)} so'm</b></div>
         </div></div>
         <div class="panel"><div class="panel-head"><h3>💳 To'lov turi</h3></div><div class="panel-body">

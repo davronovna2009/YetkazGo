@@ -486,6 +486,9 @@
   /* Taom kartasi — renderMenu va renderMenuFiltered UCHUN BITTA manba.
      (Ilgari ikkala joyda nusxa markup bor edi va biri yangilanganda ikkinchisi
      eskirib qolardi — masalan "yopiq" holati.) */
+  /* Taom yulduzchasi (server: sotuvga qarab / baholardan) + sotuv soni */
+  function kDishStar(d){ const r=Number(d&&d.rating)||0; return r>0?("⭐ "+r):"🆕 yangi"; }
+  function kDishSold(d){ const s=Math.max(0,Number(d&&d.sold)||0); return s?(" · 🛒 "+s):""; }
   function kCardHTML(d, badgeText){
     const qty=(cart.find(i=>i.id===d.id)||{}).qty||0;
     const price=d.discount?`<span style="text-decoration:line-through;color:#b9a;font-size:11px">${money(d.price)}</span> ${money(d.eff)}`:money(d.price);
@@ -500,6 +503,7 @@
         <div class="kbody">
           <h4 data-id="${d.id}">${d.name}</h4>
           <div class="krest">${d.rest}</div>
+          <div class="krest" style="font-size:12px">${kDishStar(d)}${kDishSold(d)}</div>
           <div class="kfoot"><span class="kprice">${price} so'm</span>${kActionHTML(d,qty)}</div>
         </div></div>`;
   }

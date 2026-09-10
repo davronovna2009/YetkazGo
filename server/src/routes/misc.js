@@ -58,15 +58,44 @@ function courierDone(name, fee) {
   } catch (e) { return { n: 0, earned: 0 }; }
 }
 
+/* Kuryerning O'RTACHA yetkazish vaqti (daqiqa) — yetkazilgan buyurtmalar
+   bo'yicha: buyurtma kelgan paytdan "Yetkazdim"gacha. Ma'lumot yo'q -> 0.
+   Ustama: eng tez / eng sekin ham qaytaramiz (kuryer ma'lumotida ko'rinadi). */
+function courierSpeed(name) {
+  let rows = [];
+  try {
+    rows = db.prepare(
+      "SELECT created_at, arrived_at, done_at FROM orders WHERE courier = ? AND status = 'done'"
+    ).all(String(name || ''));
+  } catch (e) { return { avgMin: 0, fastMin: 0, slowMin: 0, n: 0 }; }
+  const st = (s) => { if (!s) return 0; const t = Date.parse(String(s).replace(' ', 'T') + 'Z'); return Number.isFinite(t) ? t : 0; };
+  const mins = [];
+  for (const r of rows) {
+    const a = st(r.created_at), b = st(r.arrived_at || r.done_at || '');
+    if (a && b && b >= a) mins.push(Math.round((b - a) / 60000));
+  }
+  if (!mins.length) return { avgMin: 0, fastMin: 0, slowMin: 0, n: 0 };
+  const sum = mins.reduce((x, y) => x + y, 0);
+  return {
+    avgMin: Math.round(sum / mins.length),
+    fastMin: Math.min(...mins),
+    slowMin: Math.max(...mins),
+    n: mins.length,
+  };
+}
+
 function courRow(c, live) {
   const lr = ratingsOf(live).couriers[c.name];
   const fee = c.fee != null ? c.fee : 0;
   const d = courierDone(c.name, fee);
+  const sp = courierSpeed(c.name);
   return {
     id: c.id, name: c.name, emoji: c.emoji, rest: c.rest, login: c.login,
     /* deliveries — REAL yetkazilgan buyurtmalar soni (jadvaldagi qo'l bilan
        kiritilgan son emas). earned — o'sha buyurtmalar uchun to'langan haq. */
     phone: c.phone, deliveries: d.n, earned: d.earned,
+    /* O'RTACHA yetkazish vaqti (daqiqa) + eng tez/sekin — real buyurtmalardan */
+    avgDeliveryMin: sp.avgMin, fastDeliveryMin: sp.fastMin, slowDeliveryMin: sp.slowMin,
     rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
     fee: c.fee != null ? c.fee : 0, transport: c.transport || '', plate: c.plate || '', address: c.address || '', email: c.email || '', birthdate: c.birthdate || '', passport: c.passport || '',
     active: !!c.active,
@@ -121,6 +150,22 @@ router.patch('/settings', requireRole('admin'), (req, res) => {
     payCashOn: 'pay_cash_on', payCardOn: 'pay_card_on',
   };
   for (const [c, k] of Object.entries(bools)) { if (b[c] != null) setSetting(k, BOOL01(b[c])); }
+  /* ===== REYTING sozlamalari ===== */
+  if (b.dishRatingSrc != null || b.dish_rating_src != null) {
+    const v = String(b.dishRatingSrc != null ? b.dishRatingSrc : b.dish_rating_src).toLowerCase();
+    if (['sales', 'reviews', 'blend'].includes(v)) setSetting('dish_rating_src', v);
+  }
+  /* dishStarThresholds: [t1..t5] massiv YOKI alohida dish_star_tN */
+  if (Array.isArray(b.dishStarThresholds)) {
+    b.dishStarThresholds.slice(0, 5).forEach((v, i) => {
+      const n = parseInt(v, 10);
+      if (Number.isFinite(n) && n > 0) setSetting('dish_star_t' + (i + 1), String(Math.min(100000, n)));
+    });
+  }
+  for (let i = 1; i <= 5; i++) {
+    const k = 'dish_star_t' + i;
+    if (b[k] != null) { const n = parseInt(b[k], 10); if (Number.isFinite(n) && n > 0) setSetting(k, String(Math.min(100000, n))); }
+  }
   /* Custom to'lov turlari — massiv, JSON matn sifatida saqlanadi */
   if (b.payExtra != null || b.pay_extra != null) {
     const raw = b.payExtra != null ? b.payExtra : b.pay_extra;

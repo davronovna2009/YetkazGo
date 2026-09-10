@@ -1,15 +1,19 @@
 /* ===== JONLI REYTINGLAR — YAGONA manba =====
-   Ilgari `restaurants.rating` va `added_dishes.rating` ustunlarida QO'LDA
-   yozilgan son turardi: mijozlar baho bersa ham o'zgarmasdi. Endi reyting
-   HAR SO'ROVDA haqiqiy izohlardan (reviews jadvali) hisoblanadi.
+   Hech qayerda "qotib qolgan" yoki qo'lda yozilgan yulduzcha yo'q:
 
-   - Taom reytingi: shu taom nomiga berilgan baholar o'rtachasi.
-   - Restoran reytingi: shu restoranga tegishli barcha baholar o'rtachasi
-     (izohdagi `rest` maydoni yoki taom nomi orqali topiladi).
-   - Kuryer reytingi: `dish` maydoni "🛵 Kuryer: <ism>" ko'rinishida bo'ladi.
+   - TAOM (mahsulot) yulduzchasi: SOTUV soniga qarab (admin bosqichlari) —
+     ko'p sotilgan taom ko'proq yulduz oladi. Sotuv = FAQAT yetkazilgan
+     (status='done') buyurtmalar tarkibidan (items_json) dona bilan sanaladi.
+     Admin `dish_rating_src` = 'reviews' qilsa — mijoz baholari o'rtachasi;
+     'blend' qilsa — 3+ baho bo'lsa baho, aks holda sotuv.
+   - RESTORAN yulduzchasi: shu restoranga tegishli mijoz baholari o'rtachasi
+     (haqiqiy izohlar; baho yo'q bo'lsa 0 -> panel "—" ko'rsatadi).
+   - KURYER yulduzchasi: `dish` maydoni "🛵 Kuryer: <ism>" bo'lgan baholar
+     o'rtachasi.
 
-   Baho bo'lmasa 0 qaytadi — panellar buni "—" deb ko'rsatadi (soxta 4.5 emas). */
+   Soxta 4.5/4.8 YO'Q — baho/sotuv bo'lmasa 0 qaytadi. */
 import { db } from './db.js';
+import { dishStarThresholds, dishRatingSrc, starsForSales } from './settings.js';
 
 const KURYER_RE = /^🛵\s*Kuryer:\s*/;
 
@@ -36,8 +40,32 @@ function dishRestMap() {
   return m;
 }
 
+/* ===== REAL SOTUV — yetkazilgan buyurtmalar tarkibidan (dona bilan) =====
+   items_json: [{id,name,emoji,qty,...}]. Buyurtma yorlig'i ("Osh +2 ta") emas,
+   HAR QATOR o'z dona soni bilan sanaladi. Qaytaradi: Map<taom nomi, dona>. */
+export function dishSales() {
+  const m = new Map();
+  let rows = [];
+  try {
+    rows = db.prepare("SELECT items_json, item FROM orders WHERE status = 'done'").all();
+  } catch (e) { return m; }
+  for (const r of rows) {
+    let lines = [];
+    try { lines = JSON.parse(r.items_json || '[]'); } catch (e) { lines = []; }
+    if (Array.isArray(lines) && lines.length) {
+      for (const l of lines) {
+        const name = String((l && l.name) || '').trim();
+        if (!name) continue;
+        const qty = Math.max(0, Number(l && l.qty) || 0) || 1;
+        m.set(name, (m.get(name) || 0) + qty);
+      }
+    }
+  }
+  return m;
+}
+
 /* Barcha jonli reytinglar bir marta hisoblanadi (bootstrap uchun tejamkor).
-   Qaytaradi: { rests: {nom: {rating, count}}, dishes: {...}, couriers: {...} } */
+   Qaytaradi: { rests:{nom:{rating,count}}, dishes:{nom:{rating,count,sold}}, couriers:{...} } */
 export function liveRatings() {
   const rows = allReviews();
   const dr = dishRestMap();
@@ -60,12 +88,32 @@ export function liveRatings() {
     push(byRest, String(r.rest || '') || dr.get(dish) || '', r);
   }
 
-  const out = (map) => {
+  const outAvg = (map) => {
     const o = {};
     for (const [k, list] of map) { if (k) o[k] = { rating: avg(list), count: list.length }; }
     return o;
   };
-  return { rests: out(byRest), dishes: out(byDish), couriers: out(byCour) };
+
+  /* ===== TAOM yulduzchasi ===== */
+  const src = dishRatingSrc();
+  const thr = dishStarThresholds();
+  const sales = dishSales();
+  const dishes = {};
+  /* Barcha nomlar: sotilganlar + baho olganlar */
+  const names = new Set([...sales.keys(), ...byDish.keys()]);
+  for (const name of names) {
+    if (!name) continue;
+    const sold = sales.get(name) || 0;
+    const revs = byDish.get(name) || [];
+    const revAvg = avg(revs);
+    let rating;
+    if (src === 'reviews') rating = revAvg;
+    else if (src === 'blend') rating = revs.length >= 3 ? revAvg : starsForSales(sold, thr);
+    else rating = starsForSales(sold, thr);        // 'sales' (standart)
+    dishes[name] = { rating, count: revs.length, sold, reviewAvg: revAvg };
+  }
+
+  return { rests: outAvg(byRest), dishes, couriers: outAvg(byCour) };
 }
 
 /* Bitta restoran reytingi (kerak bo'lganda) */

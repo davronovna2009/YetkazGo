@@ -400,6 +400,36 @@
           <div class="settings-footer"><button class="btn-save" id="setPaySave">To'lov turlarini saqlash</button></div>
         </div>
 
+        <!-- ===== REYTING (YULDUZCHA) SOZLAMALARI ===== -->
+        <div class="settings-group">
+          <div class="settings-group-title">⭐ Reyting (yulduzcha) sozlamalari</div>
+          <div class="setting-item" style="align-items:flex-start;flex-direction:column;gap:8px">
+            <div class="setting-label">
+              <span class="setting-name">Taom yulduzchasi nimadan hisoblanadi</span>
+              <span class="setting-desc">Restoran va kuryer yulduzchasi HAR DOIM mijoz baholaridan (o'zgармаydi). Bu sozlama faqat TAOM/mahsulot yulduzchasi uchun.</span>
+            </div>
+            <select id="setDishRatingSrc" style="width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;font-size:14px;font-family:inherit">
+              <option value="sales">Sotuvga qarab (ko'p sotilgan — ko'p yulduz)</option>
+              <option value="reviews">Mijoz baholari o'rtachasi</option>
+              <option value="blend">Aralash (3+ baho bo'lsa baho, aks holda sotuv)</option>
+            </select>
+          </div>
+          <div class="setting-item" style="align-items:flex-start;flex-direction:column;gap:10px">
+            <div class="setting-label">
+              <span class="setting-name">Yulduzcha bosqichlari — nechta sotilса necha yulduz</span>
+              <span class="setting-desc">Masalan «1★ = 5» degani: taom 5 tadan ko'p sotilsa 1 yulduz oladi. Sonlar o'suvchi bo'lishi kerak.</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">
+              <label style="flex:1;min-width:90px;font-size:13px;color:var(--grey)">1★ =<input id="setDishStarT1" type="number" min="1" inputmode="numeric" style="width:100%;margin-top:4px" /></label>
+              <label style="flex:1;min-width:90px;font-size:13px;color:var(--grey)">2★ =<input id="setDishStarT2" type="number" min="1" inputmode="numeric" style="width:100%;margin-top:4px" /></label>
+              <label style="flex:1;min-width:90px;font-size:13px;color:var(--grey)">3★ =<input id="setDishStarT3" type="number" min="1" inputmode="numeric" style="width:100%;margin-top:4px" /></label>
+              <label style="flex:1;min-width:90px;font-size:13px;color:var(--grey)">4★ =<input id="setDishStarT4" type="number" min="1" inputmode="numeric" style="width:100%;margin-top:4px" /></label>
+              <label style="flex:1;min-width:90px;font-size:13px;color:var(--grey)">5★ =<input id="setDishStarT5" type="number" min="1" inputmode="numeric" style="width:100%;margin-top:4px" /></label>
+            </div>
+          </div>
+          <div class="settings-footer"><button class="btn-save" id="setRatingSave">Reyting sozlamalarini saqlash</button></div>
+        </div>
+
         <!-- Asosiy sozlamalar -->
         <div class="settings-group">
           <div class="settings-group-title">💰 Moliyaviy sozlamalar</div>

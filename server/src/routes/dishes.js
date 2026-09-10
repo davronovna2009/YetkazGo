@@ -24,8 +24,10 @@ function addedRow(r, live) {
   return {
     id: r.id, name: r.name, nameCyr: r.name_cyr || '', emoji: r.emoji, price: r.price,
     rest: r.rest, cat: r.cat, kw: r.kw, photo: r.photo,
-    /* Reyting JONLI (izohlardan) — baho bo'lmasa 0 */
-    rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0, sold: r.sold, badge: r.badge,
+    /* Reyting JONLI — sotuvga qarab (admin bosqichlari) yoki mijoz baholaridan
+       (ratings.js: dish_rating_src). `sold` — REAL yetkazilgan sotuv soni. */
+    rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
+    sold: lr && lr.sold != null ? lr.sold : (r.sold || 0), badge: r.badge,
     weight: r.weight || '', ingredients: r.ingredients || '', descr: r.descr || '',
     /* Taom turi va cheklov + tur maydonlari */
     kind: r.kind || 'taom', maxQty: r.max_qty || 0,

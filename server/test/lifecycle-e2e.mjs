@@ -117,10 +117,28 @@ async function main() {
   const boot2 = (await api('GET', '/bootstrap', null)).data;
   const bRest2 = (boot2.restaurants || []).find((r) => r.name === 'Osh Markazi');
   eq(bRest2.rating, 5, 'restoran reytingi izohdан hisoblandi (5)');
+  /* ===== TAOM yulduzchasi — STANDART 'sales' (sotuvга qarab), admin bosqichlari.
+     Osh 2 dona sotildi (< 5) -> 0 yulduz. Mijoz bahosi `reviewAvg` da qoladi. ===== */
   const oshRating = boot2.ratings.dishes['Osh'];
-  eq(oshRating && oshRating.rating, 5, 'Osh taomi reytingi (5)');
+  eq(oshRating && oshRating.sold, 2, 'Osh REAL sotuvi = 2 dona (yetkazilgan buyurtmadan)');
+  eq(oshRating && oshRating.rating, 0, 'Osh yulduzchasi 0 (2 dona < 5 — standart 1★ bosqichi)');
+  eq(oshRating && oshRating.reviewAvg, 5, 'Osh mijoz bahosi o\'rtachasi = 5 (reviewAvg)');
+  eq(boot2.settings.dishRatingSrc, 'sales', 'standart taom reyting manbai = sales');
+  /* Admin 1★ bosqichini 2 ga tushirsa -> Osh 1 yulduz oladi */
+  await api('PATCH', '/settings', { dishStarThresholds: [2, 5, 10, 20, 40] }, AT);
+  let bootT = (await api('GET', '/bootstrap', null)).data;
+  eq(bootT.ratings.dishes['Osh'].rating, 1, 'bosqich 2 ga tushdi -> Osh 1★');
+  /* Admin manbани 'reviews' qilsa -> mijoz bahosi (5) ko'rinadi */
+  await api('PATCH', '/settings', { dishRatingSrc: 'reviews' }, AT);
+  bootT = (await api('GET', '/bootstrap', null)).data;
+  eq(bootT.ratings.dishes['Osh'].rating, 5, "manba 'reviews' -> Osh yulduzchasi = 5");
+  /* Standartga qaytaramiz (qolgan tekshiruvlar buzilmasin) */
+  await api('PATCH', '/settings', { dishRatingSrc: 'sales', dishStarThresholds: [5, 15, 30, 60, 100] }, AT);
   const kurRating = boot2.ratings.couriers['Kuryer Vali'];
-  eq(kurRating && kurRating.rating, 4, 'kuryer reytingi (4)');
+  eq(kurRating && kurRating.rating, 4, 'kuryer reytingi (4) — izohdан (o\'zgarмади)');
+  /* Kuryer O'RTACHA yetkazish vaqti — real buyurtмадан hisoblanadi */
+  const kRowSpeed = (await api('GET', '/couriers', null, AT)).data.find((c) => c.name === 'Kuryer Vali');
+  ok(kRowSpeed && typeof kRowSpeed.avgDeliveryMin === 'number', 'kuryer: avgDeliveryMin maydoni bor');
   /* Tizimga kirmagan, tokensiz — reyting bera olmaydi */
   const revBad = await api('POST', '/reviews', { name: 'X', rating: 1, dish: 'Osh', text: 'yomon' });
   eq(revBad.status, 401, 'tokensiz reyting RAD etiladi');

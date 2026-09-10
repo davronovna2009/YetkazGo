@@ -3,6 +3,8 @@
   try{ if(typeof STORE!=="undefined") STORE.setPanelRole("admin"); }catch(e){}
   const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const money=n=>Math.round(n).toLocaleString("ru-RU");
+  /* Yulduzcha — baho/sotuv yo'q bo'lsa "—" (soxta 4.5 emas). ratings.js jonli hisoblaydi. */
+  const starTxt=v=>{ const n=Number(v)||0; return n>0?("★ "+n):"— (yo'q)"; };
   /* Summa formati — KICHIK summa ham ko'rinsin (avval hammasi "0,0 mln" edi):
        >= 1 mln -> "2,5 mln" | >= 1000 -> "8 ming" | aks holda -> "500 so'm" */
   const mln=n=>{ n=Math.round(Number(n)||0);
@@ -1237,7 +1239,7 @@
         return `<tr data-id="${r.id}">
           <td><div class="tname"><span class="av">${r.emoji}</span>${r.name}${restOpenBadge(r)}</div>
               <div style="color:var(--grey);font-size:11.5px;margin-top:2px">🕒 ${esc(restHours(r))}</div></td>
-          <td><span class="star">★ ${r.rating}</span></td>
+          <td><span class="star">${starTxt(r.rating)}</span></td>
           <td>${money(r.orders)}</td>
           <td class="money">${money(r.rev)}</td>
           <td><b style="color:var(--green)">${money(r.siteCut)}</b></td>
@@ -1262,7 +1264,7 @@
               : `<span class="pill ${r.status==="ok"?"ok":"warn"}">${r.status==="ok"?"Faol":"Nazorat"}</span>`}
           </div>
           <div class="mcard-stats">
-            <div class="mcard-stat"><span>Reyting</span><b class="star">★ ${r.rating}</b></div>
+            <div class="mcard-stat"><span>Reyting</span><b class="star">${starTxt(r.rating)}</b></div>
             <div class="mcard-stat"><span>Buyurtma</span><b>${money(r.orders)}</b></div>
             <div class="mcard-stat"><span>Aylanma</span><b class="money">${mln(r.rev)}</b></div>
             <div class="mcard-stat"><span>Komissiya</span><b style="color:var(--green)">${mln(r.siteCut)}</b></div>
@@ -1309,7 +1311,7 @@
           <!-- Kuryerga HAQIQATDA to'langan haqlar yig'indisi (saytning xarajati) -->
           <td class="money">${money(c.earn||0)}</td>
           <td>${courHours(c)}</td>
-          <td><span class="star">★ ${c.rating}</span></td>
+          <td><span class="star">${starTxt(c.rating)}</span></td>
           <td><span class="mono">${c.login}</span>${pend?` <span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`:""}</td>
         </tr>`;
       }).join("");
@@ -1324,7 +1326,7 @@
             <div class="mcard-info"><div class="mcard-name">${c.name}${courLeaveBadge(c)}</div><div class="mcard-sub">${c.rest}</div></div>
             ${pend
               ? `<span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`
-              : `<span class="star">★ ${c.rating}</span>`}
+              : `<span class="star">${starTxt(c.rating)}</span>`}
           </div>
           <div class="mcard-stats">
             <div class="mcard-stat"><span>Yetkazgan</span><b>${money(c.deliveries)}</b></div>
@@ -1567,7 +1569,7 @@
     drawer(`
       <div class="dd-sec"><h4>Ishlash darajasi</h4>
         <div class="kv">
-          <div class="k"><span>Reyting</span><b class="star">★ ${r.rating}</b></div>
+          <div class="k"><span>Reyting</span><b class="star">${starTxt(r.rating)}</b></div>
           <div class="k"><span>Buyurtmalar</span><b>${money(r.orders)}</b></div>
           <div class="k"><span>Holati</span><b>${r.status==="ok"?"Faol":"Nazoratda"}</b></div>
           <div class="k"><span>Kuryerlar</span><b>${myCouriers.length}</b></div>
@@ -1791,12 +1793,19 @@
     const cOnShift=YZ_TIME.courOpen(beC||c);
     const holatTxt=onLeave?'🚪 Ishdan javobda':(lvStatus==='pending'?'⏳ Javob so\'rovi kutilmoqda':(cOnShift?'🟢 Ishda':'🌙 Ish vaqti emas'));
     const holatCol=onLeave?'#d97706':(lvStatus==='pending'?'#b45309':(cOnShift?'#16a34a':'#9ca3af'));
+    /* Reyting va yetkazish vaqti — backend (courRow) real hisoblab beradi */
+    const cRating=(be.rating!=null?be.rating:c.rating)||0;
+    const cRatingCnt=be.ratingCount!=null?be.ratingCount:0;
+    const cAvgMin=be.avgDeliveryMin||0, cFastMin=be.fastDeliveryMin||0, cSlowMin=be.slowDeliveryMin||0;
+    const mmm=n=>{ n=Math.max(0,Math.round(n||0)); return n>=60?(Math.floor(n/60)+" soat "+(n%60)+" daq"):(n+" daq"); };
     drawer(`
       <div class="dd-sec"><h4>Ish ma'lumotlari</h4>
         <div class="kv">
           <div class="k"><span>Restoranlar</span><b>${esc(c.rest)||"—"}</b></div>
-          <div class="k"><span>Reyting</span><b class="star">★ ${c.rating}</b></div>
-          <div class="k"><span>Yetkazgan</span><b>${money(c.deliveries)} ta</b></div>
+          <div class="k"><span>Reyting</span><b class="star">${cRating>0?("★ "+cRating+(cRatingCnt?` (${cRatingCnt})`:"")):"— (baho yo'q)"}</b></div>
+          <div class="k"><span>Yetkazgan</span><b>${money(be.deliveries!=null?be.deliveries:c.deliveries)} ta</b></div>
+          <div class="k"><span>O'rtacha yetkazish vaqti</span><b>${cAvgMin>0?mmm(cAvgMin):"—"}</b></div>
+          ${cAvgMin>0?`<div class="k"><span>Eng tez / eng sekin</span><b>${mmm(cFastMin)} / ${mmm(cSlowMin)}</b></div>`:''}
           <!-- Xarajat: shu kuryerga haqiqatda to'langan haqlar yig'indisi
                (har buyurtmaga yetkazilgan paytdagi haq muhrlangan) -->
           <div class="k"><span>1 yetkazish haqi</span><b>${money(c.fee||0)} so'm</b></div>
@@ -2190,6 +2199,24 @@
     chk("setPayCardOn", s.payCardOn!=null?s.payCardOn:true);
     PAY_EXTRA=Array.isArray(s.payExtra)?s.payExtra.map(x=>({id:x.id,label:x.label,note:x.note||""})):[];
     renderPayExtra();
+    /* ===== Reyting sozlamalari ===== */
+    const srcEl=document.getElementById("setDishRatingSrc");
+    if(srcEl && document.activeElement!==srcEl) srcEl.value=s.dishRatingSrc||"sales";
+    const thr=Array.isArray(s.dishStarThresholds)&&s.dishStarThresholds.length===5 ? s.dishStarThresholds : [5,15,30,60,100];
+    thr.forEach((v,i)=>{ const el=document.getElementById("setDishStarT"+(i+1)); if(el && document.activeElement!==el) el.value=v; });
+  }
+  async function saveRatingSettings(){
+    const src=(document.getElementById("setDishRatingSrc")||{}).value||"sales";
+    const thr=[1,2,3,4,5].map(n=>parseInt((document.getElementById("setDishStarT"+n)||{}).value,10));
+    if(thr.some(v=>!Number.isFinite(v)||v<1)){ toast("❌ Har bosqichга 1 dan katta son kiriting"); return; }
+    for(let i=1;i<thr.length;i++) if(thr[i]<=thr[i-1]){ toast("❌ Sonlar o'suvchi bo'lishi kerak (1★ < 2★ < ...)"); return; }
+    const btn=document.getElementById("setRatingSave"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.updateSettings)
+      ? await STORE.updateSettings({ dishRatingSrc:src, dishStarThresholds:thr })
+      : null;
+    if(btn) btn.disabled=false;
+    if(r && !r.error){ toast("✅ Reyting sozlamalari saqlandi — taom yulduzchalari darrov yangilanadi"); fillOwnerSettings(); }
+    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   function renderPayExtra(){
     const host=document.getElementById("payExtraList"); if(!host) return;
@@ -2539,6 +2566,7 @@
     const sos=$("#setOwnerSave"); if(sos) sos.addEventListener("click",saveOwnerSettings);
     const sss=$("#setSupportSave"); if(sss) sss.addEventListener("click",saveSupportSettings);
     const spySave=$("#setPaySave"); if(spySave) spySave.addEventListener("click",savePaySettings);
+    const srSave=$("#setRatingSave"); if(srSave) srSave.addEventListener("click",saveRatingSettings);
     const pxa=$("#payExtraAdd"); if(pxa) pxa.addEventListener("click",function(){
       const lbl=(($("#payExtraLabel")||{}).value||"").trim();
       const note=(($("#payExtraNote")||{}).value||"").trim();

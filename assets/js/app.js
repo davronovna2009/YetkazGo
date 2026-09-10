@@ -12,6 +12,22 @@
   let user = { name:"", phone:"", address:"", debt:0 };
   let activeCat = "Hammasi";
   const nm = o => I18N.current()==="cyr" ? (o.nameCyr||o.name) : o.name;
+  /* Taom yulduzchasi — server hisoblaydi (sotuvga qarab / mijoz baholaridan).
+     0 bo'lsa "yangi" ko'rsatamiz (soxta 4.5 emas). */
+  function dishStarTxt(d){
+    const r = Number(d && d.rating) || 0;
+    return r > 0 ? ("⭐ " + r) : (I18N.current()==="cyr" ? "🆕 янги" : "🆕 yangi");
+  }
+  function dishSoldTxt(d){
+    const s = Math.max(0, Number(d && d.sold) || 0);
+    if(!s) return "";
+    return "🛒 " + s + " " + I18N.t("orders_word");
+  }
+  /* Restoran yulduzchasi — mijoz baholaridan (baho yo'q -> "yangi") */
+  function restStarTxt(r){
+    const v = Number(r && r.rating) || 0;
+    return v > 0 ? ("★ " + v) : (I18N.current()==="cyr" ? "★ янги" : "★ yangi");
+  }
   /* Restoranlar manbai: backend (yangi nom/rasm/restoran) bo'lsa o'sha, bo'lmasa data.js */
   function restList(){
     try{ const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().filter(x=>x&&x.active!==false):[];
@@ -174,8 +190,8 @@
           <h2 style="font-size:20px;margin-bottom:4px">${esc(nm(d))}</h2>
           <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${d.rest}</div>
           <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-            <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)">⭐ <b style="color:var(--ink)">${d.rating}</b></span>
-            <span style="font-size:13px;color:var(--grey)">🛒 ${d.sold}+ ${I18N.t("orders_word")}</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)"><b style="color:var(--ink)">${dishStarTxt(d)}</b></span>
+            ${dishSoldTxt(d)?`<span style="font-size:13px;color:var(--grey)">${dishSoldTxt(d)}</span>`:""}
             ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(d.weight)}</span>`:""}
           </div>
           ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(d.descr)}</p>`:""}
@@ -272,7 +288,7 @@
         <div class="card-body">
           <h3 style="cursor:pointer">${esc(nm(d))}</h3>
           <div class="card-rest">${d.rest}</div>
-          <div class="card-meta"><span class="cm-star">★ ${d.rating}</span> · ${d.sold}+ ${I18N.t("orders_word")}</div>
+          <div class="card-meta"><span class="cm-star">${dishStarTxt(d)}</span>${dishSoldTxt(d)?` · ${dishSoldTxt(d)}`:""}</div>
           <div class="card-foot"></div>
         </div>
         <div class="card-pod"><div class="card-pod-action"></div></div>`;
@@ -374,7 +390,7 @@
     if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(be.addr)}</div></div></div>`);
     if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(be.area)}</div></div></div>`);
     if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">✉️</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${r.rating} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(r.dist||"")}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(r.dist||"")}</div></div></div>`);
     const desc = be.descr ? `<p class="rinfo-desc">${esc(be.descr)}</p>` : "";
     return `<div class="rinfo-card">
       <div class="rinfo-title">🏪 ${esc(nm(r))} ${I18N.t("ri_about")}</div>
@@ -460,7 +476,7 @@
           <div class="rhero-emoji">${r.emoji}</div>
           <h1>${nm(r)}</h1>
           <div class="rhero-meta">
-            <span>★ ${r.rating}</span><span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
+            <span>${restStarTxt(r)}</span><span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
             <span>📍 ${r.dist}</span><span class="rhero-open">${restOpenLabel(r.name)}</span>
           </div>
         </div>
@@ -534,7 +550,7 @@
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
-            <span class="star">★ ${r.rating}</span>
+            <span class="star">${restStarTxt(r)}</span>
             <span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
             <span>📍 ${r.dist}</span>
           </div>

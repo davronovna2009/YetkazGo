@@ -3,7 +3,16 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v30 — (1) Bosh sayt HAR YANGI TASHRIFDA kirillcha ochiladi; foydalanuvchi
+/* v31 — REYTING (yulduzcha) HAQQONIY bo'ldi, soxta 4.5/4.8 yo'q:
+   • TAOM yulduzchasi — SOTUV soniga qarab (admin bosqichlari: 1★=5, 2★=15 ...).
+     Admin panelда «⭐ Reyting sozlamalari» bo'limi — manba (sotuv/baho/aralash)
+     va har yulduz uchun sotuv sonini o'zi belgilaydi. Sotuv = FAQAT yetkazilgan
+     buyurtмалар tarkibidan (items_json) dona bilan — REAL.
+   • RESTORAN/KURYER yulduzchasi — mijoz baholaridan (baho yo'q -> "—"/"yangi").
+   • KURYER ma'lumotida — O'RTACHA yetkazish vaqti (+ eng tez/sekin); yetkazilgan
+     buyurtмада "N daqiqada yetkazildi" ko'rinadi (kuryer paneli + admin).
+   Test: rating-stars.test.mjs (17) + lifecycle E2E kengaytirildi. npm test — 495.
+   (v30 — (1) Bosh sayt HAR YANGI TASHRIFDA kirillcha ochiladi; foydalanuvchi
    lotinga o'zi o'tса, tanlov faqat shu sessiyaga eslanadi (sessionStorage).
    Kabinet tili esa doimiy saqlanadi (hisob sozlamasi).
    (2) Admin/restoran/kuryer «Daromad grafigi» — endi TANLANGAN davrga qarab
@@ -75,7 +84,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v30';
+const CACHE = 'yetkaz-v31';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

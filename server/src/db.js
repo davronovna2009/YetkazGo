@@ -41,7 +41,7 @@ export function initSchema() {
       name_cyr   TEXT DEFAULT '',
       emoji      TEXT DEFAULT '',
       kw         TEXT DEFAULT '',
-      rating     REAL DEFAULT 4.5,
+      rating     REAL DEFAULT 0,            -- ESKI ustun — ENDI ISHLATILMAYDI (ratings.js jonli hisoblaydi)
       eta        INTEGER DEFAULT 20,
       dist       TEXT DEFAULT '',
       photo      TEXT DEFAULT '',
@@ -61,7 +61,7 @@ export function initSchema() {
       login      TEXT DEFAULT '',
       phone      TEXT DEFAULT '',
       deliveries INTEGER DEFAULT 0,
-      rating     REAL DEFAULT 4.8,
+      rating     REAL DEFAULT 0,            -- ESKI ustun — ENDI ISHLATILMAYDI (ratings.js jonli hisoblaydi)
       fee        INTEGER DEFAULT 0,
       active     INTEGER DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -108,8 +108,8 @@ export function initSchema() {
       cat        TEXT DEFAULT 'Fastfood',
       kw         TEXT DEFAULT '',
       photo      TEXT DEFAULT '',
-      rating     REAL DEFAULT 4.5,
-      sold       INTEGER DEFAULT 0,
+      rating     REAL DEFAULT 0,            -- ESKI ustun — ENDI ISHLATILMAYDI (ratings.js: sotuv/baho)
+      sold       INTEGER DEFAULT 0,         -- ESKI ustun — REAL sotuv ratings.js dishSales() dan
       badge      TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );

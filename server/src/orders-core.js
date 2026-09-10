@@ -117,8 +117,19 @@ export function rowToOrder(r) {
     restNet: m.net,
     courierFee: m.fee,
     siteProfit: m.profit,
-    created_at: r.created_at, done_at: r.done_at || '',
+    created_at: r.created_at, done_at: r.done_at || '', arrived_at: r.arrived_at || '',
+    /* Kuryer YETKAZISH VAQTI (daqiqa): buyurtма kelgan paytdan kuryer "Yetkazdim"
+       bosgan (yoki mijoz tasdiqlagan) paytgacha. Faqat yetkazilgan buyurtмада. */
+    deliveryMin: deliveryMinutes(r),
   };
+}
+
+/* created_at -> arrived_at (bo'lmasa done_at) — daqiqa. Yo'q/eski bo'lsa 0. */
+export function deliveryMinutes(r) {
+  const a = stampUtc(r.created_at);
+  const b = stampUtc(r.arrived_at || r.done_at || '');
+  if (!a || !b || b < a) return 0;
+  return Math.round((b - a) / 60000);
 }
 
 /* Bitta kuryerда bir vaqtda bo'lishi mumkin bo'lgan FAOL buyurtmalar soni.

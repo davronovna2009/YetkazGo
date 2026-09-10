@@ -21,7 +21,39 @@ export const KEYS = [
   'support_phone', 'support_username', 'support_link', 'support_note',
   'support_phone_on', 'support_username_on', 'support_link_on',
   'pay_cash_on', 'pay_card_on', 'pay_extra',
+  /* ===== REYTING (yulduzcha) sozlamalari — admin boshqaradi =====
+     dish_rating_src : taom yulduzchasi nimadan — 'sales' (sotuv soni),
+                       'reviews' (mijoz baholari), 'blend' (3+ baho bo'lsa baho,
+                       aks holda sotuv). Standart: 'sales'.
+     dish_star_tN    : N-yulduz uchun kerakli SOTUV soni (done buyurtmalardan).
+                       Standart: 1★=5, 2★=15, 3★=30, 4★=60, 5★=100. */
+  'dish_rating_src',
+  'dish_star_t1', 'dish_star_t2', 'dish_star_t3', 'dish_star_t4', 'dish_star_t5',
 ];
+
+/* Taom yulduzcha bosqichlari — [t1..t5] o'suvchi butun sonlar (admin sozlamasi) */
+export function dishStarThresholds() {
+  const def = [5, 15, 30, 60, 100];
+  const out = def.map((d, i) => {
+    const v = parseInt(getSetting('dish_star_t' + (i + 1), ''), 10);
+    return Number.isFinite(v) && v > 0 ? v : d;
+  });
+  /* O'suvchi bo'lsin — buzuq kiritilса ham grafik/yulduzcha adashmasin */
+  for (let i = 1; i < out.length; i++) if (out[i] <= out[i - 1]) out[i] = out[i - 1] + 1;
+  return out;
+}
+export function dishRatingSrc() {
+  const v = String(getSetting('dish_rating_src', 'sales')).toLowerCase();
+  return ['sales', 'reviews', 'blend'].includes(v) ? v : 'sales';
+}
+/* Sotuv soni -> 0..5 yulduz (admin bosqichlari bo'yicha) */
+export function starsForSales(sold, thr) {
+  const t = thr || dishStarThresholds();
+  const n = Math.max(0, Number(sold) || 0);
+  let s = 0;
+  for (let i = 0; i < t.length; i++) if (n >= t[i]) s = i + 1;
+  return s;
+}
 
 /* Boolean sozlama: bo'sh yoki "1"/"true"/"on" -> true. Standart (yozilmagan) -> `def`. */
 export function getBool(key, def = true) {
@@ -86,6 +118,9 @@ export function publicSettings() {
     payCashOn: getBool('pay_cash_on', true),
     payCardOn: getBool('pay_card_on', true),
     payExtra: payExtra(),
+    /* ===== REYTING ===== sayt/panellar yulduzcha bosqichini shundan biladi */
+    dishRatingSrc: dishRatingSrc(),
+    dishStarThresholds: dishStarThresholds(),
   };
 }
 
