@@ -3,7 +3,13 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v27 — MUAMMO TUZATILDI: bitta brauzerда admin + kuryer (yoki restoran)
+/* v28 — Bosh sayt buyurtма modallari tuzatildi: bir nechta buyurtма berilса
+   modallar aralashib chiqar, soat raqamlari sakrar edi. Endi "Buyurtma qabul
+   qilindi" oynasi FAQAT oxirgi buyurtма uchun avto ochiladi; qolganlari faol
+   buyurtмalar ro'yxatida — ustiga bossa o'sha buyurtмaning oynasi. Taymer
+   modal DOM ini faqat SHU buyurtма oynasi bo'lsa yangilaydi. "Yetib keldi"
+   oynalari navbat bilan (ustma-ust chiqmaydi).
+   (v27 — MUAMMO TUZATILDI: bitta brauzerда admin + kuryer (yoki restoran)
    bir vaqtда ochiq bo'lsa, token bir-birini bosib ketardi -> "Ruxsat berilmagan"
    (403): kuryer javob so'rasa yoki admin kuryer loginini o'zgartirsa. Endi HAR
    PANEL O'Z tokenini saqlaydi (yz_token_admin / _kuryer / _restoran / _user) —
@@ -56,7 +62,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v27';
+const CACHE = 'yetkaz-v28';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

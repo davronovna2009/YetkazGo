@@ -60,6 +60,7 @@ let fail = 0;
 
 console.log('\n══  1/3  panel-units (server kerak emas)  ══\n');
 fail += await run(process.execPath, [resolve(HERE, 'panel-units.mjs')]);
+fail += await run(process.execPath, [resolve(HERE, 'modal-coord.test.mjs')]);
 
 fail += await runE2E('money-e2e.mjs', '2/3  money-e2e (moliya + panellararo moslik)');
 fail += await runE2E('lifecycle-e2e.mjs', '3/3  lifecycle-e2e (to\'liq hayotiy oqim)');

@@ -1014,6 +1014,25 @@
   /* Barcha timer va interval lar: {orderId: {stepInt, tInt}} */
   const orderTimers = {};
 
+  /* ===== BITTA MODAL — bir vaqtда bitta buyurtma oynasi =====
+     MUAMMO (tuzatildi): har faol buyurtmaning 1-soniyalik taymeri BITTA
+     #tTimer/#tStatus elementini yangilardi -> bir nechta buyurtма bo'lsa soat
+     raqamlari sakrar, "qabul qilindi" / "yetib keldi" modallari aralashib
+     birin-ketin ochilib qolardi.
+     ENDI:
+       • "Buyurtma qabul qilindi" oynasi FAQAT yangi (oxirgi) buyurtма uchun
+         avtomatik ochiladi. Qolganlari — faol buyurtmalar ro'yxatida; ustiga
+         bossa o'sha buyurtmaning oynasi ochiladi (openTrackModal).
+       • tick() modal DOM ini FAQAT o'sha oyna SHU buyurtmaga tegishli bo'lsa
+         yangilaydi (modalдаги data-track-order).
+       • "Yetib keldi" oynalari NAVBAT bilan (bittadан) ko'rsatiladi — ustma-ust
+         chiqmaydi. */
+  let arrivedQueue = [];
+  let arrivedBusy = false;
+  function modalTrackId(){
+    try{ const el = document.querySelector('#modalContent [data-track-order]'); return el ? String(el.getAttribute('data-track-order')) : null; }catch(e){ return null; }
+  }
+
   /* Step 3: tracking + timer */
   function startTracking(){
     const eta = 10 + Math.floor(Math.random()*3)*5; // 10, 15 yoki 20 daqiqa
@@ -1099,34 +1118,46 @@
     renderTrackerBanner();
     renderCartOrders();
 
-    // Step 4: modal ichida mini tracking
+    /* "Buyurtma qabul qilindi" oynasi — FAQAT shu yangi buyurtма uchun.
+       Yetib keldi oynasi ochiq bo'lsa ustidan ochmaymiz. */
+    if(!document.getElementById("arrivedOverlay")){
+      openTrackModal(orderId);
+    }
+
+    animateOrder(orderId);
+  }
+
+  /* Bitta buyurtmaning "qabul qilindi + taymer" oynasi. startTracking (yangi
+     buyurtma) va faol buyurtмa ro'yxatidagi bosishдан chaqiriladi. */
+  function openTrackModal(orderId){
+    const o = loadOrders().find(x=>x.id===orderId);
+    if(!o || o.done) return;
+    if(document.getElementById("arrivedOverlay")) return;   // yetib keldi oynasi ustidan ochilmaydi
     const steps = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
     const icons = ["📥","👨‍🍳","✅","🛵","🎉"];
-
+    const left = Math.max(0, o.arriveAt - Date.now());
+    const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
+    const step = o.step || 0;
     openModal(`
-      <div class="track">
+      <div class="track" data-track-order="${o.id}">
         <div style="text-align:center;margin-bottom:4px">
-          <span style="font-size:48px">${emoji}</span>
+          <span style="font-size:48px">${o.emoji}</span>
         </div>
         <h2 style="text-align:center">Buyurtma qabul qilindi!</h2>
-        <p class="modal-sub" style="text-align:center">${label}</p>
-        <div class="timer" id="tTimer">${String(eta).padStart(2,"0")}:00</div>
-        <div class="track-status" id="tStatus">Qabul qilindi</div>
+        <p class="modal-sub" style="text-align:center">${esc(o.label)}</p>
+        <div class="timer" id="tTimer">${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}</div>
+        <div class="track-status" id="tStatus">${steps[step]||steps[0]}</div>
         <div class="track-bar" id="tBar">
-          ${steps.map((s,i)=>`<div class="track-step${i===0?" active":""}"><div class="dot">${icons[i]}</div><span>${s}</span></div>`).join("")}
+          ${steps.map((st,i)=>`<div class="track-step${i===step?" active":""}${i<step?" done-step":""}"><div class="dot">${icons[i]}</div><span>${st}</span></div>`).join("")}
         </div>
         <div style="background:#f0f9f4;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;color:#1c6b3f;text-align:center">
           🛵 Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
         </div>
         <button class="btn btn-outline btn-block" id="trkClose">Tushunarli, yopish</button>
       </div>`);
-
-    $("#trkClose").addEventListener("click", ()=>{
-      closeModal();
-    });
-
-    // Orderni animatsiya qilish
-    animateOrder(orderId);
+    const cb = document.getElementById("trkClose");
+    if(cb) cb.addEventListener("click", closeModal);
+    animateOrder(orderId);   // taymer ishlab tursin
   }
 
   /* Bitta orderni animate qilish */
@@ -1177,14 +1208,21 @@
         saveOrders(loadOrders().filter(o=>o.id!==orderId));
         renderTrackerBanner(); renderCartOrders();
         const reason = be.reason || "";
-        openModal(`<div style="text-align:center">
-          <div style="font-size:42px">❌</div>
-          <h2 style="margin:8px 0">Buyurtma bekor qilindi</h2>
-          ${reason?`<p class="modal-sub">Restoran ko'rsatgan sabab:</p><p style="font-weight:700;color:var(--red);margin:6px 0 4px">${esc(reason)}</p>`:'<p class="modal-sub">Restoran buyurtmani bekor qildi.</p>'}
-          <button class="btn btn-primary btn-block" id="cxOkClose" style="margin-top:12px">Tushunarli</button>
-        </div>`);
-        const cxb=document.getElementById("cxOkClose"); if(cxb) cxb.addEventListener("click",closeModal);
-        toast("Buyurtma bekor qilindi","error");
+        toast("«"+order.label+"» bekor qilindi"+(reason?": "+reason:""),"error");
+        /* Modal FAQAT boshqa oyna xalaqit bermаsa ochiladi (aralashmasin).
+           Aks holда toast va faol buyurtmalar ro'yxatidan yo'qolishi yetarli. */
+        const modalOpen = document.getElementById("modal") && document.getElementById("modal").classList.contains("open");
+        const owns = modalTrackId() === String(orderId);
+        if(!document.getElementById("arrivedOverlay") && (!modalOpen || owns)){
+          openModal(`<div style="text-align:center">
+            <div style="font-size:42px">❌</div>
+            <h2 style="margin:8px 0">Buyurtma bekor qilindi</h2>
+            <p class="modal-sub" style="margin:2px 0">${esc(order.label)}</p>
+            ${reason?`<p class="modal-sub">Restoran ko'rsatgan sabab:</p><p style="font-weight:700;color:var(--red);margin:6px 0 4px">${esc(reason)}</p>`:'<p class="modal-sub">Restoran buyurtmani bekor qildi.</p>'}
+            <button class="btn btn-primary btn-block" id="cxOkClose" style="margin-top:12px">Tushunarli</button>
+          </div>`);
+          const cxb=document.getElementById("cxOkClose"); if(cxb) cxb.addEventListener("click",closeModal);
+        }
         return;
       }
 
@@ -1208,7 +1246,10 @@
       renderTrackerBanner();
       renderCartOrders();
 
-      // Agar modal ochiq bo'lsa, uni ham yangilash
+      /* Modal DOM ini FAQAT o'sha oyna SHU buyurtmaga tegishli bo'lsa yangilaymiz
+         — aks holда bir nechta buyurtماning taymeri bitta #tTimer ustiga yozib,
+         soat raqamlari sakrar edi. */
+      if(modalTrackId() !== String(orderId)) return;
       const tTimer = document.getElementById("tTimer");
       const tStatus = document.getElementById("tStatus");
       const tBar = document.getElementById("tBar");
@@ -1219,7 +1260,8 @@
       }
       if(tStatus){
         const statusLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
-        tStatus.textContent = statusLabels[step]||"";
+        /* Katta buyurtма administrator tekshiruvida — shuni ko'rsatib turamiz */
+        tStatus.textContent = (be && be.status==="review") ? "Administrator tekshiruvida" : (statusLabels[step]||"");
       }
       if(tBar){
         const steps = tBar.querySelectorAll(".track-step");
@@ -1279,7 +1321,7 @@
           const pct = Math.min(100, Math.max(0, Math.round((1 - left/(o.eta*60000))*100)));
           const step = o.step || 0;
           return `
-          <div class="otb-order">
+          <div class="otb-order" data-oid="${o.id}" style="cursor:pointer">
             <div class="otb-order-top">
               <span class="otb-emoji">${o.emoji}</span>
               <div class="otb-info">
@@ -1295,7 +1337,11 @@
           </div>`;
         }).join("")}
       </div>`;
-    el.querySelectorAll(".otb-cancel").forEach(b=>b.addEventListener("click",()=>confirmCancelOrder(b.dataset.cancel)));
+    el.querySelectorAll(".otb-cancel").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); confirmCancelOrder(b.dataset.cancel); }));
+    el.querySelectorAll(".otb-order").forEach(o=>o.addEventListener("click",(e)=>{
+      if(e.target.closest(".otb-cancel")) return;
+      openTrackModal(o.dataset.oid);
+    }));
   }
 
   /* Buyurtmani bekor qilish (mijoz) */
@@ -1381,7 +1427,7 @@
         const step = o.step || 0;
         const pct = Math.min(100, Math.max(0, Math.round((1 - left/(o.eta*60000))*100)));
         return `
-        <div class="aop-order">
+        <div class="aop-order" data-oid="${o.id}" style="cursor:pointer">
           <div class="aop-row">
             <span class="aop-emoji">${o.emoji}</span>
             <div class="aop-info">
@@ -1407,13 +1453,27 @@
         </div>`;
       }).join("")}
       <div class="aop-divider"></div>`;
-    panel.querySelectorAll(".aop-cancel").forEach(b=>b.addEventListener("click",()=>confirmCancelOrder(b.dataset.cancel)));
+    panel.querySelectorAll(".aop-cancel").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); confirmCancelOrder(b.dataset.cancel); }));
+    /* Faol buyurtма ustiga bosilганда — o'sha buyurtmaning "qabul qilindi" oynasi */
+    panel.querySelectorAll(".aop-order").forEach(el=>el.addEventListener("click",(e)=>{
+      if(e.target.closest(".aop-cancel")) return;
+      openTrackModal(el.dataset.oid);
+    }));
   }
 
   /* ============================================================
      YETIB KELDI — fullscreen overlay
      ============================================================ */
   function showArrivedOverlay(order){
+    /* NAVBAT: bir vaqtда bitta "yetib keldi" oynasi. Ilgari ular ustma-ust
+       ochilib, "modallar aralashib chiqar" edi. */
+    if(arrivedBusy && document.getElementById("arrivedOverlay")){
+      if(!arrivedQueue.some(o=>String(o.id)===String(order.id))) arrivedQueue.push(order);
+      return;
+    }
+    arrivedBusy = true;
+    /* Yangi buyurtма modalини yopamiz — "yetib keldi" ustuvor */
+    try{ closeModal(); }catch(e){}
     let overlay = document.getElementById("arrivedOverlay");
     if(overlay) overlay.remove();
 
@@ -1439,6 +1499,10 @@
       saveOrders(orders);
       renderTrackerBanner();
       renderCartOrders();
+      /* Navbatдаги "yetib keldi" oynasini ko'rsatamiz (bittadан) */
+      arrivedBusy = false;
+      const next = arrivedQueue.shift();
+      if(next) setTimeout(()=>showArrivedOverlay(next), 350);
     };
     // "Rahmat, oldim" — mijoz qabul qilganini tasdiqlaydi (arrived -> done), kuryerда "Yetkazildi" bo'ladi
     /* Server tasdiqlamasa oynani YOPMAYMIZ — aks holda mijoz "tasdiqladim" deb
