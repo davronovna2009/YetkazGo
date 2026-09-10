@@ -22,6 +22,13 @@ const STORE = (function () {
 
   function lsRead(k, def) { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
   function lsWrite(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  /* sessionStorage — HAR TAB O'ZINIKI (bir origin, lekin tablar orasida bo'linmaydi).
+     Token/sessiya shu yerда birlamchi saqlanadi: shu tufayli bitta brauzerда
+     IKKI restoran (yoki ikki kuryer) panelini ochib, har birini alohida
+     yangilash mumkin — biri ikkinchisiga aylanib qolmaydi. */
+  function ssRead(k, def) { try { const v = sessionStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
+  function ssWrite(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function ssDel(k) { try { sessionStorage.removeItem(k); } catch (e) {} }
 
   /* Buyurtma "track token"lari — polling keshni almashtirsa ham yo'qolmaydi.
      Mehmon (tokensiz) mijoz shu token bilan buyurtmasini tasdiqlaydi/bekor qiladi. */
@@ -60,27 +67,41 @@ const STORE = (function () {
     try { listeners.forEach(cb => { try { cb(); } catch (e) {} }); } finally { firing = false; }
   }
 
-  /* ---- Token / sessiya — HAR PANEL O'ZINIKI =====
-     Muammo: bitta brauzerда admin.html va kuryer.html bir xil origin -> bir xil
-     localStorage. Ilgari token BITTA kalitда (`yz_token`) edi: kuryer panelга
-     kirsangiz admin tokeni ustiga yozilib, admin panelидаги amallar 403
-     («Ruxsat berilmagan») berardi (va aksincha). Endi har panel O'Z kalitини
-     ishlatadi: yz_token_admin / yz_token_kuryer / yz_token_restoran / yz_token_user.
-     Shu sabab hamma panelга bir vaqtда kirib turish mumkin.
-     `STORE.setPanelRole('kuryer')` — panel yuklanganда CHAQIRILADI. */
+  /* ---- Token / sessiya — HAR PANEL + HAR TAB O'ZINIKI =====
+     1) HAR PANEL o'z ROL kalitини ishlatadi (yz_token_admin / _kuryer / _restoran
+        / _user) — admin va kuryer panelini bir vaqtда ochib turish mumkin.
+     2) HAR TAB uchun token/sessiya BIRLAMCHI sessionStorage'да. Shu sabab bitta
+        brauzerда IKKI RESTORAN (yoki ikki kuryer) panelini ochib, har birini
+        alohida yangilash mumkin — biri ikkinchisiga aylanib qolmaydi (ilgari
+        ikkalasi bir localStorage kalitini bo'lishib, oxirgi kirgani hammasini
+        bosib ketardi).
+     3) localStorage'да ham nusxa turadi — YANGI tab oxirgi kirishни qabul qiladi
+        (PWA qayta ochilса ham foydalanuvchi qayta kirmaydi).
+     `STORE.setPanelRole('restoran')` — panel yuklanganда birinchi CHAQIRILADI. */
   let PANEL_ROLE = "";
   function setPanelRole(r) {
     PANEL_ROLE = String(r || "").trim();
-    /* Migratsiya: shu panelга tegishli eski (umumiy) token bo'lsa — ko'chiramiz */
+    if (!PANEL_ROLE) return;
     try {
-      if (PANEL_ROLE && !localStorage.getItem(tokenKey())) {
-        const legacyTok = localStorage.getItem(K.token);
-        const legacySess = lsRead(K.sess, null);
-        if (legacyTok && legacySess && legacySess.role === PANEL_ROLE) {
-          localStorage.setItem(tokenKey(), legacyTok);
-          lsWrite(sessKey(), legacySess);
-          localStorage.removeItem(K.token);
-          try { localStorage.removeItem(K.sess); } catch (e) {}
+      const tk = tokenKey(), sk = sessKey();
+      /* Bu tab hali O'Z sessiyasига ega emas — localStorage'даги oxirgi kirishни
+         (yoki eski umumiy tokenни) shu tabga QABUL qilamiz. Shundan keyin bu tab
+         faqat O'Z sessionStorage'ini ishlatadi va boshqa tab boshqa akkaunt
+         kirса ham buzilmaydi. */
+      if (ssRead(tk, null) == null) {
+        let tok = lsRead(tk, null);
+        let sess = lsRead(sk, null);
+        if (!tok) {
+          const legacyTok = lsRead(K.token, null);
+          const legacySess = lsRead(K.sess, null);
+          if (legacyTok && legacySess && legacySess.role === PANEL_ROLE) {
+            tok = legacyTok; sess = legacySess;
+            try { localStorage.removeItem(K.token); localStorage.removeItem(K.sess); } catch (e) {}
+          }
+        }
+        if (tok) {
+          ssWrite(tk, tok); if (sess) ssWrite(sk, sess);
+          lsWrite(tk, tok); if (sess) lsWrite(sk, sess);
         }
       }
     } catch (e) {}
@@ -88,15 +109,15 @@ const STORE = (function () {
   function tokenKey() { return PANEL_ROLE ? (K.token + "_" + PANEL_ROLE) : K.token; }
   function sessKey() { return PANEL_ROLE ? (K.sess + "_" + PANEL_ROLE) : K.sess; }
   function getToken() {
+    /* Bu TAB ning tokeni (sessionStorage) — birlamchi */
+    if (PANEL_ROLE) { const st = ssRead(tokenKey(), null); if (st) return st; }
     const t = lsRead(tokenKey(), null);
-    /* Per-panel kalit bo'sh bo'lsa — eski umumiy tokenga vaqtincha tayanamiz
-       (verifySession rol mos kelmasa login ekranini ko'rsatadi). */
     return t || (PANEL_ROLE ? lsRead(K.token, null) : null);
   }
   function setToken(t) {
     const key = tokenKey();
-    if (t) lsWrite(key, t);
-    else try { localStorage.removeItem(key); } catch (e) {}
+    if (t) { ssWrite(key, t); lsWrite(key, t); }
+    else { ssDel(key); try { localStorage.removeItem(key); } catch (e) {} }
   }
 
   /* ---- MAXFIY keshni tozalash (akkaunt almashganда aralashmasin) ----
@@ -139,6 +160,7 @@ const STORE = (function () {
   function onAuthLost() {
     if (authLost) return;
     authLost = true;
+    ssDel(sessKey());
     try { localStorage.removeItem(sessKey()); } catch (e) {}
     setToken(null);
     try { clearPrivateCache(); } catch (e) {}   // maxfiy kesh qolmasin
@@ -668,15 +690,20 @@ const STORE = (function () {
     userExists() { return false; },
 
     setPanelRole,
-    session() { return lsRead(sessKey(), null) || (PANEL_ROLE ? lsRead(K.sess, null) : null); },
-    setSession(s) { lsWrite(sessKey(), s); },
+    /* Bu TAB ning sessiyasi (sessionStorage) — birlamchi; bo'lmasa localStorage */
+    session() {
+      if (PANEL_ROLE) { const s = ssRead(sessKey(), null); if (s) return s; }
+      return lsRead(sessKey(), null) || (PANEL_ROLE ? lsRead(K.sess, null) : null);
+    },
+    setSession(s) { ssWrite(sessKey(), s); lsWrite(sessKey(), s); },
     /* Chiqishда FAQAT sessiya emas, MAXFIY (akkauntga tegishli) keshni ham
        tozalaymiz. Aks holda restoran A chiqib, kuryer B shu qurilmaга kirса,
        B paneli A ning buyurtmalarini (mijoz telefoni/manzili bilan) keshda
        ko'rib qolardi — akkauntlar ma'lumoti aralashardi. */
     clearSession() {
+      ssDel(sessKey());
       try { localStorage.removeItem(sessKey()); } catch (e) {}
-      try { if (PANEL_ROLE) localStorage.removeItem(K.sess); } catch (e) {}   // eski umumiy sessiya ham
+      try { if (PANEL_ROLE) { sessionStorage.removeItem(K.sess); localStorage.removeItem(K.sess); } } catch (e) {}   // eski umumiy sessiya ham
       setToken(null);
       clearPrivateCache();
     },

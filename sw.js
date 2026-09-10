@@ -3,7 +3,14 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v32 — Taom yulduzchasi/sotuvi kaliti "restoran|taom" — bir xil nomli taom
+/* v33 — MUAMMO TUZATILDI: bitta brauzerда IKKI restoran (yoki ikki kuryer)
+   panelini ochsangiz — birini yangilasangiz ikkinchisiga (masalan "Shashlik"
+   yangilaganда "ECO FISH"ga) aylanib qolardi. Sabab: ikkala tab bitta
+   localStorage kalitini bo'lishardi, oxirgi kirgan hammasini bosib ketardi.
+   Endi token/sessiya HAR TAB uchun ALOHIDA (sessionStorage) — har panelni
+   alohida yangilasa bo'ladi; localStorage'да nusxa qoladi (PWA qayta ochilса
+   ham qayta kirish shart emas, yangi tab oxirgi kirishни oladi).
+   (v32 — Taom yulduzchasi/sotuvi kaliti "restoran|taom" — bir xil nomli taom
    boshqa restoranда ALOHIDA hisoblanadi. Kuryer dashboardида «O'rtacha
    yetkazish vaqti» kartasi.
    (v31 — REYTING (yulduzcha) HAQQONIY bo'ldi, soxta 4.5/4.8 yo'q:
@@ -87,7 +94,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v32';
+const CACHE = 'yetkaz-v33';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css',

@@ -453,5 +453,53 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   eq(LS.get('yz_token'), '"legacyAdminTok"', 'store: admin uchun eski token saqlanib qoldi');
 }
 
+/* ---------- store.js — IKKI RESTORAN paneli bitta brauzerда (HAR TAB O'ZINIKI) ---------- */
+{
+  const src = JS('store.js');
+  /* localStorage — BO'LINGAN (bir brauzer); sessionStorage — HAR TAB ALOHIDA */
+  const LS = new Map();
+  const mkLocal = (M) => ({ getItem: (k) => (M.has(k) ? M.get(k) : null), setItem: (k, v) => M.set(k, String(v)), removeItem: (k) => M.delete(k) });
+  const fakeEl = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, appendChild() {}, addEventListener() {}, remove() {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '', textContent: '' });
+  const doc = { readyState: 'complete', addEventListener: () => {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], createElement: () => fakeEl(), head: fakeEl(), body: fakeEl(), documentElement: fakeEl() };
+  function mkTab() {
+    const SS = new Map();
+    const win = {
+      localStorage: mkLocal(LS), sessionStorage: mkLocal(SS),
+      location: { protocol: 'https:', origin: 'https://x', href: 'https://x/restoran.html' },
+      addEventListener: () => {}, setInterval: () => 0, setTimeout: (f) => {}, fetch: () => Promise.reject(new Error('offline')),
+      navigator: {}, document: doc,
+    };
+    win.window = win;
+    const ctx = { ...win, globalThis: win, console, JSON, Date, Promise, Math, Object, Array, String, Number };
+    vm.createContext(ctx);
+    vm.runInContext(src + '\n;this.STORE=STORE;', ctx);
+    return ctx.STORE;
+  }
+  /* TAB A — "Shashlik" restorani kirdi */
+  const A = mkTab();
+  A.setPanelRole('restoran');
+  A.setSession({ role: 'restoran', name: 'Shashlik', login: 'shashlik' });
+  eq(A.session().name, 'Shashlik', 'TAB A: Shashlik sessiyasi');
+
+  /* TAB B — xuddi shu brauzerда 2-restoran paneli ochildi, "ECO FISH" kirdi */
+  const B = mkTab();
+  B.setPanelRole('restoran');
+  eq(B.session().name, 'Shashlik', 'TAB B: ochilганда oxirgi kirishни (Shashlik) qabul qildi');
+  B.setSession({ role: 'restoran', name: 'ECO FISH', login: 'ecofish' });
+  eq(B.session().name, 'ECO FISH', 'TAB B: ECO FISH kirdi');
+
+  /* MUHIM: TAB A ni yangilaymiz (setPanelRole qayta chaqiriladi) — ECO FISH ga
+     AYLANMASLIGI kerak (ilgari shu bug bor edi). */
+  A.setPanelRole('restoran');
+  eq(A.session().name, 'Shashlik', 'TAB A yangilangач ham Shashlik (ECO FISH bosib ketmadi!)');
+  eq(B.session().name, 'ECO FISH', 'TAB B hamon ECO FISH');
+
+  /* TAB A chiqdi -> TAB B ta\'sirlanmaydi */
+  A.clearSession();
+  eq(A.session(), null, 'TAB A chiqdi');
+  B.setPanelRole('restoran');
+  eq(B.session().name, 'ECO FISH', 'TAB A chiqqач ham TAB B ECO FISH bo\'lib qoladi');
+}
+
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);
 process.exit(FAIL ? 1 : 0);
