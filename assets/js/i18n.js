@@ -1,4 +1,87 @@
-/* ===== Yetkaz.uz — Lotin/Kiril tarjima ===== */
+/* ===== Yetkaz.uz — Lotin<->Kiril AVTOMATIK harf almashtirish (transliteratsiya) =====
+   Lotin va kirilcha o'zbekcha — bir xil til, ikki xil alifbo. Ilgari faqat
+   qo'lda kiritilgan "nameCyr"/"textCyr" maydonlari bo'lsa tarjima ko'rinardi —
+   bo'lmasa (juda ko'p taom/restoran/izohда) o'sha joy DOIM lotincha qolib
+   ketardi (kirillcha rejimда ham). Endi bo'lmagan joyni shu funksiya
+   AVTOMATIK harflab beradi — hech qayerда aralash alifbo qolmaydi.
+   Idempotent: lotincha matnga toLat() yoki kirillcha matnга toCyr() chaqirilsa
+   o'zgarmaydi (faqat "boshqa" alifbodagi harflar almashtiriladi) — shuning
+   uchun manba qaysi alifboда bo'lishidan qat'i nazar xavfsiz chaqirish mumkin. */
+const YZ_TRANSLIT = (function(){
+  /* Email/URL — bularni HARFLAMAYMIZ (aks holda "gmail.com" ham
+     kirillashib, manzil buzilib qolardi). */
+  const SKIP_RE = /([\w.+-]+@[\w-]+\.[\w.-]+|https?:\/\/\S+)/g;
+  function safe(s, fn){
+    s=String(s==null?"":s);
+    const parts=s.split(SKIP_RE);
+    let out="";
+    for(let i=0;i<parts.length;i++) out += (i%2===1) ? parts[i] : fn(parts[i]);
+    return out;
+  }
+  function applyCase1(orig, out){
+    // bitta belgiga mos, bitta chiqish belgisi — katta/kichik to'g'ridan-to'g'ri ko'chadi
+    if(orig!==orig.toLowerCase() && orig===orig.toUpperCase()) return out.toUpperCase();
+    return out;
+  }
+  /* Lotin -> Kiril: ko'p harfli birikmalar UZUNROQdan boshlab tekshiriladi */
+  const L2C_MULTI = [
+    ["yo","ё"],["yu","ю"],["ya","я"],["sh","ш"],["ch","ч"],["ng","нг"],
+    ["o'","ў"],["o‘","ў"],["oʻ","ў"],["o´","ў"],["o`","ў"],
+    ["g'","ғ"],["g‘","ғ"],["gʻ","ғ"],["g´","ғ"],["g`","ғ"]
+  ];
+  const L2C_SINGLE = {a:"а",b:"б",d:"д",e:"е",f:"ф",g:"г",h:"ҳ",i:"и",j:"ж",k:"к",l:"л",m:"м",
+    n:"н",o:"о",p:"п",q:"қ",r:"р",s:"с",t:"т",u:"у",v:"в",x:"х",y:"й",z:"з",
+    "'":"ъ","‘":"ъ","ʻ":"ъ"};
+  function toCyrRaw(s){
+    let out="", i=0; const n=s.length;
+    while(i<n){
+      let hit=null;
+      for(const [pat,rep] of L2C_MULTI){
+        if(s.substr(i,pat.length).toLowerCase()===pat){ hit=[pat,rep]; break; }
+      }
+      if(hit){
+        const orig=s.substr(i,hit[0].length);
+        /* Kiril natija BIR belgi — "Sh"/"SH" farqi yo'q, ikkalasi ham "Ш" bo'ladi */
+        out += (orig[0]===orig[0].toUpperCase() && orig[0]!==orig[0].toLowerCase())
+          ? hit[1].toUpperCase() : hit[1];
+        i+=hit[0].length; continue;
+      }
+      const ch=s[i], lc=ch.toLowerCase();
+      if(L2C_SINGLE[lc]!=null){ out+=applyCase1(ch, L2C_SINGLE[lc]); }
+      else out+=ch;   // raqam, tinish belgisi, allaqachon kirill, emoji — o'zgarmaydi
+      i++;
+    }
+    return out;
+  }
+  /* Kiril -> Lotin (har bir kirill harfi — bitta belgi, lekin ba'zilari
+     IKKI/UCH lotin harfiga o'giriladi — shu joyda "Sh" (so'z boshi) va
+     "SH" (butun so'z BOSH harflarda) farqlanadi: keyingi harfga qaraymiz). */
+  const C2L = {"а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ё":"yo","ж":"j","з":"z","и":"i",
+    "й":"y","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u",
+    "ф":"f","х":"x","ц":"ts","ч":"ch","ш":"sh","щ":"sh","ъ":"'","э":"e","ю":"yu","я":"ya",
+    "қ":"q","ғ":"g'","ў":"o'","ҳ":"h"};
+  function toLatRaw(s){
+    const arr=Array.from(s);
+    let out="";
+    for(let i=0;i<arr.length;i++){
+      const ch=arr[i], lc=ch.toLowerCase();
+      const rep=C2L[lc];
+      if(rep==null){ out+=ch; continue; }
+      const isUpper = ch!==ch.toLowerCase() && ch===ch.toUpperCase();
+      if(!isUpper){ out+=rep; continue; }
+      if(rep.length<=1){ out+=rep.toUpperCase(); continue; }
+      const next=arr[i+1];
+      const nextIsLowerLetter = next!=null && next!==next.toUpperCase() && next===next.toLowerCase();
+      out += nextIsLowerLetter ? (rep.charAt(0).toUpperCase()+rep.slice(1)) : rep.toUpperCase();
+    }
+    return out;
+  }
+  function toCyr(s){ return safe(s, toCyrRaw); }
+  function toLat(s){ return safe(s, toLatRaw); }
+  return { toCyr, toLat };
+})();
+try{ if(typeof window!=="undefined") window.YZ_TRANSLIT = YZ_TRANSLIT; }catch(e){}
+
 const I18N = (function(){
   const DICT = {
     lat:{
@@ -374,7 +457,7 @@ const I18N = (function(){
         const d=DISHES.find(x=>x.id===id);
         if(!d) return;
         const h4=card.querySelector('h4');
-        if(h4) h4.textContent=(lang==='cyr'&&d.nameCyr)?d.nameCyr:d.name;
+        if(h4) h4.textContent = lang==='cyr' ? YZ_TRANSLIT.toCyr(d.nameCyr||d.name) : YZ_TRANSLIT.toLat(d.name);
       });
     }
 
@@ -385,7 +468,7 @@ const I18N = (function(){
         const r=RESTAURANTS.find(x=>x.name===rname);
         if(!r) return;
         const h3=card.querySelector('h3');
-        if(h3) h3.textContent=(lang==='cyr'&&r.nameCyr)?r.nameCyr:r.name;
+        if(h3) h3.textContent = lang==='cyr' ? YZ_TRANSLIT.toCyr(r.nameCyr||r.name) : YZ_TRANSLIT.toLat(r.name);
       });
     }
 

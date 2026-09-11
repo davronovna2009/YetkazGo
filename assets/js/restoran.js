@@ -939,11 +939,17 @@
   /* App ortga: modal ochiq bo'lsa back uni yopadi */
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });
   function omr(k,v){ return "<div style=\"display:flex;justify-content:space-between;gap:10px\"><span style=\"color:var(--grey)\">"+k+"</span><b style=\"text-align:right\">"+v+"</b></div>"; }
+  /* Restoranning UMUMIY (taomsiz) bahosi — mijoz "🏪 Restoran: <nom>" deb
+     yozadi. Bu izohlar taom nomi bilan mos kelmagani uchun quyidagi
+     filtrga alohida qo'shiladi (aks holda restoran paneliga chiqmasdi). */
+  function isRestLevelReview(r){ return /^🏪\s*Restoran:\s*/.test(String(r&&r.dish||"")) && r.rest===CUR.name; }
   function renderRestReviews(){
     const tb=$("#restReviews"); if(!tb) return;
     const names=CUR.dishes.map(function(d){return d.name;});
-    const rv=((typeof STORE!=="undefined")?STORE.reviews():[]).filter(function(r){return names.indexOf(r.dish)>=0;});
-    tb.innerHTML=rv.length?rv.map(function(r){ const rr=Math.max(0,Math.min(5,r.rating|0)); return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>${r.ava||"👤"} ${esc(r.name)} → ${esc(r.dish)}</b><span class="star">${"★".repeat(rr)}${"☆".repeat(5-rr)}</span></div><div style="font-size:14px;margin-top:4px">${esc(r.text)} ${r.flagged?'<span class="pill red">signal</span>':''}</div></div>`; }).join(""):`<p style="color:var(--grey)">Sizning taomlaringizga hali izoh yo'q.</p>`;
+    const rv=((typeof STORE!=="undefined")?STORE.reviews():[]).filter(function(r){return names.indexOf(r.dish)>=0 || isRestLevelReview(r);});
+    tb.innerHTML=rv.length?rv.map(function(r){ const rr=Math.max(0,Math.min(5,r.rating|0));
+      const label=isRestLevelReview(r) ? ("🏪 "+esc(CUR.name)) : esc(r.dish);
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>${r.ava||"👤"} ${esc(r.name)} → ${label}</b><span class="star">${"★".repeat(rr)}${"☆".repeat(5-rr)}</span></div><div style="font-size:14px;margin-top:4px">${esc(r.text)} ${r.flagged?'<span class="pill red">signal</span>':''}</div></div>`; }).join(""):`<p style="color:var(--grey)">Sizga hali izoh yo'q.</p>`;
   }
   function renderAll(){ renderDash(); renderOrdersView(); renderDishes(); renderIncome(); renderPromo(); renderRestReviews(); }
 

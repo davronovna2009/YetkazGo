@@ -16,6 +16,7 @@ import { db } from './db.js';
 import { dishStarThresholds, dishRatingSrc, starsForSales } from './settings.js';
 
 const KURYER_RE = /^🛵\s*Kuryer:\s*/;
+const RESTORAN_RE = /^🏪\s*Restoran:\s*/;
 
 function allReviews() {
   try { return db.prepare('SELECT rating, dish, rest FROM reviews').all(); }
@@ -104,6 +105,10 @@ function computeLiveRatings() {
     const dish = String(r.dish || '');
     if (KURYER_RE.test(dish)) {                 // kuryer bahosi
       push(byCour, dish.replace(KURYER_RE, '').trim(), r);
+      continue;
+    }
+    if (RESTORAN_RE.test(dish)) {                // restoran (umumiy, taomsiz) bahosi
+      push(byRest, String(r.rest || '') || dish.replace(RESTORAN_RE, '').trim(), r);
       continue;
     }
     /* Restoran: izohdagi `rest`, bo'lmasa taom katalogidan topamiz */

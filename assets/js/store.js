@@ -249,10 +249,14 @@ const STORE = (function () {
     let changed = false;
     for (const id of ids) {
       try {
-        const r = await api("/orders/" + id);
+        const tok = readOrderToken(id);
+        const r = await api("/orders/" + id + (tok ? "?token=" + encodeURIComponent(tok) : ""));
         const o = cache.orders.find(x => String(x.id) === String(id));
         if (o && r && o.status !== r.status) { o.status = r.status; changed = true; }
         if (o && r && r.reason && o.reason !== r.reason) { o.reason = r.reason; changed = true; }
+        /* Kuryer yo'lga chiqganda telefoni keladi — "Kuryer bilan bog'lanish" shuni ko'rsatadi */
+        if (o && r && (o.courierPhone || "") !== (r.courierPhone || "")) { o.courierPhone = r.courierPhone || ""; changed = true; }
+        if (o && r && r.courier && o.courier !== r.courier) { o.courier = r.courier; changed = true; }
       } catch (e) {}
     }
     if (changed) { lsWrite(K.orders, cache.orders); fire(); }

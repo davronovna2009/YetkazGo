@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
-import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee } from '../orders-core.js';
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee, courierPhoneOf } from '../orders-core.js';
 /* Katta/shubhali buyurtma qoidalari (kuryer qo'ng'irog'i, admin tekshiruvi) */
 import { rulesSnapshot } from '../order-rules.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
@@ -100,11 +100,20 @@ router.post('/', (req, res) => {
   res.status(201).json({ ...created.order, token: created.token });
 });
 
-/* GET /api/orders/:id — ochiq: mehmon o'z buyurtmasi holatini kuzatishi uchun (faqat id+status) */
+/* GET /api/orders/:id — ochiq: mehmon o'z buyurtmasi holatini kuzatishi uchun (faqat id+status).
+   Kuryer telefoni FAQAT to'g'ri `token` bilan so'ralса va kuryer yo'lga chiqgan
+   bo'lsa qaytadi — aks holda id'ni sanab ko'rgan har kim (bu endpoint ochiq,
+   tizimga kirish shart emas) kuryerlarning telefon raqamini yig'ib olardi. */
 router.get('/:id', (req, res) => {
-  const o = db.prepare('SELECT id, status, reason FROM orders WHERE id = ?').get(Number(req.params.id));
+  const o = db.prepare('SELECT id, status, reason, courier, token FROM orders WHERE id = ?').get(Number(req.params.id));
   if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
-  res.json(o);
+  const out = { id: o.id, status: o.status, reason: o.reason };
+  const tokenOk = o.token && String(req.query.token || '') === o.token;
+  if (tokenOk && o.courier && (o.status === 'ontheway' || o.status === 'arrived')) {
+    out.courier = o.courier;
+    out.courierPhone = courierPhoneOf(o.courier);
+  }
+  res.json(out);
 });
 
 /* Egalik tekshiruvi: yo token mos kelishi, yo xodim (admin/restoran/kuryer) bo'lishi shart */

@@ -11,7 +11,17 @@
   let cart = [];            // {id,name,nameCyr,price,emoji,img,qty}
   let user = { name:"", phone:"", address:"", debt:0 };
   let activeCat = "Hammasi";
-  const nm = o => I18N.current()==="cyr" ? (o.nameCyr||o.name) : o.name;
+  /* Nom qaysi tilda ko'rsatilsa ham TO'LIQ o'sha alifboda bo'lishi kerak.
+     Ilgari nameCyr bo'sh bo'lса (juda ko'p taom/restoranда) kirillcha
+     rejimда ham lotincha nom qolib ketardi. Endi bo'lmasa AVTOMATIK
+     harflanadi (YZ_TRANSLIT) — aralash alifbo qolmaydi. */
+  const nm = o => {
+    try{
+      return I18N.current()==="cyr"
+        ? YZ_TRANSLIT.toCyr(o.nameCyr||o.name)
+        : YZ_TRANSLIT.toLat(o.name);
+    }catch(e){ return I18N.current()==="cyr" ? (o.nameCyr||o.name) : o.name; }
+  };
   /* Taom yulduzchasi — server hisoblaydi (sotuvga qarab / mijoz baholaridan).
      0 bo'lsa "yangi" ko'rsatamiz (soxta 4.5 emas). */
   function dishStarTxt(d){
@@ -188,14 +198,14 @@
         </div>
         <div class="dish-modal-body">
           <h2 style="font-size:20px;margin-bottom:4px">${esc(nm(d))}</h2>
-          <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${d.rest}</div>
+          <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${esc(trTxt(d.rest))}</div>
           <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)"><b style="color:var(--ink)">${dishStarTxt(d)}</b></span>
             ${dishSoldTxt(d)?`<span style="font-size:13px;color:var(--grey)">${dishSoldTxt(d)}</span>`:""}
-            ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(d.weight)}</span>`:""}
+            ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(trTxt(d.weight))}</span>`:""}
           </div>
-          ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(d.descr)}</p>`:""}
-          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 ${I18N.t("ingredients_l")}:</b> ${esc(d.ingredients)}</div>`:""}
+          ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(trTxt(d.descr))}</p>`:""}
+          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 ${I18N.t("ingredients_l")}:</b> ${esc(trTxt(d.ingredients))}</div>`:""}
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:18px">
             ${oldPrice}
             <span style="font-size:22px;font-weight:800;color:var(--red)">${price}</span>
@@ -387,11 +397,12 @@
     const open=isRestOpen(r.name);
     const rows=[];
     rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🕒</span><div><div class="rinfo-k">${I18N.t("ri_hours")}</div><div class="rinfo-v">${esc(restHoursText(r.name))} <span class="rinfo-badge ${open?'ok':'off'}">${open?'🟢 '+I18N.t("open_now"):'🔴 '+I18N.t("closed_l")}</span></div></div></div>`);
-    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(be.addr)}</div></div></div>`);
-    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(be.area)}</div></div></div>`);
+    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(trTxt(be.addr))}</div></div></div>`);
+    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(trTxt(be.area))}</div></div></div>`);
+    /* Email — HARFLANMAYDI (manzil buzilib qolmasin) */
     if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">✉️</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(r.dist||"")}</div></div></div>`);
-    const desc = be.descr ? `<p class="rinfo-desc">${esc(be.descr)}</p>` : "";
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(trTxt(r.dist||""))}</div></div></div>`);
+    const desc = be.descr ? `<p class="rinfo-desc">${esc(trTxt(be.descr))}</p>` : "";
     return `<div class="rinfo-card">
       <div class="rinfo-title">🏪 ${esc(nm(r))} ${I18N.t("ri_about")}</div>
       ${desc}
@@ -416,8 +427,8 @@
           ? html`<img src="${photo}" alt="" data-onerr="emoji" data-emoji="${p.emoji||"📢"}">`
           : html`<span>${p.emoji||"📢"}</span>`}</div>
         <div class="rpromo-body">
-          <div class="rpromo-text">${p.text}</div>
-          <div class="rpromo-meta">${p.tag?html`<span class="rpromo-tag">${p.tag}</span>`:""}${p.dish?html`<span class="rpromo-why">🍽️ ${p.dish}</span>`:""}</div>
+          <div class="rpromo-text">${trTxt(p.text)}</div>
+          <div class="rpromo-meta">${p.tag?html`<span class="rpromo-tag">${trTxt(p.tag)}</span>`:""}${p.dish?html`<span class="rpromo-why">🍽️ ${trTxt(p.dish)}</span>`:""}</div>
         </div>
       </div>`;
     });
@@ -552,14 +563,14 @@
           <div class="rest-meta">
             <span class="star">${restStarTxt(r)}</span>
             <span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
-            <span>📍 ${r.dist}</span>
+            <span>📍 ${esc(trTxt(r.dist))}</span>
           </div>
           <div class="rest-info2">
             <span>🍽️ ${dishCount} ta taom</span>
             ${hours?`<span>🕒 ${hours}</span>`:""}
           </div>
-          ${addr?`<div class="rest-addr">📍 ${esc(addr)}</div>`:""}
-          ${be.descr?`<div class="rest-descr">${esc(String(be.descr).slice(0,90))}</div>`:""}
+          ${addr?`<div class="rest-addr">📍 ${esc(trTxt(addr))}</div>`:""}
+          ${be.descr?`<div class="rest-descr">${esc(trTxt(String(be.descr).slice(0,90)))}</div>`:""}
         </div>`;
       c.querySelector(".rest-img").style.position="relative";
       c.addEventListener("click",()=>{ location.hash="restoran/"+r.id; });
@@ -589,26 +600,36 @@
   }
 
   /* ---------- REVIEWS ---------- */
+  /* Foydalanuvchi tekstini (izoh matni va h.k.) joriy tilga moslab ko'rsatamiz —
+     qo'lda kiritilgan Cyr varianti bo'lsa o'sha, bo'lmasa avtomatik harflab. */
+  const trTxt = s => {
+    try{ return I18N.current()==="cyr" ? YZ_TRANSLIT.toCyr(s) : YZ_TRANSLIT.toLat(s); }
+    catch(e){ return s; }
+  };
   function renderReviews(){
     const g=$("#reviewsGrid"); if(!g) return; g.innerHTML="";
     const live=(typeof STORE!=="undefined")?STORE.reviews():[];
     /* Kuryer reytinglari (dish "🛵 Kuryer: ...") saytda ko'rsatilmaydi — faqat kuryer/admin panelida */
     const isCourierReview = r => /^🛵\s*Kuryer:/.test(String(r&&r.dish||""));
+    /* Restoran (umumiy, taomsiz) baholari — "🏪 Restoran: <nom>" */
+    const REST_RE = /^🏪\s*Restoran:\s*/;
+    const isRestaurantReview = r => REST_RE.test(String(r&&r.dish||""));
     /* Qaysi restoran taomi ekanligini topamiz */
     const reviewRest = r => { const d=catalog().find(x=>x.name===r.dish); return d?d.rest:(r.rest||""); };
     const revDate = r => { const raw=String(r.date||r.created_at||""); const m=raw.match(/(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+"."+m[2]+"."+m[1]):(raw.length<=12?raw:""); };
     /* Ommaviy izohlar: faqat 3+ yulduz qabul qilinadi (kuryer reytinglaridan tashqari) */
     [...live, ...REVIEWS].filter(r=>!isCourierReview(r) && (r.rating||0)>=3).slice(0,9).forEach(r=>{
       const stars="★".repeat(r.rating)+"☆".repeat(5-r.rating);
-      const txt = (I18N.current()==="cyr" && r.textCyr) ? r.textCyr : r.text;
+      const txt = trTxt((I18N.current()==="cyr" && r.textCyr) ? r.textCyr : r.text);
       const rest=reviewRest(r), dt=revDate(r);
+      const isRest=isRestaurantReview(r);
       const el=document.createElement("div"); el.className="review-card";
       el.innerHTML=`<div class="rv-head"><span class="rv-ava">${r.ava}</span>
         <div><div class="rv-name">${esc(r.name)}</div><div class="rv-stars">${stars}</div></div>
         ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
         <p class="rv-text">${esc(txt)}</p>
-        ${r.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(r.reply)}</div>`:""}
-        <div class="rv-dish">🍽️ ${esc(r.dish)}${rest?` · 🏪 ${esc(rest)}`:""}</div>`;
+        ${r.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(trTxt(r.reply))}</div>`:""}
+        <div class="rv-dish">${isRest?`🏪 ${esc(trTxt(rest||r.rest||""))}`:`🍽️ ${esc(trTxt(r.dish))}${rest?` · 🏪 ${esc(trTxt(rest))}`:""}`}</div>`;
       g.appendChild(el);
     });
   }
@@ -1060,7 +1081,9 @@
     const orderId = genOrderId();
     const firstItem = cart[0];
     const totalItems = cart.reduce((s,i)=>s+i.qty,0);
-    const label = firstItem ? (cart.length>1 ? firstItem.name+" +"+(cart.length-1)+" ta" : firstItem.name) : "Buyurtma";
+    /* nm() — joriy tilga mos (aralash alifbo bo'lmasin) */
+    const firstItemName = firstItem ? nm(firstItem) : "";
+    const label = firstItem ? (cart.length>1 ? firstItemName+" +"+(cart.length-1)+" ta" : firstItemName) : "Buyurtma";
     const emoji = firstItem ? firstItem.emoji : "🛵";
     const totalPrice = cartTotal();
 
@@ -1071,6 +1094,7 @@
       totalPrice,
       user: user.name || "Mehmon",   // backend buyurtmasiga moslash uchun
       items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji, note:i.note||""})),
+      rest: (firstItem && firstItem.rest) || "",
       eta,
       arriveAt,
       startAt: now,
@@ -1169,6 +1193,7 @@
         <div style="background:#f0f9f4;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;color:#1c6b3f;text-align:center">
           🛵 Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
         </div>
+        <div id="tCourierBox"></div>
         <button class="btn btn-outline btn-block" id="trkClose">Tushunarli, yopish</button>
       </div>`);
     const cb = document.getElementById("trkClose");
@@ -1285,6 +1310,17 @@
           el.classList.toggle("active", i===step);
           el.classList.toggle("done-step", i<step);
         });
+      }
+      /* Kuryer yo'lga chiqqach — mijoz unga qo'ng'iroq qila olsin. Raqam
+         AYNAN kuryer adminга bergan telefon (server/src/orders-core.js). */
+      const tCour = document.getElementById("tCourierBox");
+      if(tCour){
+        if(be && be.courierPhone){
+          const dial = String(be.courierPhone).replace(/[^\d+]/g,"");
+          tCour.innerHTML = `<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">📞 ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
+        } else if(tCour.innerHTML) {
+          tCour.innerHTML = "";
+        }
       }
     }
 
@@ -1580,7 +1616,7 @@
   function queueRating(order){
     const dish = (order.items && order.items[0] && order.items[0].name) || order.label || "";
     const id = order.backendId || order.id;
-    const entry = { id:id, token: orderTokenFor(order.backendId), dish:dish, courier: order.courier||"", user: user.name||"Mijoz", at: Date.now() };
+    const entry = { id:id, token: orderTokenFor(order.backendId), dish:dish, rest: order.rest||"", courier: order.courier||"", user: user.name||"Mijoz", at: Date.now() };
     const list = loadPendingRatings().filter(x=>String(x.id)!==String(id));
     list.push(entry); savePendingRatings(list);
   }
@@ -1606,6 +1642,7 @@
       backendId: be.id,
       emoji: local.emoji || be.emoji || "🛵",
       label: local.label || be.item || "Buyurtma",
+      rest: local.rest || be.rest || "",
       courier: be.courier || local.courier || "",
       items: local.items || be.items || [],
     });
@@ -1624,13 +1661,18 @@
         <div style="font-size:40px">⭐</div>
         <h2 style="margin:6px 0 2px">${I18N.t("rate_title")}</h2>
         <p class="modal-sub" style="margin-bottom:14px">Buyurtmangiz uchun rahmat! Fikringiz muhim.</p>
+        ${e.rest?`
         <div class="rate-block">
-          <div class="rate-label">🍽️ ${esc(e.dish||"Taom")}</div>
+          <div class="rate-label">🏪 ${esc(trTxt(e.rest))}</div>
+          <div class="rate-stars" id="rateRest">${stars()}</div>
+        </div>`:""}
+        <div class="rate-block">
+          <div class="rate-label">🍽️ ${esc(trTxt(e.dish||"Taom"))}</div>
           <div class="rate-stars" id="rateDish">${stars()}</div>
         </div>
         ${e.courier?`
         <div class="rate-block">
-          <div class="rate-label">🛵 Kuryer: ${esc(e.courier)}</div>
+          <div class="rate-label">🛵 Kuryer: ${esc(trTxt(e.courier))}</div>
           <div class="rate-stars" id="rateCour">${stars()}</div>
         </div>`:""}
         <textarea id="rateText" rows="2" placeholder="Izoh (ixtiyoriy)" style="width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:11px;padding:10px;font-family:inherit;font-size:14px;margin:10px 0;resize:vertical"></textarea>
@@ -1639,19 +1681,23 @@
           <button class="btn btn-primary btn-block" id="rateSend">${I18N.t("rate_send")}</button>
         </div>
       </div>`);
-    let dishR=0, courR=0;
+    let dishR=0, courR=0, restR=0;
     const wire=(boxId, set)=>{ const box=document.getElementById(boxId); if(!box) return;
       box.querySelectorAll(".rate-star").forEach(st=>st.addEventListener("click",()=>{ const n=+st.dataset.n; set(n);
         box.querySelectorAll(".rate-star").forEach((s,i)=> s.textContent=(i<n?"★":"☆")); })); };
     wire("rateDish", n=>dishR=n);
     if(e.courier) wire("rateCour", n=>courR=n);
+    if(e.rest) wire("rateRest", n=>restR=n);
     /* "Keyinroq" bosilsa ham SHU buyurtma uchun qaytadan so'ralmaydi —
        aks holda keyingi saytga kirishlarda ham "izoh qoldiring" chiqaveradi. */
     const skip=document.getElementById("rateSkip"); if(skip) skip.addEventListener("click", ()=>{ removePendingRating(e.id); closeModal(); });
     const send=document.getElementById("rateSend"); if(send) send.addEventListener("click",()=>{
       const text=(document.getElementById("rateText")||{}).value||"";
-      if(!dishR && !courR){ toast("Kamida bitta baho bering","error"); return; }
-      if(dishR>0 && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:dishR, dish:e.dish, text:text}, e.token);
+      if(!dishR && !courR && !restR){ toast("Kamida bitta baho bering","error"); return; }
+      /* `rest` maydonini ham yuboramiz — ratings.js shu orqali restoran
+         reytingiga (va restoran paneliga) to'g'ri bog'laydi. */
+      if(dishR>0 && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:dishR, dish:e.dish, rest:e.rest, text:text}, e.token);
+      if(restR>0 && e.rest && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:restR, dish:"🏪 Restoran: "+e.rest, rest:e.rest, text:text}, e.token);
       if(courR>0 && e.courier && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:courR, dish:"🛵 Kuryer: "+e.courier, text:text}, e.token);
       removePendingRating(e.id); closeModal(); toast(I18N.t("rate_thanks")+" ✓","success");
       try{ renderReviews(); }catch(_){}
@@ -1818,11 +1864,11 @@
               ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px">${p.emoji||"📢"}</span>`}
             </div>
             <div class="promo-ann-body">
-              <div class="promo-ann-rest">${esc(p.rest)}</div>
-              <div class="promo-ann-text">${esc(p.text)}</div>
+              <div class="promo-ann-rest">${esc(trTxt(p.rest))}</div>
+              <div class="promo-ann-text">${esc(trTxt(p.text))}</div>
               <div class="promo-ann-action">Restoraniga o'tish →</div>
             </div>
-            ${p.tag?`<span class="promo-ann-tag">${p.tag}</span>`:""}
+            ${p.tag?`<span class="promo-ann-tag">${esc(trTxt(p.tag))}</span>`:""}
           </div>`).join("")}
         </div>
       </div>`);
@@ -1882,18 +1928,18 @@
     function renderSlide(){
       const p = promos[cur % promos.length];
       /* Chegirma-badge — faqat tag bo'lsa ko'rsatiladi (masalan "15% OFF", "BEPUL") */
-      const badge = p.tag ? `<span class="ph-badge">${esc(p.tag)}</span>` : "";
+      const badge = p.tag ? `<span class="ph-badge">${esc(trTxt(p.tag))}</span>` : "";
       /* Haqiqiy taom/restoran rasmi (bo'lmasa emoji ko'rsatiladi) */
       const photo = promoPhoto(p);
       const photoInner = `<span class="ph-emoji">${p.emoji||"🍽️"}</span>` +
-        (photo ? `<img class="ph-img" src="${photo}" alt="${esc(p.rest)}" data-onerr="remove">` : "");
+        (photo ? `<img class="ph-img" src="${photo}" alt="${esc(trTxt(p.rest))}" data-onerr="remove">` : "");
       /* Butun hero kartasi bosilganda — mavjud promo modal ochiladi (yangi funksiya yo'q) */
       slidesEl.innerHTML=`
         <div class="ph-card">
           <div class="ph-left">
             <span class="ph-tag">${p.emoji||"🔥"} AKSIYA</span>
-            <h3 class="ph-title">${esc(p.rest)||"Yetkaz.uz"}</h3>
-            <p class="ph-desc">${esc(p.text)}</p>
+            <h3 class="ph-title">${esc(trTxt(p.rest))||"Yetkaz.uz"}</h3>
+            <p class="ph-desc">${esc(trTxt(p.text))}</p>
             <div class="ph-actions">
               <button class="ph-cta" type="button">Buyurtma berish</button>
               <button class="ph-icon" type="button" aria-label="Batafsil">→</button>

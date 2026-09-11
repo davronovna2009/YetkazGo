@@ -6,6 +6,12 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
+  /* Nom joriy tilga (lotin/kirill) TO'LIQ mos bo'lsin — nameCyr bo'sh bo'lsa
+     ham avtomatik harflanadi (YZ_TRANSLIT), aralash alifbo qolmaydi. */
+  const nm = o => { try{
+    return I18N.current()==="cyr" ? YZ_TRANSLIT.toCyr(o.nameCyr||o.name) : YZ_TRANSLIT.toLat(o.name);
+  }catch(e){ return o.name; } };
+  const trTxt = s => { try{ return I18N.current()==="cyr" ? YZ_TRANSLIT.toCyr(s) : YZ_TRANSLIT.toLat(s); }catch(e){ return s; } };
   /* Geolokatsiya — manzilni qurilma joylashuvidan to'ldiradi */
   function detectLocation(inputEl, btn){
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni qo'llamaydi","error"); return; }
@@ -420,13 +426,13 @@
       <div style="margin:-20px -20px 0;height:200px;background:linear-gradient(135deg,#FCEEDF,#F7E2E5);
         display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:16px 16px 0 0">
         <span style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));position:relative;z-index:1">${d.emoji}</span>
-        <img src="${d.photo}" alt="${d.name}" data-onerr="remove"
+        <img src="${d.photo}" alt="${esc(nm(d))}" data-onerr="remove"
           style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:16px 16px 0 0" />
         ${d.badge?`<span style="position:absolute;top:10px;left:12px;z-index:3;background:var(--gold);color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px">${d.badge}</span>`:''}
       </div>
       <div style="padding:16px 0 0">
-        <h2 style="font-size:19px;margin-bottom:4px">${d.name}</h2>
-        <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${d.rest}</div>
+        <h2 style="font-size:19px;margin-bottom:4px">${esc(nm(d))}</h2>
+        <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${esc(trTxt(d.rest))}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           ${priceStr}<span style="font-size:14px;color:var(--grey)"> so'm</span>
         </div>
@@ -497,12 +503,12 @@
     return `<div class="kcard${disc?' kcard-disc':''}${shut?' kcard-shut':''}" data-id="${d.id}" data-discounted="${disc}">
         <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
           ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
-          <img class="kimg-fg" src="${d.photo}" alt="${d.name}" loading="lazy" data-onerr="remove">
+          <img class="kimg-fg" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
           ${disc?`<span class="kcard-disc-badge">${badgeText||'🏷'}</span>`:''}
         </div>
         <div class="kbody">
-          <h4 data-id="${d.id}">${d.name}</h4>
-          <div class="krest">${d.rest}</div>
+          <h4 data-id="${d.id}">${esc(nm(d))}</h4>
+          <div class="krest">${esc(trTxt(d.rest))}</div>
           <div class="krest" style="font-size:12px">${kDishStar(d)}${kDishSold(d)}</div>
           <div class="kfoot"><span class="kprice">${price} so'm</span>${kActionHTML(d,qty)}</div>
         </div></div>`;
@@ -574,8 +580,8 @@
       if(c){
         c.innerHTML=`<div style="text-align:center;padding:10px 4px">
           <div style="font-size:42px">🏪</div>
-          <h2 style="margin:8px 0;font-size:19px">${esc(d.rest)} ga o'tamizmi?</h2>
-          <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:16px">Bitta buyurtmada faqat bitta restoran bo'ladi. Savatingizda <b>${esc(cart[0].rest)}</b> taomlari bor. <b>${esc(d.rest)}</b> ga o'tsangiz — savat yangilanadi va shu restoran taomlari ko'rinadi.</p>
+          <h2 style="margin:8px 0;font-size:19px">${esc(trTxt(d.rest))} ga o'tamizmi?</h2>
+          <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:16px">Bitta buyurtmada faqat bitta restoran bo'ladi. Savatingizda <b>${esc(trTxt(cart[0].rest))}</b> taomlari bor. <b>${esc(trTxt(d.rest))}</b> ga o'tsangiz — savat yangilanadi va shu restoran taomlari ko'rinadi.</p>
           <div style="display:flex;gap:10px">
             <button class="set-save" id="kSwitchNo" style="flex:1;background:#eee;color:#333">Yo'q, qolaman</button>
             <button class="set-save" id="kSwitchYes" style="flex:1">Ha, kirish</button>
@@ -583,7 +589,7 @@
         $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
         const no=$("#kSwitchNo"); if(no) no.addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
         const yes=$("#kSwitchYes"); if(yes) yes.addEventListener("click",()=>{
-          cart=[{id:d.id,name:d.name,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1}];
+          cart=[{id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1}];
           renderCart(); $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open");
           filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){}
           toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
@@ -591,7 +597,7 @@
       }
       return;
     }
-    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1});
+    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1});
     renderCart(); updateKMenuQty(); toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
   }
   function changeQty(id,m){
@@ -639,8 +645,8 @@
           <div class="kab-dr-row">
             <span class="kab-dr-emoji">${i.emoji}</span>
             <div class="kab-dr-info">
-              <div class="kab-dr-name">${i.name}</div>
-              <div class="kab-dr-rest">${i.rest}</div>
+              <div class="kab-dr-name">${esc(nm(i))}</div>
+              <div class="kab-dr-rest">${esc(trTxt(i.rest))}</div>
               <div class="kab-dr-price">${money(i.price)} so'm</div>
             </div>
             <div class="kab-dr-qty">
@@ -811,7 +817,7 @@
     }catch(e){}
     const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=(Math.random()<0.5?10:20);
     const orderLocalId=Date.now();
-    const itemLabel=first.name+more;
+    const itemLabel=(first?nm(first):"")+more;
     const savedCart=cart.map(i=>({...i}));   // server rad etsa — savatni qaytaramiz
     /* `_local:true` — bu yozuv hali serverga bog'lanmagan. `amount` bu yerda
        TAXMINIY (client hisobi); server javob bergач haqiqiy summa bilan
@@ -845,7 +851,7 @@
       onFail: err => koOrderRejected(orderLocalId, savedCart, err)
     }); }catch(e){}
     cart=[]; renderCart(); updateKMenuQty(); renderProfil();
-    startTrack(addr,created,first.emoji,first.name+more);
+    startTrack(addr,created,first.emoji,itemLabel);
   }
 
   /* Server buyurtmani RAD ETDI — local yozuvni o'chirib, savatni qaytaramiz va
@@ -1047,12 +1053,12 @@
       return `<div class="krest-card${hasPromo?' krest-promo':''}${open?'':' krest-shut'}" data-rest="${r.name}">
         <div class="krest-img tone-${r.kw||'burger'}">
           <span class="kemoji" style="font-size:44px;position:relative;z-index:1">${r.emoji||"🏪"}</span>
-          ${(function(){const p=restPhotoK(r.name);return p?`<img src="${p}" alt="${esc(r.name)}" loading="lazy" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:0">`:"";})()}
+          ${(function(){const p=restPhotoK(r.name);return p?`<img src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:0">`:"";})()}
           <span class="yz-openbadge ${open?'is-open':'is-closed'}">${open?'🟢 Ochiq':'🔴 Yopiq'}</span>
           ${hasPromo?'<span class="krest-promo-badge">🏷 AKSIYA</span>':''}
         </div>
         <div class="krest-body">
-          <h3>${r.name}</h3>
+          <h3>${esc(nm(r))}</h3>
           <div class="krest-meta">
             <span class="star">★ ${r.rating}</span>
             <span>⏱ ${r.eta} ${typeof KT==="function"?KT('daq'):'daq'}</span>
@@ -1155,8 +1161,8 @@
               <span style="font-size:28px">${d.emoji}</span>
             </div>
             <div class="kpm-dish-info">
-              <div class="kpm-dish-name">${d.name}</div>
-              <div class="kpm-dish-rest">${d.rest}</div>
+              <div class="kpm-dish-name">${esc(nm(d))}</div>
+              <div class="kpm-dish-rest">${esc(trTxt(d.rest))}</div>
               <div class="kpm-dish-prices">
                 <span class="kpm-old">${money(d.price)}</span>
                 <span class="kpm-new">${money(d.eff)} so'm</span>

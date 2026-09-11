@@ -54,6 +54,16 @@ export function courierFeeOf(name) {
   return 0;
 }
 
+/* Kuryer telefon raqami — AYNAN kuryer o'zi admin(ga) bergan raqam
+   (couriers.phone). Mijoz "Kuryer bilan bog'lanish" tugmasi shu raqamga
+   qo'ng'iroq qiladi. */
+export function courierPhoneOf(name) {
+  try {
+    const c = db.prepare('SELECT phone FROM couriers WHERE name = ?').get(String(name || ''));
+    return (c && c.phone) ? prettyPhone(c.phone) : '';
+  } catch (e) { return ''; }
+}
+
 /* Buyurtma YETKAZILDI — kuryer haqi AYNAN shu paytda buyurtmaga muhrlanadi.
    Admin keyin haqni o'zgartirsa, o'tgan buyurtmalarning xarajati o'zgarmaydi.
    Buyurtma 'done' bo'ladigan HAR uch yo'l (kuryer PATCH, mijoz tasdig'i,
@@ -93,6 +103,10 @@ export function rowToOrder(r) {
   return {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, item: r.item, emoji: r.emoji,
     amount: r.amount, addr: r.addr, pay: r.pay, courier: r.courier,
+    /* Kuryer telefoni — FAQAT kuryer yo'lga chiqgandan keyin (mijoz bog'lanishi
+       kerak bo'lgan payt). Bundan oldin (tayyorlanmoqda bosqichida) ko'rsatish
+       shart emas — kuryer haliям buyurtmani olmagan bo'lishi mumkin. */
+    courierPhone: (r.courier && (r.status === 'ontheway' || r.status === 'arrived')) ? courierPhoneOf(r.courier) : '',
     status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
     /* Buyurtma qayerdan kelgan — panellarda ko'rsatiladi ('sayt' | 'telegram') */
     source: r.source || (r.tg_chat_id ? 'telegram' : 'sayt'),
