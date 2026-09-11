@@ -1535,9 +1535,12 @@
         }
       }
       close();
-      /* Qabul qilingach — taom va kuryerни baholashni so'raymiz */
+      /* Qabul qilingach — 5 soniyadan keyin taom va kuryerни baholashni
+         so'raymiz. Faqat HAQIQATDA buyurtma bergan va uni qabul qilgan
+         mijozga chiqadi (chunki queueRating shu yerda, aynan shu voqeadan
+         keyingina chaqiriladi). */
       queueRating(order);
-      setTimeout(()=>askRating(), 400);
+      setTimeout(()=>askRating(), 5000);
     };
 
     document.getElementById("arrivedClose").addEventListener("click", close);
@@ -1637,7 +1640,9 @@
         box.querySelectorAll(".rate-star").forEach((s,i)=> s.textContent=(i<n?"★":"☆")); })); };
     wire("rateDish", n=>dishR=n);
     if(e.courier) wire("rateCour", n=>courR=n);
-    const skip=document.getElementById("rateSkip"); if(skip) skip.addEventListener("click", closeModal);  // pending qoladi
+    /* "Keyinroq" bosilsa ham SHU buyurtma uchun qaytadan so'ralmaydi —
+       aks holda keyingi saytga kirishlarda ham "izoh qoldiring" chiqaveradi. */
+    const skip=document.getElementById("rateSkip"); if(skip) skip.addEventListener("click", ()=>{ removePendingRating(e.id); closeModal(); });
     const send=document.getElementById("rateSend"); if(send) send.addEventListener("click",()=>{
       const text=(document.getElementById("rateText")||{}).value||"";
       if(!dishR && !courR){ toast("Kamida bitta baho bering","error"); return; }
@@ -2043,7 +2048,11 @@
     /* Backenddan ma'lumot kelgach — tasdiqlanmagan buyurtma bo'lsa so'raymiz */
     if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(checkPendingConfirm).catch(()=>{});
     setTimeout(checkPendingConfirm, 2500);   // kesh sekin kelsa — zaxira urinish
-    setTimeout(askRating, 1800); // keyingi kirishda baholanmagan buyurtma bo'lsa so'raymiz
+    /* DIQQAT: bu yerда sahifa ochilganda avtomatik askRating() CHAQIRILMAYDI —
+       aks holda buyurtma bermagan mijozga ham (browserda eski pending
+       qolib ketsa) "izoh qoldiring" oynasi chiqib ketardi. Izoh so'rash
+       FAQAT "Rahmat, oldim" bosilgach, 5 soniyadan keyin ishga tushadi
+       (yuqoridagi confirmAndClose ichida). */
 
     $("#langToggle").addEventListener("click",()=>{ I18N.toggle(); I18N.apply(); reRender(); });
     $("#cartBtn").addEventListener("click",openCart);
