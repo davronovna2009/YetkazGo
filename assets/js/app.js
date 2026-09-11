@@ -131,7 +131,8 @@
       pod.innerHTML = `
         <div class="card-qty">
           <button class="qty-btn qty-minus" aria-label="Kamaytirish">−</button>
-          <span class="qty-num">${qty}</span>
+          <input class="qty-num qty-num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
+                 value="${qty}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;color:inherit;text-align:center">
           <button class="qty-btn qty-plus${closed?' qty-closed':''}" aria-label="Ko'paytirish">+</button>
           <button class="qty-btn qty-note${hasNote?' has-note':''}" aria-label="${esc(I18N.t("note_label"))}" title="${esc(I18N.t("note_label"))}">💬</button>
         </div>`;
@@ -143,6 +144,7 @@
         if(closed){ toast(d.rest+" "+I18N.t("closed_now"),"error"); return; }
         flyToCart(d,e.currentTarget); addToCart(d); updateAllCards();
       });
+      wireQtyInput(pod.querySelector(".qty-num-input"), d.id);
     }
   }
 
@@ -237,7 +239,8 @@
       } else {
         foot.innerHTML=`<div class="dm-qty">
             <button class="qty-btn qty-minus" id="dmMinus">−</button>
-            <span class="qty-num" id="dmNum">${q}</span>
+            <input class="qty-num qty-num-input" id="dmNum" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
+                   value="${q}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;color:inherit;text-align:center">
             <button class="qty-btn qty-plus${closed?' qty-closed':''}" id="dmPlus">+</button>
           </div>
           <button class="btn btn-primary btn-block" style="margin-top:10px" id="dmGoCart">${I18N.t("view_cart_btn")}</button>`;
@@ -247,6 +250,7 @@
           if(closed){ toast(d.rest+" "+I18N.t("closed_now"),"error"); return; }
           addToCart(d);updateAllCards();refreshModal();
         });
+        wireQtyInput(foot.querySelector("#dmNum"), d.id, refreshModal);
         foot.querySelector("#dmGoCart").addEventListener("click",()=>{closeModal();openCart();});
         /* Savatga qo'shilgan zahoti — SHU TAOMGA izoh yozish maydoni.
            "Somsani sous bilan yuboring" kabi tilak restoranga va kuryerga
@@ -743,6 +747,25 @@
     it.qty+=delta; if(it.qty<=0) cart=cart.filter(i=>i.id!==id);
     updateCart(); updateAllCards();
   }
+  /* Miqdor raqamining ustiga bosib, xohlagan sonni to'g'ridan-to'g'ri
+     yozish uchun (faqat +/- bosib bitta-bitta oshirish o'rniga). */
+  const MAX_QTY_PER_DISH = 99;
+  function setQty(id, val){
+    const it=cart.find(i=>i.id===id); if(!it) return;
+    const n=Math.max(0, Math.min(MAX_QTY_PER_DISH, Math.round(Number(val)||0)));
+    if(n<=0) cart=cart.filter(i=>i.id!==id);
+    else it.qty=n;
+    updateCart(); updateAllCards();
+  }
+  /* Miqdor <input>ini bir xil tarzda ulaymiz (karta, taom oynasi, savat) —
+     bosilganda karta/modal ochilib ketmasin, Enter/fokusdan chiqganda saqlansin. */
+  function wireQtyInput(input, id, onAfter){
+    if(!input) return;
+    input.addEventListener("click",e=>e.stopPropagation());
+    input.addEventListener("focus",e=>{ e.stopPropagation(); try{ input.select(); }catch(_){} });
+    input.addEventListener("change",e=>{ e.stopPropagation(); setQty(id, e.target.value); if(onAfter) onAfter(); });
+    input.addEventListener("keydown",e=>{ e.stopPropagation(); if(e.key==="Enter") input.blur(); });
+  }
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
   /* Yetkazish narxi — restoran masofasi (km) bo'yicha: 4000 + 1500/km */
   /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
@@ -758,7 +781,8 @@
         row.innerHTML=`
           <div class="ci-img"><span>${i.emoji}</span></div>
           <div class="ci-info"><h4>${nm(i)}</h4><span>${fmt(i.price)} ${I18N.t("sum")}</span></div>
-          <div class="qty"><button data-m="-1">−</button><b>${i.qty}</b><button data-m="1">+</button></div>
+          <div class="qty"><button data-m="-1">−</button><input class="qty-num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
+                 value="${i.qty}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;font-weight:700;color:inherit;text-align:center"><button data-m="1">+</button></div>
           <div class="ci-note">
             <label class="ci-note-lbl" for="note_${i.id}">💬 ${I18N.t("note_label")}</label>
             <input id="note_${i.id}" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
@@ -766,6 +790,7 @@
           </div>`;
         row.querySelector('[data-m="-1"]').addEventListener("click",()=>changeQty(i.id,-1));
         row.querySelector('[data-m="1"]').addEventListener("click",()=>changeQty(i.id,1));
+        wireQtyInput(row.querySelector(".qty-num-input"), i.id);
         /* Izoh yozilgan zahoti savatda saqlanadi — "input" (har harfda), chunki
            mijoz tugmani bosmasdan to'g'ridan-to'g'ri "Buyurtma berish" ga o'tadi. */
         const ni=row.querySelector(".ci-note-inp");
@@ -1132,11 +1157,24 @@
           onOk: saved => {
             attachBackendId(orderId, saved.id);
             /* Katta/g'ayrioddiy buyurtma administrator tekshiruviga tushdi
-               (server/src/order-rules.js) — mijoz nima bo'layotganini bilsin. */
+               (server/src/order-rules.js) — mijoz nima bo'layotganini ANIQ
+               tushunishi uchun oynada tushuntiramiz (shunchaki toast emas). */
             if(saved.status==="review"){
               const st=document.getElementById("tStatus");
               if(st) st.textContent="Administrator tekshiruvida";
-              toast("Buyurtmangiz katta — administrator tekshiradi va tez orada tasdiqlaydi","success");
+              const modalOpen = document.getElementById("modal") && document.getElementById("modal").classList.contains("open");
+              const owns = modalTrackId() === String(orderId);
+              if(!document.getElementById("arrivedOverlay") && (!modalOpen || owns)){
+                openModal(`<div style="text-align:center">
+                  <div style="font-size:42px">🔎</div>
+                  <h2 style="margin:8px 0">Buyurtmangiz tekshirilmoqda</h2>
+                  <p class="modal-sub" style="margin:2px 0">Siz belgilangan miqdordan ko'proq buyurtma qildingiz. Shu sababli buyurtmangiz avval administrator tomonidan ko'rib chiqiladi, so'ngra restoranga topshiriladi.</p>
+                  <button class="btn btn-primary btn-block" id="revOkClose" style="margin-top:12px">Tushunarli</button>
+                </div>`);
+                const rb=document.getElementById("revOkClose"); if(rb) rb.addEventListener("click",closeModal);
+              } else {
+                toast("Buyurtmangiz katta — administrator tekshiradi va tez orada tasdiqlaydi","success");
+              }
             }
           },
           /* Server rad etdi (min. summa / sotuvda yo'q taom) — hammasini qaytaramiz */

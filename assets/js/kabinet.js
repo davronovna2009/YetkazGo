@@ -898,13 +898,17 @@
       els.forEach((el,i)=>{ el.classList.remove("active","done-step"); if(i<idx) el.classList.add("done-step"); else if(i===idx) el.classList.add("active"); });
       const st=$("#koStatus"); if(st){ st.textContent=steps[idx]||steps[0]; st.style.color=stepColors[idx]||""; }
     }
-    let finished=false;
+    let finished=false, reviewShown=false;
     function tick(){
       const o=orderNow(); const s=(o&&o.status)||"new";
       if(s==="cancelled"){ clearInterval(poll); paint(0); showKabCancelled(o&&o.reason,emoji); return; }
       paint(STMAP[s]!=null?STMAP[s]:0);
-      /* Tekshiruvda turgan buyurtma — mijoz nima kutayotganini bilsin */
-      if(s==="review"){ const st=$("#koStatus"); if(st){ st.textContent="🔎 Administrator tekshiruvida"; st.style.color="#c2410c"; } }
+      /* Tekshiruvda turgan buyurtma — mijoz nima kutayotganini bilsin.
+         Oyna FAQAT BIR MARTA (birinchi aniqlanganda) chiqadi. */
+      if(s==="review"){
+        const st=$("#koStatus"); if(st){ st.textContent="🔎 Administrator tekshiruvida"; st.style.color="#c2410c"; }
+        if(!reviewShown){ reviewShown=true; showKabReview(); }
+      }
       const act=$("#koTrackAction");
       if(s==="arrived" && act && !act.dataset.on){
         act.dataset.on="1";
@@ -934,6 +938,21 @@
     document.body.appendChild(ov);
     const close=()=>{ ov.remove(); };
     ov.querySelector("#kabCancOk").addEventListener("click",close);
+    ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
+  }
+
+  /* Katta/g'ayrioddiy buyurtma administrator tekshiruviga tushdi
+     (server/src/order-rules.js) — mijoz nima bo'layotganini bilsin. */
+  function showKabReview(){
+    let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
+    ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">🔎</div>'+
+      '<div class="arrived-title">Buyurtmangiz tekshirilmoqda</div>'+
+      '<div class="arrived-msg">Siz belgilangan miqdordan ko\'proq buyurtma qildingiz. Shu sababli buyurtmangiz avval administrator tomonidan ko\'rib chiqiladi, so\'ngra restoranga topshiriladi.</div>'+
+      '<button class="btn btn-primary" id="kabRevOk">Tushunarli</button></div>';
+    document.body.appendChild(ov);
+    const close=()=>{ ov.remove(); };
+    ov.querySelector("#kabRevOk").addEventListener("click",close);
     ov.addEventListener("click",(e)=>{ if(e.target===ov) close(); });
   }
 
