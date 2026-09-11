@@ -11,6 +11,10 @@ import { toImageUrl } from './upload.js';
 
 const router = Router();
 
+/* Test rejimida (npm test) kesh O'CHIQ — E2E yozib darhol o'qiydi, hammasi
+   DARHOL yangi bo'lishi kerak. Boshqa joyda (rate-limit) ham shu bayroq. */
+const IS_TEST = process.env.NODE_ENV === 'test';
+
 /* Restoran/kuryer reytingi — bazadagi qotib qolgan son emas, JONLI hisob
    (ratings.js: mijozlar bergan izohlar o'rtachasi).
    MUHIM: `live` ni tekshiruvchi — `.map(restRow)` chaqirilса Array.map INDEKSni
@@ -106,7 +110,20 @@ function courRow(c, live) {
 
 /* GET /api/bootstrap — bosh sahifa va panellar uchun ommaviy snapshot.
    Buyurtmalar (maxfiy) alohida /api/orders orqali (token bilan) olinadi. */
+/* ===== BOOTSTRAP KESHI — TEJAMKOR ko'p foydalanuvchida =====
+   Bu ENG KO'P so'raladigan endpoint: HAR ochiq panel/sahifa uni 5 soniyada bir
+   so'raydi (assets/js/store.js). Foydalanuvchi ko'paysa (10, 100, 1000 ulanish),
+   bu yerдаgi bir necha SELECT (izohlar, e'lonlar, restoranlar, taomlar, reyting,
+   sozlamalar) har mijozга alohida QAYTA bajarilса — server sekinlashadi.
+   Qisqa (2 soniyalik) keshda BARCHA mijozlar bitta hisobни baham ko'radi:
+   server yuki mijozlar soniga BOG'LIQ EMAS, faqat kesh oynasiga bog'liq bo'ladi.
+   Test rejimida O'CHIQ — E2E yozib darhol yangi natijani ko'rishi shart. */
+const BOOT_CACHE_MS = IS_TEST ? 0 : 2000;
+let _bootCache = null, _bootCacheAt = 0;
+
 router.get('/bootstrap', (_req, res) => {
+  const now = Date.now();
+  if (_bootCache && (now - _bootCacheAt) < BOOT_CACHE_MS) { res.json(_bootCache); return; }
   /* Izohlar — admin javobi (reply) bilan birga: saytda izoh ostida ko'rinadi,
      admin panelida esa boshqariladi (o'chirish / javob yozish). */
   const reviews = db.prepare('SELECT * FROM reviews ORDER BY id DESC').all().map(r => ({
@@ -121,13 +138,15 @@ router.get('/bootstrap', (_req, res) => {
   const live = liveRatings();
   const restaurants = db.prepare('SELECT * FROM restaurants WHERE active = 1 ORDER BY id').all()
     .map((r) => restRow(r, live));
-  res.json({
+  _bootCache = {
     reviews, overrides: getOverrides(live), announcements, restaurants,
     /* Taom va kuryer reytinglari — sayt yulduzchalarni SHU YERDAN oladi */
     ratings: { dishes: live.dishes, couriers: live.couriers },
     /* Sayt egasining raqami (miqdor cheklovi xabarida ko'rsatiladi) */
     settings: publicSettings(),
-  });
+  };
+  _bootCacheAt = now;
+  res.json(_bootCache);
 });
 
 /* GET /api/settings — ommaviy (sayt egasi raqami). PATCH — faqat admin. */

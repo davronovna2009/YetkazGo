@@ -230,6 +230,9 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
     CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
     CREATE INDEX IF NOT EXISTS idx_orders_user    ON orders(user);
+    -- status bo'yicha qidirish (masalan "done" buyurtmalar — ratings.js dishSales,
+    -- daromad hisoblari) buyurtma soni ko'paysa ham TEZ ishlashi uchun.
+    CREATE INDEX IF NOT EXISTS idx_orders_status  ON orders(status);
   `);
 
   /* Migratsiyalar: eski bazalarda yangi ustunlar bo'lmasligi mumkin.

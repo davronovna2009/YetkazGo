@@ -68,9 +68,28 @@ export function dishSales() {
   return m;
 }
 
+/* ===== TEJAMKOR: qisqa muddatli kesh (ko'p foydalanuvchi bir vaqtда) =====
+   `/api/bootstrap` HAR mijoz tomonidan 5 soniyada bir so'raladi (assets/js/store.js).
+   Foydalanuvchi ko'paysa, shu funksiya (orders/reviews jadvalini to'liq skanerlab,
+   items_json'ni har safar qayta parse qilib) HAR so'rovда QAYTA hisoblanса —
+   server ko'p ulanишда sekinlashadi/qотиб qoladi. Kesh muddati ичida kelgan
+   BARCHA so'rovlar (necha mijoz bo'lmasin) BITTA hisobни baham ko'radi.
+   Test rejimida (npm test) kesh O'CHIQ — har yozuvdан keyin DARHOL yangi
+   natija kerak (E2E write→read ketma-ketligi buzilmasin). */
+const RATINGS_CACHE_MS = process.env.NODE_ENV === 'test' ? 0 : 2500;
+let _ratingsCache = null, _ratingsCacheAt = 0;
+
 /* Barcha jonli reytinglar bir marta hisoblanadi (bootstrap uchun tejamkor).
    Qaytaradi: { rests:{nom:{rating,count}}, dishes:{nom:{rating,count,sold}}, couriers:{...} } */
 export function liveRatings() {
+  const now = Date.now();
+  if (_ratingsCache && (now - _ratingsCacheAt) < RATINGS_CACHE_MS) return _ratingsCache;
+  _ratingsCache = computeLiveRatings();
+  _ratingsCacheAt = now;
+  return _ratingsCache;
+}
+
+function computeLiveRatings() {
   const rows = allReviews();
   const dr = dishRestMap();
   const byRest = new Map(), byDish = new Map(), byCour = new Map();

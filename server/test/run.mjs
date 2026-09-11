@@ -67,5 +67,9 @@ fail += await run(process.execPath, [resolve(HERE, 'rating-stars.test.mjs')]);
 fail += await runE2E('money-e2e.mjs', '2/3  money-e2e (moliya + panellararo moslik)');
 fail += await runE2E('lifecycle-e2e.mjs', '3/3  lifecycle-e2e (to\'liq hayotiy oqim)');
 
+/* O'Z serverini (NODE_ENV=test EMAS — kesh yoqiq) boshqaradi, shuning uchun
+   runE2E orqali emas, to'g'ridan-to'g'ri ishga tushiriladi. */
+fail += await run(process.execPath, [resolve(HERE, 'bootstrap-cache.test.mjs')]);
+
 console.log(fail ? '\n✗ TESTLAR YIQILDI\n' : '\n✓ HAMMA TEST O‘TDI\n');
 process.exit(fail ? 1 : 0);
