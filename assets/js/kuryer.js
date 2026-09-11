@@ -368,6 +368,7 @@
      daromadi. Saytga qoladigan qism kuryerga UMUMAN ko'rsatilmaydi.
      Davr tanlovi + karta/naqd bo'linishi (necha mijoz karta, nechasi naqd). */
   let kIncomePeriod="oylik";
+  let kIncomeOffset=0;
   function renderIncome(){
     const host=$("#kIncomeBody"); if(!host) return;
     const fee=Math.max(0, Number(CUR&&CUR.fee)||0);
@@ -378,7 +379,7 @@
     const feeOf=o=>(o&&o.courierFee!=null)?(Number(o.courierFee)||0):fee;
     /* Davr/ustun mantiqi — YZ_TIME.incomeChart (admin/restoran bilan bir xil).
        "Shu davr" kartasi = grafikning OXIRGI ustuni (1 so'mgacha teng). */
-    const IC=YZ_TIME.incomeChart(kIncomePeriod);
+    const IC=YZ_TIME.incomeChart(kIncomePeriod, kIncomeOffset);
     const inP=done.filter(o=>IC.isCurrent(o.created_at));
     const earn=inP.reduce((s,o)=>s+feeOf(o),0);
     const card=inP.filter(o=>o.pay!=="cash"), cash=inP.filter(o=>o.pay==="cash");
@@ -392,11 +393,17 @@
     const sums=IC.series(done, feeOf);
     const max=Math.max.apply(null,sums.concat([1]));
     const chart=IC.buckets.map(function(x,i){ const v=sums[i]; const cur=i===IC.curIndex;
-      return '<div style="flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%"><div style="font-size:10px;font-weight:700;color:'+(cur?'#15803d':'#8a7f76')+'">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:'+(cur?'linear-gradient(180deg,#15803d,#22c55e)':'linear-gradient(180deg,#86c9a3,#b9e3cb)')+';height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
+      return '<div class="kbar-col" data-bidx="'+i+'" style="cursor:pointer;flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%" title="Batafsil uchun bosing"><div style="font-size:10px;font-weight:700;color:'+(cur?'#15803d':'#8a7f76')+'">'+(v?Math.round(v/1000)+"k":"0")+'</div><div style="width:100%;max-width:30px;border-radius:8px 8px 0 0;background:'+(cur?'linear-gradient(180deg,#15803d,#22c55e)':'linear-gradient(180deg,#86c9a3,#b9e3cb)')+';height:'+Math.max(4,Math.round(v/max*120))+'px"></div><small style="font-size:10px;color:#8a7f76">'+x.label+'</small></div>'; }).join("");
     host.innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
-        <div style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+          <span style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</span>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button id="kIncPrev" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer" title="Oldingi davr">◀</button>
+            <button id="kIncNext" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer" title="Keyingi davr" ${kIncomeOffset<=0?"disabled":""}>▶</button>
+          </span>
+        </div>
       </div></div>
       <div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
@@ -419,7 +426,32 @@
         <div class="panel-body"><div style="display:flex;align-items:flex-end;gap:8px;height:170px;overflow-x:auto;padding:10px 4px">${chart}</div>
         <p style="color:var(--grey);font-size:12px;margin:8px 2px 0">Oxirgi (yashil) ustun — «${pLabel}» daromadingiz: <b>${money(earn)} so'm</b>. Har ustun yetkazilgan buyurtmalar haqidan hisoblangan.</p></div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Daromadingiz har yetkazilgan buyurtma uchun belgilangan haq bo'yicha hisoblanadi. Haqni admin belgilaydi.</p>`;
-    host.querySelectorAll(".kinc-seg").forEach(function(b){ b.addEventListener("click",function(){ kIncomePeriod=b.dataset.kp; renderIncome(); }); });
+    host.querySelectorAll(".kinc-seg").forEach(function(b){ b.addEventListener("click",function(){ kIncomePeriod=b.dataset.kp; kIncomeOffset=0; renderIncome(); }); });
+    const kip=host.querySelector("#kIncPrev"); if(kip) kip.addEventListener("click",function(){ kIncomeOffset++; renderIncome(); });
+    const kin=host.querySelector("#kIncNext"); if(kin) kin.addEventListener("click",function(){ if(kIncomeOffset>0){ kIncomeOffset--; renderIncome(); } });
+    host.querySelectorAll(".kbar-col").forEach(function(el){
+      el.addEventListener("click",function(){ showKIncomeBucketModal(IC, done, +el.dataset.bidx, feeOf); });
+    });
+  }
+  /* Bitta ustunga bosilganda — o'sha davrning batafsil ko'rsatkichlari */
+  function showKIncomeBucketModal(IC, done, idx, feeOf){
+    const x=IC.buckets[idx]; if(!x) return;
+    const orders=done.filter(function(o){ return IC.bucketOf(o.created_at)===idx; });
+    const earn=orders.reduce(function(s,o){ return s+feeOf(o); },0);
+    let el=document.getElementById("kIncBucketModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="kIncBucketModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    const row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:380px;width:100%;padding:22px;position:relative">'+
+      '<button id="kibmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
+      '<h3 style="text-align:center;margin:4px 0 14px">📅 '+esc(x.label)+'</h3>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+      row("Yetkazilgan buyurtma", money(orders.length)+" ta")+
+      row("Sizning daromadingiz", '<span style="color:var(--green)">'+money(earn)+" so'm</span>")+
+      '</div></div>';
+    document.body.appendChild(el);
+    el.querySelector("#kibmClose").addEventListener("click",function(){ el.remove(); });
+    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
   }
 
   /* ===== SOZLAMALAR: ish vaqti, ishdan javob (leave), login/parol ===== */

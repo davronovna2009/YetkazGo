@@ -102,7 +102,7 @@ const I18N = (function(){
       footer_owner:"Sayt egasi", footer_partners:"Hamkor restoranlar", footer_join:"Biz bilan ishlang",
       footer_courier:"Kuryer bo'lib ishlash", footer_addrest:"Restoran qo'shish",
       footer_terms:"Foydalanish shartlari", footer_admin:"Admin panel", footer_cabinet:"Mening kabinetim", footer_contact:"Aloqa", footer_rights:"Barcha huquqlar himoyalangan",
-      cart_title:"Savatingiz", total:"Jami", sum:"so'm", min_note:"Minimal buyurtma: 20 000 so'm",
+      cart_title:"Savatingiz", total:"Jami", sum:"so'm", min_note:"Minimal buyurtma: {min} so'm",
       checkout:"Buyurtma berish",
       /* Taomga izoh — restoran va kuryer aynan shuni ko'radi */
       note_label:"Shu taomga izoh", note_ph:"Masalan: sous bilan yuboring",
@@ -121,7 +121,7 @@ const I18N = (function(){
       sum_items:"Taomlar", sum_delivery:"Yetkazish", sum_total:"Jami to'lov", place_order:"Buyurtmani tasdiqlash",
       err_name:"Ism kamida 4 harf bo'lsin", err_phone:"To'g'ri telefon raqam kiriting",
       err_address:"Manzilni kiriting",
-      err_min:"Minimal buyurtma 20 000 so'm bo'lishi kerak",
+      err_min:"Minimal buyurtma {min} so'm bo'lishi kerak",
       debt_warn:"Sizda to'lanmagan qarz yo'q ✓",
       track_title:"Buyurtmangiz qabul qilindi!",
       st_accepted:"Qabul qilindi", st_cooking:"Tayyorlanmoqda", st_ready:"Tayyor",
@@ -129,7 +129,7 @@ const I18N = (function(){
       track_eta:"Yetib borish vaqti", min_short:"daqiqa",
       arrived_msg:"Buyurtmangiz yetkazildi. Yoqimli ishtaha! 🎉",
       empty_cart:"Savatingiz bo'sh", empty_hint:"Taomlardan tanlab qo'shing",
-      t_added:"Savatga qo'shildi", t_min:"Minimal buyurtma 20 000 so'm", t_ordered:"Buyurtma qabul qilindi!",
+      t_added:"Savatga qo'shildi", t_min:"Minimal buyurtma {min} so'm", t_ordered:"Buyurtma qabul qilindi!",
       delivery_free_soon:"Bepul yetkazish yaqin orada",
       new_user:"Yangi foydalanuvchi", rating:"reyting", min_eta:"daq",
       order_now:"Buyurtma", view_menu:"Menyuni ko'rish",
@@ -162,7 +162,7 @@ const I18N = (function(){
       footer_owner:"Сайт эгаси", footer_partners:"Ҳамкор ресторанлар", footer_join:"Биз билан ишланг",
       footer_courier:"Курьер бўлиб ишлаш", footer_addrest:"Ресторан қўшиш",
       footer_terms:"Фойдаланиш шартлари", footer_admin:"Админ панел", footer_cabinet:"Менинг кабинетим", footer_contact:"Алоқа", footer_rights:"Барча ҳуқуқлар ҳимояланган",
-      cart_title:"Саватингиз", total:"Жами", sum:"сўм", min_note:"Минимал буюртма: 20 000 сўм",
+      cart_title:"Саватингиз", total:"Жами", sum:"сўм", min_note:"Минимал буюртма: {min} сўм",
       checkout:"Буюртма бериш",
       note_label:"Шу таомга изоҳ", note_ph:"Масалан: соус билан юборинг",
       note_saved:"Изоҳ сақланди ✓", note_cleared:"Изоҳ ўчирилди",
@@ -179,7 +179,7 @@ const I18N = (function(){
       sum_items:"Таомлар", sum_delivery:"Етказиш", sum_total:"Жами тўлов", place_order:"Буюртмани тасдиқлаш",
       err_name:"Исм камида 4 ҳарф бўлсин", err_phone:"Тўғри телефон рақам киритинг",
       err_address:"Манзилни киритинг",
-      err_min:"Минимал буюртма 20 000 сўм бўлиши керак",
+      err_min:"Минимал буюртма {min} сўм бўлиши керак",
       debt_warn:"Сизда тўланмаган қарз йўқ ✓",
       track_title:"Буюртмангиз қабул қилинди!",
       st_accepted:"Қабул қилинди", st_cooking:"Тайёрланмоқда", st_ready:"Тайёр",
@@ -187,7 +187,7 @@ const I18N = (function(){
       track_eta:"Етиб бориш вақти", min_short:"дақиқа",
       arrived_msg:"Буюртмангиз етказилди. Ёқимли иштаҳа! 🎉",
       empty_cart:"Саватингиз бўш", empty_hint:"Таомлардан танлаб қўшинг",
-      t_added:"Саватга қўшилди", t_min:"Минимал буюртма 20 000 сўм", t_ordered:"Буюртма қабул қилинди!",
+      t_added:"Саватга қўшилди", t_min:"Минимал буюртма {min} сўм", t_ordered:"Буюртма қабул қилинди!",
       delivery_free_soon:"Бепул етказиш яқин орада",
       new_user:"Янги фойдаланувчи", rating:"рейтинг", min_eta:"дақ",
       order_now:"Буюртма", view_menu:"Менюни кўриш",
@@ -223,7 +223,13 @@ const I18N = (function(){
     if(!IS_KAB){ try{ localStorage.setItem('yz_lang', v); }catch(e){} }
   }
   let lang = langRead() || "cyr";
-  function t(key){ return (DICT[lang] && DICT[lang][key]) || (DICT.lat[key]||key); }
+  /* `vars` — {n:"..."} kabi qiymatlar matndagi "{n}" o'rniga qo'yiladi
+     (masalan minimal buyurtma summasi — admin sozlamasidan, qattiq yozilmagan). */
+  function t(key, vars){
+    let str = (DICT[lang] && DICT[lang][key]) || (DICT.lat[key]||key);
+    if(vars) Object.keys(vars).forEach(k=>{ str=str.split('{'+k+'}').join(vars[k]); });
+    return str;
+  }
   function apply(){
     document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
@@ -262,7 +268,7 @@ const I18N = (function(){
       savat_bosh:"🛒 Savatingiz bo'sh",
       savat_bosh_hint:"Quyidagi taomlardan tanlang",
       jami:"Jami", yetkazish:"Yetkazish", bepul:"🛵 Bepul",
-      minimal_warn:"⚠️ Minimal 20 000 so'm (yana {n} so'm)",
+      minimal_warn:"⚠️ Minimal {min} so'm (yana {n} so'm)",
       minimal_ok:"✅ Yetkazish bepul 🛵",
       buyurtma_berish:"Buyurtma berish",
       savatga_qoshildi:"Savatga qo'shildi",
@@ -327,7 +333,7 @@ const I18N = (function(){
       savat_bosh:"🛒 Саватингиз бўш",
       savat_bosh_hint:"Қуйидаги таомлардан танланг",
       jami:"Жами", yetkazish:"Етказиш", bepul:"🛵 Бепул",
-      minimal_warn:"⚠️ Минимал 20 000 сўм (яна {n} сўм)",
+      minimal_warn:"⚠️ Минимал {min} сўм (яна {n} сўм)",
       minimal_ok:"✅ Етказиш бепул 🛵",
       buyurtma_berish:"Буюртма бериш",
       savatga_qoshildi:"Саватга қўшилди",

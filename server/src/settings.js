@@ -8,6 +8,7 @@
                    cheklovidan oshsa, "shu raqamga qo'ng'iroq qiling" deb
                    AYNAN shu raqam ko'rsatiladi (pricing.js). */
 import { db } from './db.js';
+import { MIN_ORDER as MIN_ORDER_DEFAULT } from './config.js';
 
 /* Ruxsat etilgan kalitlar — begona kalit bazani ifloslantirmasin.
    support_*    — «Yordam / murojaat» kontaktlari: mijoz, restoran, kuryer
@@ -29,6 +30,18 @@ export const KEYS = [
                        Standart: 1★=5, 2★=15, 3★=30, 4★=60, 5★=100. */
   'dish_rating_src',
   'dish_star_t1', 'dish_star_t2', 'dish_star_t3', 'dish_star_t4', 'dish_star_t5',
+  /* ===== MOLIYAVIY SOZLAMALAR — admin "Moliyaviy sozlamalar" kartasi =====
+     min_order     : eng kam buyurtma summasi (so'm) — pricing.js shu bilan
+                     tekshiradi (env MIN_ORDER — hech narsa kiritilmagan
+                     boshlang'ich qiymat).
+     delivery_fee  : mijozdan olinadigan yetkazish narxi (so'm) — buyurtma
+                     yaratilganда orders-core.js shu summani buyurtmaga
+                     qo'shadi. 0 = bepul yetkazish. */
+  'min_order', 'delivery_fee',
+  /* ===== BILDIRISHNOMA ===== daily_report_on — admin yoqadi; last_daily_report_date
+     esa bot.js o'ziga "bugun allaqachon yubordim" deb belgilab qo'yadigan ichki
+     kalit (admin buni to'g'ridan-to'g'ri o'zgartirmaydi). */
+  'daily_report_on', 'last_daily_report_date',
 ];
 
 /* Taom yulduzcha bosqichlari — [t1..t5] o'suvchi butun sonlar (admin sozlamasi) */
@@ -53,6 +66,17 @@ export function starsForSales(sold, thr) {
   let s = 0;
   for (let i = 0; i < t.length; i++) if (n >= t[i]) s = i + 1;
   return s;
+}
+
+/* Minimal buyurtma summasi (so'm) — admin sozlamasi, bo'lmasa .env/standart 20000 */
+export function minOrderAmount() {
+  const v = parseInt(getSetting('min_order', ''), 10);
+  return Number.isFinite(v) && v >= 0 ? v : MIN_ORDER_DEFAULT;
+}
+/* Yetkazish narxi (so'm) — admin sozlamasi, bo'lmasa 0 (bepul) */
+export function deliveryFeeAmount() {
+  const v = parseInt(getSetting('delivery_fee', ''), 10);
+  return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
 /* Boolean sozlama: bo'sh yoki "1"/"true"/"on" -> true. Standart (yozilmagan) -> `def`. */
@@ -121,6 +145,12 @@ export function publicSettings() {
     /* ===== REYTING ===== sayt/panellar yulduzcha bosqichini shundan biladi */
     dishRatingSrc: dishRatingSrc(),
     dishStarThresholds: dishStarThresholds(),
+    /* ===== MOLIYAVIY ===== sayt/kabinet checkout shundan o'qiydi —
+       admin bittа joyда o'zgartirsa, HAMMA joyда shu qiymat ishlaydi. */
+    minOrder: minOrderAmount(),
+    deliveryFee: deliveryFeeAmount(),
+    /* ===== BILDIRISHNOMA ===== */
+    dailyReportOn: getBool('daily_report_on', false),
   };
 }
 

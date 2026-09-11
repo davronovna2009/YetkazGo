@@ -681,16 +681,17 @@
       const kt2=typeof KT==="function"?KT:function(k){return k;};
       /* Savatdagi restoran hozir yopiq bo'lsa — buyurtma tugmasi ishlamaydi */
       const cRest=cart[0].rest, cOpen=kIsOpen(cRest);
-      const blocked = total<20000 || !cOpen;
+      const minOrd=koMinOrder();
+      const blocked = total<minOrd || !cOpen;
       foot.innerHTML=`
         <div class="kab-dr-total">
           <span>${kt2('jami')||'Jami'}</span><b style="color:var(--red)">${money(total)} so'm</b>
         </div>
         ${cOpen?``:`<div class="yz-closed-bar" style="margin:0 0 8px"><span style="font-size:18px">🔴</span><span><b>${esc(cRest)}</b> hozir yopiq. Ish vaqti: <b>${esc(kHours(cRest))}</b></span></div>`}
-        <div class="kab-dr-note ${total<20000?'warn':'ok'}">
-          ${total<20000
-            ? (kt2('minimal_warn',{n:money(20000-total)})||`⚠️ Minimal 20 000 so'm (yana ${money(20000-total)} so'm)`)
-            : (kt2('minimal_ok')||"✅ Yetkazish bepul 🛵")}
+        <div class="kab-dr-note ${total<minOrd?'warn':'ok'}">
+          ${total<minOrd
+            ? (kt2('minimal_warn',{min:money(minOrd),n:money(minOrd-total)})||`⚠️ Minimal ${money(minOrd)} so'm (yana ${money(minOrd-total)} so'm)`)
+            : (koDeliveryFee()>0 ? `✅ Yetkazish: ${money(koDeliveryFee())} so'm` : (kt2('minimal_ok')||"✅ Yetkazish bepul 🛵"))}
         </div>
         <button class="kab-order-main" id="kabOrderBtn" ${blocked?"disabled":""}>
           ${cOpen ? (kt2('buyurtma_berish')||'Buyurtma berish') : '⏱ Restoran yopiq'}
@@ -705,15 +706,19 @@
   function placeOrder(){
     const total=cartTotal();
     if(!cart.length){ toast("🛒 Savat bo'sh"); return; }
-    if(total<20000){ toast("⚠️ Minimal buyurtma 20 000 so'm (yana "+money(20000-total)+" so'm)","warn"); return; }
+    const minOrd=koMinOrder();
+    if(total<minOrd){ toast("⚠️ Minimal buyurtma "+money(minOrd)+" so'm (yana "+money(minOrd-total)+" so'm)","warn"); return; }
     /* Savat to'lgandan keyin restoran yopilishi mumkin — oxirgi tekshiruv */
     const rest=cart[0] && cart[0].rest;
     if(rest && !kIsOpen(rest)){ toast(kClosedMsg(rest)); renderCart(); return; }
     closeKabCartDrawer();
     openCheckout(total);
   }
-  /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
-  function koDeliveryFee(){ return 0; }
+  /* Minimal buyurtma va yetkazish narxi — ADMIN "Moliyaviy sozlamalar"да
+     belgilaydi (bootstrap orqali keladi), app.js dagi bilan BIR XIL manba. */
+  const KO_MIN_ORDER_DEFAULT = 20000;
+  function koMinOrder(){ try{ const v=Number((STORE.settings()||{}).minOrder); return v>=0?v:KO_MIN_ORDER_DEFAULT; }catch(e){ return KO_MIN_ORDER_DEFAULT; } }
+  function koDeliveryFee(){ try{ const v=Number((STORE.settings()||{}).deliveryFee); return v>0?v:0; }catch(e){ return 0; } }
   /* Buyurtма `pay` qiymati -> ko'rsatiladigan yorliq (naqd/karta/custom) */
   function payLabelOf(id){
     if(id==="card"||id==="karta") return "💳 Karta";

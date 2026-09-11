@@ -45,8 +45,14 @@
     return '';
   }
 
+  /* Panel ochiq turganда ham admin javobi ko'rinsin — avval FAQAT mount
+     paytida bir marta yuklanardi, panel "Yordam" bo'limidan chiqmasdan
+     admin javob yozsa, mijoz (restoran/kuryer) uni sahifani qayta
+     ochmaguncha ko'rmasdi ("javob bormayapti" degan shikoyat shundan). */
+  var pollTimer = null;
   function render(host) {
     if (!host) return;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     host.innerHTML =
       contactBlock() +
       '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>📣 Adminga shikoyat / murojaat</h3></div>' +
@@ -65,6 +71,13 @@
     var sendBtn = host.querySelector('#cmpSend');
     if (sendBtn) sendBtn.addEventListener('click', function () { submit(host); });
     load(host);
+    /* Har 15 soniyada yangi javob bor-yo'qligini tekshiradi. Sahifadан
+       chiqsa (boshqa bo'limga o'tsa) — host DOM'dan olib tashlanadi,
+       shu holatni ko'rib timer o'zi to'xtaydi (xotira sizmasin). */
+    pollTimer = setInterval(function () {
+      if (!document.body.contains(host)) { clearInterval(pollTimer); pollTimer = null; return; }
+      load(host);
+    }, 15000);
   }
 
   function submit(host) {

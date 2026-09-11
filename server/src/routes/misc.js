@@ -167,6 +167,7 @@ router.patch('/settings', requireRole('admin'), (req, res) => {
   const bools = {
     supportPhoneOn: 'support_phone_on', supportUsernameOn: 'support_username_on', supportLinkOn: 'support_link_on',
     payCashOn: 'pay_cash_on', payCardOn: 'pay_card_on',
+    dailyReportOn: 'daily_report_on',
   };
   for (const [c, k] of Object.entries(bools)) { if (b[c] != null) setSetting(k, BOOL01(b[c])); }
   /* ===== REYTING sozlamalari ===== */

@@ -39,6 +39,7 @@
     </div>
     <nav class="sb-nav">
       <a class="sb-link active" data-view="dash"><span class="ic">📊</span><span class="ic-label">Dashboard</span></a>
+      <a class="sb-link" data-view="orders"><span class="ic">📦</span><span class="ic-label">Buyurtmalar</span></a>
       <a class="sb-link" data-view="rest"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
       <a class="sb-link" data-view="courier"><span class="ic">🛵</span><span class="ic-label">Kuryerlar</span></a>
       <a class="sb-link" data-view="income"><span class="ic">💰</span><span class="ic-label">Daromad</span></a>
@@ -104,6 +105,52 @@
 
       </section>
 
+      <!-- ===== BUYURTMALAR — TO'LIQ TARIX (qidiruv + filtr) ===== -->
+      <section class="view" id="view-orders">
+        <div class="panel" style="margin-bottom:14px">
+          <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+            <input id="ordSearch" type="text" placeholder="🔎 Mijoz, telefon, restoran, kuryer, taom..." style="flex:2;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit">
+            <select id="ordFilterStatus" style="flex:1;min-width:140px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit">
+              <option value="">Barcha holat</option>
+              <option value="new">Yangi</option>
+              <option value="accepted">Qabul qilindi</option>
+              <option value="ready">Tayyor</option>
+              <option value="ontheway">Yo'lda</option>
+              <option value="arrived">Yetib keldi</option>
+              <option value="done">Yetkazildi</option>
+              <option value="cancelled">Bekor qilindi</option>
+              <option value="review">Tekshiruvda</option>
+            </select>
+            <select id="ordFilterPay" style="flex:1;min-width:120px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit">
+              <option value="">Har qanday to'lov</option>
+              <option value="cash">💵 Naqd</option>
+              <option value="card">💳 Karta</option>
+            </select>
+            <select id="ordFilterSource" style="flex:1;min-width:120px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit">
+              <option value="">Sayt va bot</option>
+              <option value="sayt">🌐 Sayt</option>
+              <option value="telegram">🤖 Telegram</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Barcha buyurtmalar</h3>
+            <span class="panel-badge" id="ordCount">0 ta</span>
+          </div>
+          <div class="order-list-mobile" id="ordCards"></div>
+          <div class="tbl-wrap order-list-desktop">
+            <table class="tbl">
+              <thead><tr><th>#</th><th>Sana</th><th>Mijoz</th><th>Restoran</th><th>Taom</th><th>Summa</th><th>Kuryer</th><th>To'lov</th><th>Qayerdan</th><th>Holat</th></tr></thead>
+              <tbody id="ordTbody"></tbody>
+            </table>
+          </div>
+          <div style="text-align:center;padding:14px" id="ordMoreWrap" hidden>
+            <button class="btn-save" id="ordMoreBtn" style="width:auto;padding:9px 22px">Yana ko'rsatish</button>
+          </div>
+        </div>
+      </section>
+
       <!-- ===== DAROMAD (dashboarddan ko'chirildi) ===== -->
       <section class="view" id="view-income">
         <!-- Pul kartalari: komissiya daromadi, kuryer xarajati, sof foyda (davr tanlovi ichida) -->
@@ -111,7 +158,13 @@
 
         <!-- Daromad grafigi -->
         <div class="panel">
-          <div class="panel-head"><h3>Daromad grafigi</h3><span class="panel-badge" id="incChartBadge">so'nggi 6 oy</span></div>
+          <div class="panel-head"><h3>Daromad grafigi</h3>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span class="panel-badge" id="incChartBadge">so'nggi 6 oy</span>
+              <button id="aIncPrev" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer" title="Oldingi davr">◀</button>
+              <button id="aIncNext" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer" title="Keyingi davr" disabled>▶</button>
+            </span>
+          </div>
           <div class="panel-body"><div class="chart" id="revChart"></div><p id="revChartNote" style="color:var(--grey);font-size:12px;margin:8px 2px 0"></p></div>
         </div>
 
@@ -490,6 +543,16 @@
             </div>
             <textarea id="annText" rows="3" class="full-textarea" placeholder="Masalan: Bugun barcha buyurtmalarga bepul ichimlik!"></textarea>
           </div>
+          <div class="setting-item column" style="padding-top:0">
+            <div class="setting-label">
+              <span class="setting-name">Reklama rasmi (ixtiyoriy)</span>
+              <span class="setting-desc">Bosh sahifadagi banner o'ng tomonida ko'rinadi</span>
+            </div>
+            <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash
+              <input type="file" id="annPhoto" accept="image/*" style="display:none">
+            </label>
+            <div id="annPhotoPreview" style="display:none"></div>
+          </div>
           <div class="settings-footer">
             <button class="btn-save" id="annBtn">E'lonni joylash</button>
           </div>
@@ -568,12 +631,15 @@
           <div class="setting-item">
             <div class="setting-label">
               <span class="setting-name">Kunlik hisobot</span>
-              <span class="setting-desc">Har kuni kechqurun statistika</span>
+              <span class="setting-desc">Har kuni soat 21:00 (Toshkent) — Telegram operatorlar guruhiga statistika</span>
             </div>
             <label class="toggle-switch">
-              <input type="checkbox" />
+              <input type="checkbox" id="setDailyReportOn" />
               <span class="toggle-track"><span class="toggle-thumb"></span></span>
             </label>
+          </div>
+          <div class="settings-footer">
+            <button class="btn-save" id="setNotifSave">Bildirishnoma sozlamalarini saqlash</button>
           </div>
         </div>
 

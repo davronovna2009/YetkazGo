@@ -240,12 +240,13 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const titles={dash:"Dashboard",rest:"Restoranlar",courier:"Kuryerlar",income:"Daromad",user:"Foydalanuvchilar",
+    const titles={dash:"Dashboard",orders:"Buyurtmalar",rest:"Restoranlar",courier:"Kuryerlar",income:"Daromad",user:"Foydalanuvchilar",
                   logins:"Loginlar",suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
                   blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
+    if(view==="orders") renderOrdersView();
     if(view==="income") renderIncome();
     if(view==="blocked") loadBlocked();
     if(view==="suspicious") renderSuspicious();
@@ -257,7 +258,7 @@
       loginQuery=""; var lsEl=document.getElementById("loginSearch"); if(lsEl) lsEl.value="";
       loadAccounts();
     }
-    if(view==="settings"){ fillOwnerSettings(); renderAnnList(); }
+    if(view==="settings"){ fillOwnerSettings(); loadSettings(); renderAnnList(); }
     // Mobile cards render
     setTimeout(()=>{ renderMobileCards(); },50);
   }
@@ -867,6 +868,59 @@
   }
   /* admin.html ичидаги davriy yangilagich shu to'liq versiyani chaqiradi (dublikat/klobber bo'lmasin) */
   window._adminRenderLiveOrders = renderLiveOrders;
+
+  /* =========================================================
+     BUYURTMALAR — TO'LIQ TARIX (qidiruv + filtr + "yana ko'rsatish")
+     Dashboarddagi "So'nggi buyurtmalar" faqat oxirgi 50 tasini ko'rsatadi —
+     bu yerда esa BARCHA buyurtma (STORE.orders() cheklovsiz), qidiruv va
+     filtr bilan. Bosilganda AYNAN shu openOrderModal (yuqorida) ochiladi —
+     mijoz, telefon, manzil, tarkib, to'lov — hammasi bitta joyда. */
+  let ordShowCount=50;
+  function ordersFiltered(){
+    const all=(typeof STORE!=="undefined")?STORE.orders():[];
+    const q=(($("#ordSearch")||{}).value||"").trim().toLowerCase();
+    const st=(($("#ordFilterStatus")||{}).value)||"";
+    const pay=(($("#ordFilterPay")||{}).value)||"";
+    const src=(($("#ordFilterSource")||{}).value)||"";
+    return all.filter(function(o){
+      if(st && o.status!==st) return false;
+      if(pay && o.pay!==pay) return false;
+      if(src){ const s=(o.source==="telegram")?"telegram":"sayt"; if(s!==src) return false; }
+      if(q){
+        const hay=[o.user,o.phone,o.rest,o.courier,o.item].map(function(x){return String(x||"").toLowerCase();}).join(" ");
+        if(hay.indexOf(q)<0) return false;
+      }
+      return true;
+    });
+  }
+  function ordCardHtml(x){
+    const s=OSM[x.status]||[x.status,"warn"];
+    return `<div class="lo-card" style="cursor:pointer" data-oid="${x.id}">
+      <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji||"🍽️"}</div><div><div class="lo-item">#${x.id} · ${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)} · ${esc(fmtDateTime(x))}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+      <div class="lo-row"><span class="lo-key">Mijoz</span><span class="lo-val">${esc(x.user)} · ${esc(x.phone)}</span></div>
+      <div class="lo-row"><span class="lo-key">Kuryer</span><span class="lo-val">${esc(x.courier)||"—"}</span></div>
+      <div class="lo-row"><span class="lo-key">To'lov</span><span class="lo-val">${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(x.pay):(x.pay==="cash"?"💵 Naqd":"💳 Karta")}</span></div>
+      <div class="lo-row lo-price"><span class="lo-key">Summa</span><span class="lo-val money">${money(x.amount)} so'm</span></div>
+    </div>`;
+  }
+  function renderOrdersView(){
+    const list=ordersFiltered();
+    const cnt=$("#ordCount"); if(cnt) cnt.textContent=list.length+" ta";
+    const shown=list.slice(0, ordShowCount);
+    const moreWrap=$("#ordMoreWrap"); if(moreWrap) moreWrap.hidden = shown.length>=list.length;
+    const tb=$("#ordTbody");
+    if(tb){
+      tb.innerHTML = shown.length ? shown.map(function(x){
+        const s=OSM[x.status]||[x.status,"warn"];
+        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>#${x.id}</td><td style="white-space:nowrap">${esc(fmtDateTime(x))}</td><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji||""} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)||"—"}</td><td>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(x.pay):(x.pay==="cash"?"💵":"💳")}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
+      }).join("") : `<tr><td colspan="10" style="color:var(--grey);padding:18px">Mos buyurtma topilmadi.</td></tr>`;
+    }
+    const mc=$("#ordCards");
+    if(mc) mc.innerHTML = shown.length ? shown.map(ordCardHtml).join("") : `<div class="lo-empty">Mos buyurtma topilmadi</div>`;
+    $$("#ordTbody tr[data-oid]").concat($$("#ordCards [data-oid]")).forEach(function(row){
+      row.addEventListener("click",function(){ openOrderModal(list.find(function(t){return String(t.id)===String(row.dataset.oid);})); });
+    });
+  }
   function omr(k,v){ return "<div style=\"display:flex;justify-content:space-between;gap:10px\"><span style=\"color:var(--grey)\">"+k+"</span><b style=\"text-align:right\">"+v+"</b></div>"; }
   function openOrderModal(o){
     if(!o) return;
@@ -915,6 +969,7 @@
   /* Admin daromad davri: kunlik/haftalik/oylik/yillik.
      Davr/ustun bo'linishi YZ_TIME.incomeChart da (restoran/kuryer bilan bir xil). */
   let aIncomePeriod="oylik";
+  let aIncomeOffset=0;
   /* ===== SAYT MOLIYASI — YAGONA hisoblash joyi =====
      Server har buyurtmaga yaratilgan paytdagi komissiya foizini (commission),
      yetkazilgan paytdagi kuryer haqini (courierFee) va sof foydani (siteProfit)
@@ -966,7 +1021,7 @@
     const done=live.filter(o=>o.status==="done");
     /* Davr/ustun mantiqi — YZ_TIME.incomeChart (restoran/kuryer bilan AYNAN bir xil).
        "Shu davr" kartasi = grafikning oxirgi (joriy) ustuni — 1 so'mgacha teng. */
-    const IC=YZ_TIME.incomeChart(aIncomePeriod);
+    const IC=YZ_TIME.incomeChart(aIncomePeriod, aIncomeOffset);
     const periodDone=done.filter(o=>IC.isCurrent(o.created_at));
     const periodSite=periodDone.reduce((s,o)=>s+commOf(o),0);
     /* XARAJAT va SOF FOYDA — kuryerlarga to'langan haq komissiyadan chiqadi */
@@ -982,7 +1037,7 @@
         <div class="scard c2"><div class="si">🛵</div><div class="scard-info"><b style="color:#c2410c">− ${money(periodFee)}</b><span>Kuryer xarajati (${apLabel})</span></div></div>
         <div class="scard c3"><div class="si">📈</div><div class="scard-info"><b style="color:${periodProfit<0?'#C8102E':'#16a34a'}">${money(periodProfit)}</b><span>Sof foyda (${apLabel})</span></div></div>
         <div class="scard c4"><div class="si">🧾</div><div class="scard-info"><b>${money(periodDone.length)}</b><span>Yetkazilgan (${apLabel})</span></div></div>`;
-      sc.querySelectorAll(".a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; renderIncome(); }); });
+      sc.querySelectorAll(".a-inc-seg").forEach(function(b){ b.addEventListener("click",function(e){ e.stopPropagation(); aIncomePeriod=b.dataset.ap; aIncomeOffset=0; renderIncome(); }); });
     }
     /* REAL komissiya grafigi — TANLANGAN DAVRGA qarab (YZ_TIME.incomeChart):
          kunlik → so'nggi 7 kun ·  haftalik → 8 hafta ·  oylik → 6 oy ·  yillik → 5 yil
@@ -994,12 +1049,17 @@
       const el=$("#revChart"); if(!el) return;
       el.style.cssText="display:flex;align-items:flex-end;gap:8px;padding:12px 6px;height:180px;overflow-x:auto";
       el.innerHTML=IC.buckets.map(function(x,i){ const v=sums[i]; const cur=i===IC.curIndex;
-        return '<div style="flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%">'+
+        return '<div class="a-bar-col" data-bidx="'+i+'" style="cursor:pointer;flex:1;min-width:34px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%" title="Batafsil uchun bosing">'+
         '<div style="font-size:11px;font-weight:700;color:'+(cur?'#C8102E':'#8a7f76')+'">'+(v?mln(v).replace(" mln",""):"0")+'</div>'+
         '<div style="width:100%;max-width:34px;border-radius:8px 8px 0 0;background:'+(cur?'linear-gradient(180deg,#a30d24,#C8102E)':'linear-gradient(180deg,#e88,#ffb3a0)')+';height:'+Math.max(4,Math.round(v/max*130))+'px"></div>'+
         '<small style="font-size:10px;color:#8a7f76;white-space:nowrap">'+x.label+'</small></div>'; }).join("");
+      el.querySelectorAll(".a-bar-col").forEach(function(bc){
+        bc.addEventListener("click",function(){ showAIncomeBucketModal(IC, done, +bc.dataset.bidx); });
+      });
       const badge=$("#incChartBadge"); if(badge) badge.textContent=IC.spanLabel;
       const note=$("#revChartNote"); if(note) note.innerHTML="Oxirgi (qizil) ustun — «"+apLabel+"» komissiya daromadi: <b>"+money(periodSite)+" so'm</b>. Har ustun yetkazilgan buyurtmalar komissiyasidan.";
+      const pv=$("#aIncPrev"); if(pv) pv.onclick=function(){ aIncomeOffset++; renderIncome(); };
+      const nx=$("#aIncNext"); if(nx){ nx.disabled = aIncomeOffset<=0; nx.onclick=function(){ if(aIncomeOffset>0){ aIncomeOffset--; renderIncome(); } }; }
     })();
     /* ===== TOP restoranlar — FAQAT yetkazilgan (pul tushgan) buyurtmalar =====
        Ilgari bekor qilingan va hali yo'ldagi buyurtmalar ham aylanmaga
@@ -2082,6 +2142,24 @@
       (agg.profit!=null?row("Sof foyda",money(agg.profit)+" so'm"):"")+
       '</div><h4 style="margin:14px 0 6px">Taomlari (sotilgan)</h4>'+itemsList);
   }
+  /* Daromad grafigidagi bitta ustunga (kun/hafta/oy/yil) bosilganda — o'sha
+     davrning to'liq moliyaviy tafsiloti (komissiya/xarajat/foyda). */
+  function showAIncomeBucketModal(IC, done, idx){
+    const x=IC.buckets[idx]; if(!x) return;
+    const orders=done.filter(function(o){ return IC.bucketOf(o.created_at)===idx; });
+    const gmv=orders.reduce(function(s,o){ return s+(o.amount||0); },0);
+    const site=orders.reduce(function(s,o){ return s+commOf(o); },0);
+    const fee=orders.reduce(function(s,o){ return s+feeOf(o); },0);
+    const row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
+    infoModal("📅 "+esc(x.label),
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+      row("Yetkazilgan buyurtma", money(orders.length)+" ta")+
+      row("Aylanma (mijoz to'lagan)", money(gmv)+" so'm")+
+      row("Komissiya daromadi", money(site)+" so'm")+
+      row("Kuryer xarajati", "− "+money(fee)+" so'm")+
+      row("Sof foyda", '<span style="color:'+(site-fee<0?'#C8102E':'#16a34a')+'">'+money(site-fee)+" so'm</span>")+
+      '</div>');
+  }
   function openUser(id){
     const u=allUsers().find(x=>x.id===id); if(!u) return;
     setHead(u.emoji,u.name,u.phone);
@@ -2185,23 +2263,42 @@
   /* =========================================================
      SETTINGS
      ========================================================= */
-  /* Moliyaviy/bildirishnoma sozlamalari — localStorage'ga saqlanadi (yangi restoran/kuryer
-     qo'shishда standart qiymat sifatida ishlatish uchun ma'lumot). */
-  function saveSettings(){
+  /* Moliyaviy sozlamalar — SERVERGA yoziladi (settings jadvali), shundan
+     keyin BUTUN sayt/kabinet/bot shu qiymatni ishlatadi (bir joyда o'zgarsa,
+     hamma joyда o'zgaradi). Ilgari bu FAQAT localStorage'ga (adminning o'z
+     brauzeriga) yozilardi va saytga umuman ta'sir qilmasdi — shuning uchun
+     admin "50 000 qildim" desa ham sayt "20 000" bo'lib qolaverardi.
+     Eslatma: "Restoran komissiyasi" va "Kuryer haqi" GLOBAL emas — har bir
+     restoran/kuryer O'Z sahifasida alohida sozlanadi (bu yerдаgi maydonlar
+     shunчаki YANGI restoran/kuryer qo'shishда boshlang'ich taklif sifatida
+     localStorage'da qoladi). */
+  async function saveSettings(){
     try{
       const g=id=>{ const el=document.getElementById(id); return el?el.value:""; };
-      const toggles=[]; document.querySelectorAll('#view-settings .toggle-switch input[type="checkbox"]').forEach(c=>toggles.push(!!c.checked));
-      const s={ comm:g("setComm"), delivery:g("setDelivery"), min:g("setMin"), courier:g("setCourier"), toggles:toggles };
+      const min=parseInt(g("setMin"),10), delivery=parseInt(g("setDelivery"),10);
+      const s={ comm:g("setComm"), courier:g("setCourier") };
       localStorage.setItem("yz_admin_settings", JSON.stringify(s));
-      toast("Sozlamalar saqlandi ✓");
+      if(typeof STORE==="undefined" || !STORE.updateSettings){ toast("Serverga ulanib bo'lmadi"); return; }
+      const body={};
+      if(Number.isFinite(min) && min>=0) body.min_order=min;
+      if(Number.isFinite(delivery) && delivery>=0) body.delivery_fee=delivery;
+      const r=await STORE.updateSettings(body);
+      if(r && r.error){ toast(r.error); return; }
+      toast("Sozlamalar saqlandi ✓ — saytda darhol qo'llanadi");
     }catch(e){ toast("Saqlashда xato"); }
   }
   function loadSettings(){
     try{
       const s=JSON.parse(localStorage.getItem("yz_admin_settings")||"{}");
       const set=(id,v)=>{ const el=document.getElementById(id); if(el && v!=null && v!=="") el.value=v; };
-      set("setComm",s.comm); set("setDelivery",s.delivery); set("setMin",s.min); set("setCourier",s.courier);
-      if(Array.isArray(s.toggles)){ document.querySelectorAll('#view-settings .toggle-switch input[type="checkbox"]').forEach((c,i)=>{ if(s.toggles[i]!=null) c.checked=s.toggles[i]; }); }
+      set("setComm",s.comm); set("setCourier",s.courier);
+    }catch(e){}
+    /* Min. buyurtma / yetkazish narxi — SERVERDAN (haqiqiy, saytda ishlayotgan qiymat) */
+    try{
+      const srv=(typeof STORE!=="undefined"&&STORE.settings)?STORE.settings():{};
+      const set=(id,v)=>{ const el=document.getElementById(id); if(el && document.activeElement!==el && v!=null) el.value=v; };
+      if(srv.minOrder!=null) set("setMin", srv.minOrder);
+      if(srv.deliveryFee!=null) set("setDelivery", srv.deliveryFee);
     }catch(e){}
   }
   function fillProfile(){
@@ -2224,6 +2321,7 @@
     chk("setSupportLinkOn", s.supportLinkOn!=null?s.supportLinkOn:!!s.supportLink);
     chk("setPayCashOn", s.payCashOn!=null?s.payCashOn:true);
     chk("setPayCardOn", s.payCardOn!=null?s.payCardOn:true);
+    chk("setDailyReportOn", !!s.dailyReportOn);
     PAY_EXTRA=Array.isArray(s.payExtra)?s.payExtra.map(x=>({id:x.id,label:x.label,note:x.note||""})):[];
     renderPayExtra();
     /* ===== Reyting sozlamalari ===== */
@@ -2268,6 +2366,16 @@
       toast("✅ To'lov turlari saqlandi — sayt va kabinet darrov yangilanadi");
       fillOwnerSettings();
     } else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
+  }
+  /* Kunlik hisobot — yoqilsa, HAR KUNI soat 21:00da (Toshkent) Telegram
+     operatorlar guruhiga (TG_CHAT_OPS) statistika yuboriladi (server/src/bot.js). */
+  async function saveNotifSettings(){
+    const on=(($("#setDailyReportOn")||{}).checked)||false;
+    const btn=$("#setNotifSave"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.updateSettings)? await STORE.updateSettings({dailyReportOn:on}) : null;
+    if(btn) btn.disabled=false;
+    if(r && !r.error){ toast("✅ Bildirishnoma sozlamalari saqlandi"); fillOwnerSettings(); }
+    else toast((r&&r.error)||"Serverga ulanib bo'lmadi");
   }
   async function saveOwnerSettings(){
     const f=(id)=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
@@ -2315,15 +2423,41 @@
     if(res && res.name){ const hn=document.getElementById("sbName"); if(hn) hn.textContent=res.name; }
     toast("✅ Profil ma'lumotlari yangilandi");
   }
-  function postAnnounce(){
+  /* Rasmni canvas orqali kichraytirib (max maxSize px) dataURL qaytaradi —
+     restoran.js:resizeImage bilan BIR XIL (mustaqil panel, shuning uchun
+     nusxa; umumiy fayl yo'q). */
+  function resizeImage(file, maxSize){
+    return new Promise((resolve)=>{
+      const fr=new FileReader();
+      fr.onload=()=>{ const img=new Image();
+        img.onload=()=>{ let w=img.width, h=img.height; const scale=Math.min(1, maxSize/Math.max(w,h));
+          w=Math.round(w*scale); h=Math.round(h*scale);
+          const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+          cv.getContext("2d").drawImage(img,0,0,w,h);
+          try{ resolve(cv.toDataURL("image/jpeg",0.85)); }catch(e){ resolve(fr.result); } };
+        img.onerror=()=>resolve(""); img.src=fr.result; };
+      fr.onerror=()=>resolve(""); fr.readAsDataURL(file);
+    });
+  }
+  async function postAnnounce(){
     const t=$("#annText"); if(!t||!t.value.trim()){ toast("Matn kiriting"); return; }
     const text=t.value.trim();
-    const entry={ rest:"Yetkaz", text:text, tag:"E'LON", emoji:"📢", date:new Date().toLocaleDateString("ru-RU") };
+    /* Reklama rasmi (ixtiyoriy) — tanlangan bo'lsa serverga yuklab, qisqa URL olamiz */
+    let img="";
+    const fi=$("#annPhoto");
+    if(fi && fi.files && fi.files[0]){
+      toast("Rasm yuklanmoqda...");
+      const dataUrl=await resizeImage(fi.files[0], 900);
+      if(dataUrl){ img=(typeof STORE!=="undefined" && STORE.uploadImage)?((await STORE.uploadImage(dataUrl))||dataUrl):dataUrl; }
+    }
+    const entry={ rest:"Yetkaz", text:text, tag:"E'LON", emoji:"📢", date:new Date().toLocaleDateString("ru-RU"), img:img };
     /* localStorage (shu brauzerда darhol) */
     try{ const k="yetkaz_announcements"; const arr=JSON.parse(localStorage.getItem(k)||"[]"); arr.unshift(entry); localStorage.setItem(k,JSON.stringify(arr.slice(0,20))); }catch(e){}
     /* Backendга — barcha mijozlarда (bosh sahifа/kabinet) ko'rinishi uchun */
-    try{ if(typeof STORE!=="undefined" && STORE.addAnnouncement) STORE.addAnnouncement({rest:"Yetkaz", text:text, tag:"E'LON", emoji:"📢", dish:""}); }catch(e){}
-    toast("E'lon saytga joylandi ✓ — bosh sahifада ko'rinadi"); t.value="";
+    try{ if(typeof STORE!=="undefined" && STORE.addAnnouncement) STORE.addAnnouncement({rest:"Yetkaz", text:text, tag:"E'LON", emoji:"📢", dish:"", img:img}); }catch(e){}
+    toast(img?"E'lon rasm bilan saytga joylandi ✓":"E'lon saytga joylandi ✓ — bosh sahifада ko'rinadi");
+    t.value=""; if(fi) fi.value="";
+    const pv=$("#annPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
     setTimeout(renderAnnList, 400);
   }
 
@@ -2382,6 +2516,7 @@
     /* Ochiq bo'lgan bo'limlarni ham yangilaymiz (yangi shubhali buyurtma / izoh darrov ko'rinsin) */
     try{ if(document.querySelector("#view-suspicious.show")) renderSuspicious(); }catch(e){}
     try{ if(document.querySelector("#view-comments.show")) renderComments(); }catch(e){}
+    try{ if(document.querySelector("#view-orders.show")) renderOrdersView(); }catch(e){}
     emptyStates();
     renderPendingCountdowns();
     /* Tepadagi "ochiq/yopiq" hisoblagichi restoranlar ro'yxati bilan birga
@@ -2606,10 +2741,24 @@
       renderPayExtra();
       toast("Qo'shildi — «To'lov turlarini saqlash» tugmasini bosing");
     });
-    fillOwnerSettings();
+    fillOwnerSettings(); loadSettings();
     if(window.YZ_PHONE){ ["arPhone","acPhone","setPhone","setOwnerPhone","setSupportPhone"].forEach(function(id){ var el=document.getElementById(id); if(el) YZ_PHONE.attach(el); }); }
     if(typeof STORE!=="undefined" && STORE.fetchCouriers){ STORE.fetchCouriers().then(function(){ try{ syncEntitiesFromBackend(); renderAll(); }catch(e){} }); }
+    const nsv=$("#setNotifSave"); if(nsv) nsv.addEventListener("click",saveNotifSettings);
+    /* Buyurtmalar — qidiruv/filtr o'zgarsa ro'yxat "yana ko'rsatish" boshidan boshlanadi */
+    ["ordSearch","ordFilterStatus","ordFilterPay","ordFilterSource"].forEach(function(id){
+      const el=$("#"+id); if(el) el.addEventListener(id==="ordSearch"?"input":"change", function(){ ordShowCount=50; renderOrdersView(); });
+    });
+    const omb=$("#ordMoreBtn"); if(omb) omb.addEventListener("click",function(){ ordShowCount+=50; renderOrdersView(); });
     const ab=$("#annBtn"); if(ab) ab.addEventListener("click",postAnnounce);
+    /* Reklama rasmi tanlanganda — kichik ko'rinish (preview) */
+    const annPhoto=$("#annPhoto");
+    if(annPhoto) annPhoto.addEventListener("change", async (e)=>{
+      const f=e.target.files && e.target.files[0]; const pv=$("#annPhotoPreview");
+      if(!f || !pv) return;
+      const dataUrl=await resizeImage(f, 500);
+      if(dataUrl){ pv.style.display="block"; pv.innerHTML='<img src="'+dataUrl+'" alt="" style="max-width:170px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">'; }
+    });
     renderAnnList();
   });
 })();

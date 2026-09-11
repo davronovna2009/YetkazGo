@@ -7,9 +7,8 @@
    Chegirma/o'chirilgan/sotuvda yo'q taomlar `rest|name` kaliti bo'yicha
    saqlanadi (store.js:mergeDishes va bot menu.js bilan bir xil mantiq). */
 import { db } from './db.js';
-import { MIN_ORDER } from './config.js';
 import { restIsOpen, restHoursText } from './hours.js';
-import { getSetting } from './settings.js';
+import { getSetting, minOrderAmount } from './settings.js';
 
 /* Savatdagi turli taomlar soni. Ilgari 30 edi va mijoz 30 xildan ko'p tanlasa
    buyurtma umuman o'tmasdi (xato ko'rsatib, restoran panelida hech narsa
@@ -154,8 +153,9 @@ export function priceOrder(rawItems) {
     throw new PriceError(409, `«${rest}» hozir yopiq. Ish vaqti: ${restHoursText(r)}. Shu vaqtda buyurtma bering.`);
   }
 
-  if (amount < MIN_ORDER) {
-    throw new PriceError(400, 'Minimal buyurtma ' + MIN_ORDER.toLocaleString('ru-RU') + ' so`m');
+  const minOrder = minOrderAmount();
+  if (amount < minOrder) {
+    throw new PriceError(400, 'Minimal buyurtma ' + minOrder.toLocaleString('ru-RU') + ' so`m');
   }
 
   /* Yorliq — sayt (app.js) formatida: "Lag'mon +2 ta". Sayt buyurtmani shu

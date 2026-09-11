@@ -8,7 +8,7 @@ import { priceOrder, PriceError } from './pricing.js';
 import { courierIsOpen } from './hours.js';
 import { phoneStatus, checkSpam } from './blocks.js';
 import { callRule, suspicionCheck, totalQty } from './order-rules.js';
-import { payMethodAllowed } from './settings.js';
+import { payMethodAllowed, deliveryFeeAmount } from './settings.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
@@ -93,7 +93,12 @@ export function orderMoney(r) {
   const fee = r.status === 'done'
     ? ((r.courier_fee != null && r.courier_fee >= 0) ? Number(r.courier_fee) : courierFeeOf(r.courier))
     : 0;
-  return { amount, pct, comm, net: amount - comm, fee, profit: comm - fee };
+  /* Yetkazish haqi (mijozdan olinadi) — restoranga ham, kuryerga ham
+     tegishli emas (kuryer haqi alohida `fee` sifatida to'lanadi), shuning
+     uchun to'liq SAYT foydasiga qo'shiladi. Faqat YETKAZILGAN buyurtmада
+     (fee bilan bir xil qoida — bekor qilinsa hech kim hech narsa olmaydi). */
+  const delivery = r.status === 'done' ? Math.max(0, Number(r.delivery) || 0) : 0;
+  return { amount, pct, comm, net: amount - comm, fee, delivery, profit: comm - fee + delivery };
 }
 
 /* Tashqariga token CHIQMAYDI (sabotaj himoyasi) — faqat yaratuvchiga qaytadi */
@@ -309,6 +314,9 @@ export function createOrder(b = {}) {
   /* Komissiya foizi SHU BUYURTMAGA muhrlanadi. Admin ertaga foizni o'zgartirsa,
      bugungi buyurtmadan restoranga qancha tushishi O'ZGARMAYDI — hisobot barqaror. */
   const commissionPct = restCommission(priced.rest);
+  /* Yetkazish narxi ham SHU BUYURTMAGA muhrlanadi (komissiya kabi) — admin
+     ertaga narxni o'zgartirsa, eski buyurtmalar summasi o'zgarib qolmaydi. */
+  const delivery = deliveryFeeAmount();
 
   const info = db.prepare(
     `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json, tg_chat_id, source,
@@ -317,7 +325,7 @@ export function createOrder(b = {}) {
   ).run(
     String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
     priced.amount, String(b.addr || ''), String(b.pay || 'card'),
-    courier, status, eta, String(b.time || ''), token, 0, JSON.stringify(priced.lines), tgChatId, source,
+    courier, status, eta, String(b.time || ''), token, delivery, JSON.stringify(priced.lines), tgChatId, source,
     totalQty(priced.lines), call.required ? 1 : 0, suspect.suspicious ? 1 : 0, suspect.reason, commissionPct
   );
 

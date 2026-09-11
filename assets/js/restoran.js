@@ -261,6 +261,9 @@
   /* Sof daromad davri: 'kunlik' | 'haftalik' | 'oylik' | 'yillik'.
      Davr/ustun bo'linishi YZ_TIME.incomeChart da (admin/kuryer bilan bir xil). */
   let incomePeriod="oylik";
+  /* Orqaga qaytish: 0 = joriy oyna (masalan so'nggi 7 kun), 1 = undan oldingi
+     oyna, va h.k. — "Oldingi/Keyingi" tugmalari shuni o'zgartiradi. */
+  let incomeOffset=0;
   function renderDash(){
     const r=CUR;
     /* REAL hisob-kitob: pul FAQAT mijoz tasdiqlagan (done) buyurtmalardan yoziladi.
@@ -687,7 +690,7 @@
     const live=(typeof STORE!=="undefined"&&STORE.ordersFor)?STORE.ordersFor(r.name):[];
     /* Davr/ustun mantiqi — YZ_TIME.incomeChart (admin/kuryer bilan AYNAN bir xil).
        "Shu davr" = grafikning oxirgi (joriy) ustuni; ular 1 so'mgacha teng. */
-    const IC=YZ_TIME.incomeChart(incomePeriod);
+    const IC=YZ_TIME.incomeChart(incomePeriod, incomeOffset);
     const allDone=live.filter(o=>o.status==="done");
     const doneOrders=allDone.filter(o=>IC.isCurrent(o.created_at));
     const gross=doneOrders.reduce((s,o)=>s+(o.amount||0),0);
@@ -709,9 +712,15 @@
     const barSums=IC.series(allDone,o=>netOf(o,pct));
     const barMax=Math.max.apply(null,barSums.concat([1]));
     const revBars=IC.buckets.map(function(x,i){ const v=barSums[i]; const cur=i===IC.curIndex;
-      return '<div class="bar-col"><div class="bv" style="color:'+(cur?'#15803d':'')+'">'+(v?mln(v).replace(" mln",""):"0")+'</div>'+
+      return '<div class="bar-col" data-bidx="'+i+'" style="cursor:pointer" title="Batafsil uchun bosing">'+
+        '<div class="bv" style="color:'+(cur?'#15803d':'')+'">'+(v?mln(v).replace(" mln",""):"0")+'</div>'+
         '<div class="bar" style="height:'+Math.max(4,Math.round(v/barMax*150))+'px'+(cur?';background:linear-gradient(180deg,#15803d,#22c55e)':'')+'"></div><small>'+x.label+'</small></div>'; }).join("");
-    const revChartEl=$("#revChart"); if(revChartEl) revChartEl.innerHTML=revBars;
+    const revChartEl=$("#revChart"); if(revChartEl){
+      revChartEl.innerHTML=revBars;
+      revChartEl.querySelectorAll(".bar-col").forEach(function(el){
+        el.addEventListener("click",function(){ showIncomeBucketModal(IC, allDone, +el.dataset.bidx, pct); });
+      });
+    }
     const rct=$("#revChartTitle"); if(rct) rct.textContent="Daromad grafigi (mln so'm)";
     const rcs=$("#revChartSpan"); if(rcs) rcs.textContent=IC.spanLabel;
     const rcn=$("#revChartNote"); if(rcn) rcn.innerHTML="Oxirgi (yashil) ustun — «"+pLabel+"» sof daromadingiz: <b>"+money(net)+" so'm</b>. Har ustun sof daromad (komissiya chegirilgan).";
@@ -740,7 +749,13 @@
     $("#incomeBody").innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
         <div style="font-size:12px;font-weight:700;color:var(--grey);margin-bottom:7px">DAVR</div>
-        <div style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+          <span style="display:flex;flex-wrap:wrap">${seg("kunlik","Kunlik")}${seg("haftalik","Haftalik")}${seg("oylik","Oylik")}${seg("yillik","Yillik")}</span>
+          <span style="margin-left:auto;display:flex;gap:6px">
+            <button id="incPrev" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer" title="Oldingi davr">◀</button>
+            <button id="incNext" style="border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer" title="Keyingi davr" ${incomeOffset<=0?"disabled":""}>▶</button>
+          </span>
+        </div>
       </div></div>
       <div class="row2">
         <div class="panel"><div class="panel-head"><h3>Daromad xulosasi (${pLabel})</h3></div><div class="panel-body">
@@ -774,8 +789,33 @@
         </div></div>
       <p style="color:var(--grey);font-size:13px;padding:4px">Jadval «Sizga qoladi» ustunining yig'indisi yuqoridagi «Sizning daromadingiz» bilan bir xil (${money(net)} so'm).</p>`;
     $$("#incomeBody .inc-seg").forEach(function(b){
-      b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; renderIncome(); });
+      b.addEventListener("click",function(e){ e.stopPropagation(); incomePeriod=b.dataset.period; incomeOffset=0; renderIncome(); });
     });
+    const ip=$("#incPrev"); if(ip) ip.addEventListener("click",function(){ incomeOffset++; renderIncome(); });
+    const inx=$("#incNext"); if(inx) inx.addEventListener("click",function(){ if(incomeOffset>0){ incomeOffset--; renderIncome(); } });
+  }
+  /* Bitta ustunga (kun/hafta/oy/yil) bosilganda — o'sha davrning batafsil
+     ko'rsatkichlari (buyurtma soni, aylanma, sof daromad). */
+  function showIncomeBucketModal(IC, allDone, idx, pct){
+    const x=IC.buckets[idx]; if(!x) return;
+    const orders=allDone.filter(function(o){ return IC.bucketOf(o.created_at)===idx; });
+    const gross=orders.reduce(function(s,o){ return s+(o.amount||0); },0);
+    const net=orders.reduce(function(s,o){ return s+netOf(o,pct); },0);
+    let el=document.getElementById("incBucketModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="incBucketModal";
+    el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
+    const row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
+    el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:380px;width:100%;padding:22px;position:relative">'+
+      '<button id="ibmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
+      '<h3 style="text-align:center;margin:4px 0 14px">📅 '+esc(x.label)+'</h3>'+
+      '<div style="display:flex;flex-direction:column;gap:10px">'+
+      row("Yetkazilgan buyurtma", money(orders.length)+" ta")+
+      row("Aylanma (mijoz to'lagan)", money(gross)+" so'm")+
+      row("Sizning sof daromadingiz", '<span style="color:var(--green)">'+money(net)+" so'm</span>")+
+      '</div></div>';
+    document.body.appendChild(el);
+    el.querySelector("#ibmClose").addEventListener("click",function(){ el.remove(); });
+    el.addEventListener("click",function(e){ if(e.target===el) el.remove(); });
   }
 
   const RSM={new:["Avtomatik kuryerga yo'naltirilgan","blue"],accepted:["Kuryerga yo'naltirilgan","blue"],ready:["Kuryer kutilmoqda","blue"],ontheway:["Yo'lda","red"],arrived:["Yetkazildi (tasdiq kutilmoqda)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};

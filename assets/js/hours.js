@@ -143,9 +143,20 @@
        haftalik -> so'nggi 8 hafta (Dush-Yak);  joriy ustun = shu hafta
        oylik    -> so'nggi 6 oy;                joriy ustun = shu oy
        yillik   -> so'nggi 5 yil;               joriy ustun = shu yil */
-  function incomeChart(period) {
+  /* `offset` — nechta TO'LIQ oyna orqaga surilsin (0 = eng oxirgi/joriy oyna,
+     1 = undan oldingi oyna, va h.k.) — "orqaga qaytib xohlagan vaqtdagi
+     hisobotni ko'rish" tugmalari uchun (Oldingi/Keyingi). */
+  function incomeChart(period, offset) {
     var MON = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
-    var P = parts();               // hozir — Toshkent
+    var off = Math.max(0, parseInt(offset, 10) || 0);
+    var P0 = parts();              // hozir — Toshkent
+    var P = P0;
+    if (off > 0) {
+      if (period === 'kunlik') P = parts(new Date(Date.UTC(P0.y, P0.mo - 1, P0.d - off * 7)));
+      else if (period === 'haftalik') P = parts(new Date(Date.UTC(P0.y, P0.mo - 1, P0.d - off * 8 * 7)));
+      else if (period === 'yillik') P = { y: P0.y - off * 5, mo: P0.mo, d: P0.d };
+      else { var mm0 = P0.mo - 1 - off * 6, yy0 = P0.y; while (mm0 < 0) { mm0 += 12; yy0--; } P = { y: yy0, mo: mm0 + 1, d: P0.d }; }
+    }
     var b = [], i;
     if (period === 'kunlik') {
       for (i = 6; i >= 0; i--) {
@@ -183,11 +194,21 @@
       return -1;
     }
     var lastIdx = b.length - 1;
+    /* offset=0 bo'lsa oxirgi ustun HAQIQATAN "joriy davr" (bugun/shu hafta...).
+       offset>0 bo'lsa — bu tarixiy oyna, "joriy" emas, shuning uchun boshqacha
+       yorliq ko'rsatamiz ("N oyna oldin"), lekin oxirgi ustunni baribir
+       vizual belgilaymiz (chaqiruvchi shu indeksni "diqqat markazi" deb oladi). */
+    var periodLabel = off === 0
+      ? ({ kunlik: 'bugun', haftalik: 'shu hafta', oylik: 'shu oy', yillik: 'shu yil' }[period] || 'shu oy')
+      : (b[lastIdx] ? b[lastIdx].label : '');
+    var spanLabel = { kunlik: "7 kun", haftalik: "8 hafta", oylik: "6 oy", yillik: "5 yil" }[period] || "6 oy";
+    spanLabel = off === 0 ? ("so'nggi " + spanLabel) : (spanLabel + " (" + off + "-oyna oldin)");
     return {
       buckets: b,
       curIndex: lastIdx,
-      periodLabel: { kunlik: 'bugun', haftalik: 'shu hafta', oylik: 'shu oy', yillik: 'shu yil' }[period] || 'shu oy',
-      spanLabel: { kunlik: "so'nggi 7 kun", haftalik: "so'nggi 8 hafta", oylik: "so'nggi 6 oy", yillik: "so'nggi 5 yil" }[period] || "so'nggi 6 oy",
+      offset: off,
+      periodLabel: periodLabel,
+      spanLabel: spanLabel,
       bucketOf: bucketOf,
       /* buyurtma «shu davr» (joriy = oxirgi ustun) ichidami — karta shuni sanaydi */
       isCurrent: function (raw) { return bucketOf(raw) === lastIdx; },

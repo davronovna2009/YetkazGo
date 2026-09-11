@@ -42,8 +42,10 @@ export const ADMIN_PASS = process.env.ADMIN_PASS || '';
    uchun standart parol o'z-o'zidan yo'qolmaydi). */
 export const LEGACY_ADMIN_PASS = 'admin123';
 
-/* Minimal buyurtma summasi (so'm) — SERVERDA majburiy tekshiriladi.
-   Frontend (app.js MIN_ORDER) bilan bir xil bo'lishi kerak. */
+/* Minimal buyurtma summasi (so'm) — BOSHLANG'ICH qiymat (.env orqali).
+   Admin panel "Moliyaviy sozlamalar"da o'zgartirsa, bazadagi `min_order`
+   sozlamasi (settings.js: minOrderAmount()) BU qiymatdan USTUN turadi —
+   pricing.js AYNAN o'shani ishlatadi. */
 export const MIN_ORDER = Number(process.env.MIN_ORDER) || 20000;
 
 /* ===== Telegram xabarnoma sozlamalari =====

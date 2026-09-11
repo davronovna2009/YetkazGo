@@ -10,12 +10,13 @@
    Bot bilan bog'liq HAR QANDAY xato ushlanadi — hech qachon saytni yiqitmaydi. */
 import { Router } from 'express';
 import { db } from './db.js';
-import { createOrder, OrderError } from './orders-core.js';
+import { createOrder, OrderError, orderMoney } from './orders-core.js';
 /* Bekor qilish hisobi — botdan bekor qilish ham AYNAN saytdagi qoidalarga
    bo'ysunadi (2-marta ogohlantirish + pauza, 3-marta blok). */
 import { registerCancel } from './blocks.js';
 import { TG_TOKEN, TG_CHAT_OPS, PUBLIC_URL, TG_WEBHOOK_SECRET, JWT_SECRET } from './config.js';
-import { restIsOpen, restHoursText } from './hours.js';
+import { restIsOpen, restHoursText, parts as tashParts } from './hours.js';
+import { getBool, getSetting, setSetting } from './settings.js';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const API = TG_TOKEN ? `https://api.telegram.org/bot${TG_TOKEN}` : '';
@@ -276,6 +277,76 @@ export function notifyPhoneBlocked(pretty, name, reason) {
     );
   } catch (e) { /* jim */ }
 }
+
+/* ===== KUNLIK HISOBOT — admin "Bildirishnomalar" bo'limida yoqsa =====
+   Har kuni Toshkent vaqti bilan soat 21:00da operatorlar guruhiga (TG_CHAT_OPS)
+   kunlik statistika yuboriladi: nechta buyurtma, qancha tushum, qaysi
+   restoran ko'p sotgan, naqd/karta nisbati. Ikki marta yubormaslik uchun
+   "bugun allaqachon yuborildi" sanasi settings jadvalида saqlanadi — server
+   qayta ishga tushsa ham (Render deploy) qayta-qayta yuborilmaydi. */
+const DAILY_REPORT_HOUR = 21; // Toshkent vaqti (0-23)
+
+const pad2 = (n) => String(n).padStart(2, '0');
+/* Sana -> SQLite `datetime('now')` formatidagi UTC matn ("YYYY-MM-DD HH:MM:SS") */
+function toSqlUtc(d) {
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())} `
+    + `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
+}
+/* Bugungi Toshkent kalendar kuni — UTC oraliq sifatida (orders.created_at/done_at
+   solishtirish uchun; ular SQLite `datetime('now')` — ya'ni UTC matn). */
+function tashkentTodayUtcRange() {
+  const t = tashParts();
+  const startMs = Date.UTC(t.y, t.mo - 1, t.d, 0, 0, 0) - 5 * 3600 * 1000; // Toshkent 00:00 -> UTC
+  return { startStr: toSqlUtc(new Date(startMs)), endStr: toSqlUtc(new Date(startMs + 24 * 3600 * 1000)), t };
+}
+
+function buildDailyReportText() {
+  const { startStr, endStr, t } = tashkentTodayUtcRange();
+  const created = db.prepare('SELECT * FROM orders WHERE created_at >= ? AND created_at < ?').all(startStr, endStr);
+  const done = created.filter((o) => o.status === 'done')
+    .concat(db.prepare("SELECT * FROM orders WHERE status = 'done' AND done_at >= ? AND done_at < ?").all(startStr, endStr))
+    .filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i); // takrorlanmasin
+  const cancelled = created.filter((o) => o.status === 'cancelled').length;
+
+  let revenue = 0; // mijoz to'lagan JAMI (taom + yetkazish)
+  let profit = 0;  // sayt sof foydasi
+  const byRest = new Map();
+  for (const o of done) {
+    const m = orderMoney(o);
+    revenue += m.amount + m.delivery;
+    profit += m.profit;
+    byRest.set(o.rest, (byRest.get(o.rest) || 0) + 1);
+  }
+  let topRest = '—', topCount = 0;
+  for (const [r, c] of byRest) if (c > topCount) { topCount = c; topRest = r; }
+  const cashCount = done.filter((o) => o.pay === 'cash').length;
+  const cardCount = done.length - cashCount;
+
+  const dateLabel = `${pad2(t.d)}.${pad2(t.mo)}.${t.y}`;
+  return `📊 <b>Kunlik hisobot — ${dateLabel}</b>\n\n`
+    + `🆕 Jami buyurtma: <b>${created.length}</b>\n`
+    + `✅ Yetkazilgan: <b>${done.length}</b>\n`
+    + `❌ Bekor qilingan: <b>${cancelled}</b>\n\n`
+    + `💰 Tushum (mijozdan): <b>${money(revenue)} so'm</b>\n`
+    + `📈 Sayt sof foydasi: <b>${money(profit)} so'm</b>\n\n`
+    + `🏪 Eng ko'p sotgan restoran: <b>${esc(topRest)}</b> (${topCount} buyurtma)\n`
+    + `💵 Naqd: ${cashCount} · 💳 Karta: ${cardCount}`;
+}
+
+/* Har 5 daqiqada tekshiradi: soat 21:00 bo'lса va bugun hali yuborilmagan bo'lsa. */
+function maybeSendDailyReport() {
+  try {
+    if (!BOT_ENABLED || !TG_CHAT_OPS) return;
+    if (!getBool('daily_report_on', false)) return;
+    const t = tashParts();
+    if (t.h !== DAILY_REPORT_HOUR) return;
+    const today = `${t.y}-${pad2(t.mo)}-${pad2(t.d)}`;
+    if (getSetting('last_daily_report_date', '') === today) return;
+    setSetting('last_daily_report_date', today);
+    ops(buildDailyReportText());
+  } catch (e) { console.warn('[BOT] kunlik hisobot xatosi:', e.message); }
+}
+setInterval(maybeSendDailyReport, 5 * 60 * 1000);
 
 /* ---------- /start ----------
    Xush kelibsizdan keyin DARROV restoran ro'yxati chiqadi — mijoz bitta

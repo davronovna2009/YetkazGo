@@ -7,7 +7,14 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc = YZ_SAFE.esc, html = YZ_SAFE.html, raw = YZ_SAFE.raw;
-  const MIN_ORDER = 20000, DELIVERY_FEE = 0;  // yetkazish bepul
+  /* Minimal buyurtma va yetkazish narxi — ADMIN "Moliyaviy sozlamalar"да
+     belgilaydi (server/src/settings.js), bootstrap orqali keladi. 20000/0 —
+     faqat sozlamalar hali yuklanmaganда ko'rsatiladigan BOSHLANG'ICH qiymat
+     (server real narxni baribir o'zi tekshiradi — bu yerда faqat mijozga
+     ko'rsatish/tugmani yoqib-o'chirish uchun). */
+  const MIN_ORDER_DEFAULT = 20000;
+  function MIN_ORDER_(){ try{ const v=Number((STORE.settings()||{}).minOrder); return v>=0?v:MIN_ORDER_DEFAULT; }catch(e){ return MIN_ORDER_DEFAULT; } }
+  function deliveryFee(){ try{ const v=Number((STORE.settings()||{}).deliveryFee); return v>0?v:0; }catch(e){ return 0; } }
   let cart = [];            // {id,name,nameCyr,price,emoji,img,qty}
   let user = { name:"", phone:"", address:"", debt:0 };
   let activeCat = "Hammasi";
@@ -767,9 +774,6 @@
     input.addEventListener("keydown",e=>{ e.stopPropagation(); if(e.key==="Enter") input.blur(); });
   }
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
-  /* Yetkazish narxi — restoran masofasi (km) bo'yicha: 4000 + 1500/km */
-  /* Yetkazish BEPUL — sayt shunday reklama qiladi (mos kelishi uchun har doim 0) */
-  function deliveryFee(){ return 0; }
   function updateCart(){
     $("#cartCount").textContent = cart.reduce((s,i)=>s+i.qty,0);
     const body=$("#cartItems");
@@ -802,8 +806,8 @@
     const total=cartTotal();
     $("#cartTotal").textContent=fmt(total);
     const note=$("#cartMinNote");
-    if(total>0 && total<MIN_ORDER){ note.classList.add("warn"); note.textContent=`${I18N.t("err_min")} ( +${fmt(MIN_ORDER-total)} )`; }
-    else{ note.classList.remove("warn"); note.textContent=I18N.t("min_note"); }
+    if(total>0 && total<MIN_ORDER_()){ note.classList.add("warn"); note.textContent=`${I18N.t("err_min",{min:fmt(MIN_ORDER_())})} ( +${fmt(MIN_ORDER_()-total)} )`; }
+    else{ note.classList.remove("warn"); note.textContent=I18N.t("min_note",{min:fmt(MIN_ORDER_())}); }
   }
 
   /* ---------- MODAL ---------- */
@@ -953,7 +957,7 @@
   /* Step 2: order confirm (min + debt checks) */
   function openOrder(){
     const total=cartTotal();
-    if(total<MIN_ORDER){ closeModal(); openCart(); toast(I18N.t("t_min"),"error"); return; }
+    if(total<MIN_ORDER_()){ closeModal(); openCart(); toast(I18N.t("t_min",{min:fmt(MIN_ORDER_())}),"error"); return; }
     const fee=deliveryFee();
     const grand=total+fee;
     const debtOk = user.debt<=0;
@@ -978,7 +982,7 @@
     $$(".pay-opt").forEach(o=>o.addEventListener("click",()=>{$$(".pay-opt").forEach(x=>x.classList.remove("on"));o.classList.add("on");showNote();}));
     showNote();
     $("#placeBtn").addEventListener("click",()=>{
-      if(cartTotal()<MIN_ORDER){ toast(I18N.t("t_min"),"error"); return; }
+      if(cartTotal()<MIN_ORDER_()){ toast(I18N.t("t_min",{min:fmt(MIN_ORDER_())}),"error"); return; }
       if(user.debt>0){ toast("Qarz mavjud — buyurtma bloklandi","error"); return; }
       const sel=document.querySelector(".pay-opt.on");
       if(!sel){ toast("To'lov usulini tanlang","error"); return; }
@@ -1744,7 +1748,7 @@
 
   function checkout(){
     if(!cart.length){ toast(I18N.t("empty_cart"),"error"); return; }
-    if(cartTotal()<MIN_ORDER){ toast(I18N.t("t_min"),"error"); return; }
+    if(cartTotal()<MIN_ORDER_()){ toast(I18N.t("t_min",{min:fmt(MIN_ORDER_())}),"error"); return; }
     /* Savatga solingandan keyin restoran yopilgan bo'lishi mumkin — shu yerda
        yana bir bor tekshiramiz (serverda ham tekshiriladi, bu faqat tushunarli
        xabar uchun). */
