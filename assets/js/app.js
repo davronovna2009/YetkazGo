@@ -1540,7 +1540,7 @@
          mijozga chiqadi (chunki queueRating shu yerda, aynan shu voqeadan
          keyingina chaqiriladi). */
       queueRating(order);
-      setTimeout(()=>askRating(), 5000);
+      setTimeout(()=>askRating(order.backendId || order.id), 5000);
     };
 
     document.getElementById("arrivedClose").addEventListener("click", close);
@@ -1570,8 +1570,9 @@
   /* ============================================================
      REYTING — mijoz TAOM va KURYERni baholaydi (bitta modal, ikki qism).
      Taom bahosi -> restoran/dish (restoran+admin ko'radi); kuryer bahosi ->
-     kuryer (kuryer panel+admin ko'radi). Qabul qilingach so'raladi; "keyinroq"
-     bosilsa keyingi kirishda yana so'raladi. */
+     kuryer (kuryer panel+admin ko'radi). "Rahmat, oldim" bosilgach 5 soniyada
+     so'raladi — AYNAN o'sha buyurtma uchun (id bo'yicha). "Keyinroq" bosilsa
+     ham shu buyurtma uchun qayta so'ralmaydi. */
   const RATE_KEY = "yz_pending_ratings";
   function loadPendingRatings(){ try{ return JSON.parse(localStorage.getItem(RATE_KEY)||"[]"); }catch(e){ return []; } }
   function savePendingRatings(a){ try{ localStorage.setItem(RATE_KEY, JSON.stringify(a)); }catch(e){} }
@@ -1609,10 +1610,14 @@
       items: local.items || be.items || [],
     });
   }
-  function askRating(){
+  function askRating(targetId){
     if($("#modal").classList.contains("open")) return;   // boshqa modal ochiq bo'lsa keyinroq
     const list = loadPendingRatings(); if(!list.length) return;
-    const e = list[0];
+    /* MUHIM: har doim list[0]ни emas — AYNAN hozir tasdiqlangan
+       buyurtmaning yozuvini ko'rsatamiz (targetId). Aks holda navbatda
+       eski, boshqa taomga tegishli yozuv turib qolsa, mijoz "somsa"
+       buyurtma qilib "manti"ни baholang deb so'ralib qolardi. */
+    const e = (targetId!=null ? list.find(x=>String(x.id)===String(targetId)) : null) || list[0];
     const stars = ()=> [1,2,3,4,5].map(n=>`<span class="rate-star" data-n="${n}">☆</span>`).join("");
     openModal(`
       <div style="text-align:center">
