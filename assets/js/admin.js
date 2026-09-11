@@ -307,6 +307,7 @@
         '<span style="color:var(--grey);font-size:13px;min-width:60px">Parol</span>'+
         '<span class="mono" style="font-size:14px;letter-spacing:2px">••••••</span>'+
         '<button class="lg-edit-pass add-action-btn" style="background:#2563eb;flex:none;font-size:12px;padding:6px 10px">🔑 Parol</button>'+
+        (a.role!=="admin"?'<button class="lg-del-acct add-action-btn" style="background:#C8102E;flex:none;font-size:12px;padding:6px 10px">🗑 O\'chirish</button>':'')+
       '</div>'+
     '</div>';
   }
@@ -337,9 +338,35 @@
     host.querySelectorAll(".lg-card").forEach(function(card){
       const login=card.dataset.login;
       const acc=ACCOUNTS.find(a=>a.login===login);
-      const be=card.querySelector(".lg-edit-login"), bp=card.querySelector(".lg-edit-pass");
+      const be=card.querySelector(".lg-edit-login"), bp=card.querySelector(".lg-edit-pass"), bd=card.querySelector(".lg-del-acct");
       if(be) be.addEventListener("click",function(){ openAccountEdit(acc, "login"); });
       if(bp) bp.addEventListener("click",function(){ openAccountEdit(acc, "pass"); });
+      if(bd) bd.addEventListener("click",function(){ deleteAccountFlow(acc); });
+    });
+  }
+  /* Akkauntni butunlay o'chirish — "arvoh login" (restoran/kuryer profili
+     allaqachon yo'q, lekin akkaunt qolib ketgan, hali ham kirish mumkin
+     bo'lgan) holatlar uchun. Restoran/Kuryer bo'limида buni o'chirib
+     bo'lmaydi — chunki u yerdagi ro'yxat restaurants/couriers jadvalidан
+     olinadi, bu yozuv esa faqat accounts'da qolgan. */
+  function deleteAccountFlow(acc){
+    const info=ROLE_INFO[acc.role]||{label:acc.role};
+    confirmModal({
+      icon: "🗑",
+      title: "Akkauntni o'chirish",
+      desc: `<b>${esc(acc.name||acc.login)}</b> (${esc(info.label||acc.role)}, login: <b class="mono">${esc(acc.login)}</b>) akkaunti butunlay o'chirilsinmi?<br><br>
+             ❌ Bu amalni ortga qaytarib bo'lmaydi. Bu login bilan endi kirib bo'lmaydi.`,
+      confirmLabel: "Ha, o'chirish",
+      confirmClass: "confirm-danger",
+      onConfirm: async ()=>{
+        if(typeof STORE==="undefined" || !STORE.deleteAccount){ toast("Serverga ulanib bo'lmadi"); return; }
+        const res=await STORE.deleteAccount(acc.login);
+        if(res && res.error){ toast(res.error); return; }
+        ACCOUNTS=ACCOUNTS.filter(a=>a.login!==acc.login);
+        renderLogins();
+        toast(`✅ ${acc.name||acc.login} akkaunti o'chirildi`);
+        try{ syncEntitiesFromBackend(); }catch(e){}
+      }
     });
   }
   /* Login YOKI parolni o'zgartirish oynasi (bitta modal, ikki maydon).

@@ -784,4 +784,35 @@ router.post('/accounts/update', requireRole('admin'), (req, res) => {
   res.json(out);
 });
 
+/* DELETE /api/accounts — akkauntni BUTUNLAY o'chirish (login bo'yicha).
+   Nega kerak: restoran/kuryer profili (restaurants/couriers jadvali)
+   o'chirilgach ham, ba'zan akkaunt (accounts jadvali) qolib ketadi —
+   "arvoh login". U "Restoranlar"/"Kuryerlar" bo'limida KO'RINMAYDI (chunki
+   o'sha jadvalда qatori yo'q), lekin "Loginlar"da ko'rinaveradi va u bilan
+   HALI HAM tizimga kirish mumkin bo'lib qoladi. Shu yerда uni ham,
+   restaurants/couriers'даgi mos qatorni ham (bo'lsa) birga tozalaymiz. */
+router.delete('/accounts', requireRole('admin'), (req, res) => {
+  const login = String(req.body?.login || '').trim();
+  if (!login) return res.status(400).json({ error: 'login kerak' });
+  const acc = db.prepare('SELECT * FROM accounts WHERE login = ?').get(login);
+  if (!acc) return res.json({ ok: true }); // allaqachon yo'q — maqsadga erishildi
+  if (req.user && req.user.login === acc.login) {
+    return res.status(400).json({ error: "O'zingizning akkauntingizni o'chira olmaysiz" });
+  }
+  db.prepare('DELETE FROM accounts WHERE id = ?').run(acc.id);
+  if (acc.role === 'restoran') {
+    const r = db.prepare('SELECT name FROM restaurants WHERE login = ? OR name = ?').get(acc.login, acc.name);
+    db.prepare('DELETE FROM restaurants WHERE login = ? OR name = ?').run(acc.login, acc.name);
+    const name = r ? r.name : acc.name;
+    if (name) {
+      for (const t of ['added_dishes', 'removed_dishes', 'discounts', 'soldout_dishes', 'announcements']) {
+        try { db.prepare(`DELETE FROM ${t} WHERE rest = ?`).run(name); } catch (e) { /* jadval yo'q */ }
+      }
+    }
+  } else if (acc.role === 'kuryer') {
+    db.prepare('DELETE FROM couriers WHERE login = ? OR name = ?').run(acc.login, acc.name);
+  }
+  res.json({ ok: true });
+});
+
 export default router;

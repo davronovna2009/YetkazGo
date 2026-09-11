@@ -548,6 +548,16 @@ const STORE = (function () {
       return api("/accounts/update", { method: "POST", body, auth: true })
         .catch(authAwareErr);
     },
+    /* ADMIN: akkauntni butunlay o'chiradi ("arvoh login" — restoran/kuryer
+       profili o'chgan, lekin akkaunt qolib ketgan holatlar uchun).
+       MUHIM: `send()` emas — xato (masalan "o'zingizni o'chira olmaysiz")
+       YUTILMASDAN admin panelga {error} sifatida qaytishi kerak, aks holda
+       panel muvaffaqiyat deb o'ylab, aslida o'chmagan yozuvni ro'yxatдан
+       olib tashlaydi. */
+    deleteAccount(login) {
+      return api("/accounts", { method: "DELETE", body: { login }, auth: true })
+        .catch(authAwareErr);
+    },
     /* Admin foydalanuvchi ma'lumotini tahrirlaydi (restoran/kuryerdagi kabi) */
     editUser(data) {
       return api("/users", { method: "PATCH", body: data, auth: true })
