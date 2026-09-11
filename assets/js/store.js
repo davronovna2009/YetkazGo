@@ -497,13 +497,15 @@ const STORE = (function () {
         .then(r => { refreshPublic(); return r; })
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Serverga ulanib bo'lmadi" }));
     },
-    deleteRestaurant(login) { return send("/restaurants", { method: "DELETE", body: { login } }).then(r => { refreshPublic(); return r; }); },
+    /* `name` — zaxira: login bo'sh/mos kelmasa ham (eski chala yaratilgan
+       yozuvlar) backend nom bo'yicha topib o'chiradi. */
+    deleteRestaurant(login, name) { return send("/restaurants", { method: "DELETE", body: { login, name } }).then(r => { refreshPublic(); return r; }); },
     addCourier(data) {
       return api("/couriers", { method: "POST", body: data, auth: true })
         .then(r => { refreshAll(); return r; })
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Serverga ulanib bo'lmadi" }));
     },
-    deleteCourier(login) { return send("/couriers", { method: "DELETE", body: { login } }); },
+    deleteCourier(login, name) { return send("/couriers", { method: "DELETE", body: { login, name } }); },
     editRestaurant(data) { return send("/restaurants", { method: "PATCH", body: data }).then(r => { refreshPublic(); return r; }); },
     /* Restoran egasi o'z rasmini saqlaydi */
     setRestaurantPhoto(photo) { return send("/restaurants/photo", { method: "POST", body: { photo } }).then(r => { refreshPublic(); return r; }); },

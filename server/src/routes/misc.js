@@ -261,23 +261,32 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
   res.status(201).json(restRow(db.prepare('SELECT * FROM restaurants WHERE name = ?').get(name), null, true));
 });
 
-/* DELETE /api/restaurants — login bo'yicha (restoran + akkaunt) */
+/* DELETE /api/restaurants — login BO'LMASA nom bo'yicha (restoran + akkaunt).
+   ESKI (login'siz/bo'sh login bilan yaratilgan chala) yozuvlar login orqali
+   topilmay, "o'chirib bo'lmaydigan" bo'lib saytда abadiy qolib ketardi —
+   shuning uchun `name` bo'yicha ham topib o'chiramiz. */
 router.delete('/restaurants', requireRole('admin'), (req, res) => {
   const login = String(req.body?.login || '').trim();
-  if (!login) return res.status(400).json({ error: 'login kerak' });
+  const nameIn = String(req.body?.name || '').trim();
+  if (!login && !nameIn) return res.status(400).json({ error: 'login yoki name kerak' });
+  const r = login
+    ? db.prepare('SELECT name, login FROM restaurants WHERE login = ?').get(login)
+    : db.prepare('SELECT name, login FROM restaurants WHERE name = ?').get(nameIn);
+  if (!r) return res.json({ ok: true }); // allaqachon yo'q — maqsadga erishildi
+  const name = r.name;
   /* Restoran o'chirilganda uning TAOMLARI, e'lonlari va chegirmalari ham
      ketishi kerak — aks holda ular "yetim" bo'lib katalogда/saytда qolib
      ketardi (o'chirilgan restoranning taomlari ko'rinaverardi).
      Buyurtma TARIXI (orders) esa ataylab qoldiriladi — moliya hisoboti va
      nizolar uchun kerak. */
-  const r = db.prepare('SELECT name FROM restaurants WHERE login = ?').get(login);
-  const name = r ? r.name : null;
-  db.prepare('DELETE FROM restaurants WHERE login = ?').run(login);
-  db.prepare("DELETE FROM accounts WHERE login = ? AND role = 'restoran'").run(login);
-  if (name) {
-    for (const t of ['added_dishes', 'removed_dishes', 'discounts', 'soldout_dishes', 'announcements']) {
-      try { db.prepare(`DELETE FROM ${t} WHERE rest = ?`).run(name); } catch (e) { /* jadval yo'q */ }
-    }
+  db.prepare('DELETE FROM restaurants WHERE name = ?').run(name);
+  /* Akkaunt — HAQIQIY login orqali (r.login), so'ralган login emas: agar
+     restoran bo'sh login bilan yaratilgan bo'lsa ham, akkaunt nom bo'yicha
+     topib o'chiriladi. */
+  if (r.login) db.prepare("DELETE FROM accounts WHERE login = ? AND role = 'restoran'").run(r.login);
+  db.prepare("DELETE FROM accounts WHERE name = ? AND role = 'restoran'").run(name);
+  for (const t of ['added_dishes', 'removed_dishes', 'discounts', 'soldout_dishes', 'announcements']) {
+    try { db.prepare(`DELETE FROM ${t} WHERE rest = ?`).run(name); } catch (e) { /* jadval yo'q */ }
   }
   res.json({ ok: true });
 });
@@ -311,12 +320,19 @@ router.post('/couriers', requireRole('admin'), (req, res) => {
   res.status(201).json(courRow(db.prepare('SELECT * FROM couriers WHERE login = ?').get(login)));
 });
 
-/* DELETE /api/couriers — login bo'yicha */
+/* DELETE /api/couriers — login BO'LMASA nom bo'yicha (restorandagidek chala
+   yaratilgan/login'i bo'sh eski yozuvlar ham o'chsin). */
 router.delete('/couriers', requireRole('admin'), (req, res) => {
   const login = String(req.body?.login || '').trim();
-  if (!login) return res.status(400).json({ error: 'login kerak' });
-  db.prepare('DELETE FROM couriers WHERE login = ?').run(login);
-  db.prepare("DELETE FROM accounts WHERE login = ? AND role = 'kuryer'").run(login);
+  const nameIn = String(req.body?.name || '').trim();
+  if (!login && !nameIn) return res.status(400).json({ error: 'login yoki name kerak' });
+  const c = login
+    ? db.prepare('SELECT id, name, login FROM couriers WHERE login = ?').get(login)
+    : db.prepare('SELECT id, name, login FROM couriers WHERE name = ?').get(nameIn);
+  if (!c) return res.json({ ok: true }); // allaqachon yo'q — maqsadga erishildi
+  db.prepare('DELETE FROM couriers WHERE id = ?').run(c.id);
+  if (c.login) db.prepare("DELETE FROM accounts WHERE login = ? AND role = 'kuryer'").run(c.login);
+  db.prepare("DELETE FROM accounts WHERE name = ? AND role = 'kuryer'").run(c.name);
   res.json({ ok: true });
 });
 

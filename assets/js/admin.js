@@ -1705,7 +1705,7 @@
       confirmClass: "confirm-danger",
       onConfirm: async ()=>{
         if(typeof STORE==="undefined" || !STORE.deleteRestaurant){ toast("Serverga ulanib bo'lmadi"); return; }
-        const res=await STORE.deleteRestaurant(r.login);
+        const res=await STORE.deleteRestaurant(r.login, r.name);
         if(res && res.error){ toast(res.error); return; }
         /* Mahalliy ro'yxatдан ham darhol olib tashlaymiz (backend = manba) */
         RESTS=RESTS.filter(x=>x.id!==id); save(SK.rests,RESTS);
@@ -1946,7 +1946,7 @@
       confirmClass: "confirm-danger",
       onConfirm: async ()=>{
         if(typeof STORE==="undefined" || !STORE.deleteCourier){ toast("Serverga ulanib bo'lmadi"); return; }
-        const res=await STORE.deleteCourier(c.login);
+        const res=await STORE.deleteCourier(c.login, c.name);
         if(res && res.error){ toast(res.error); return; }
         COURIERS=COURIERS.filter(x=>x.id!==id); save(SK.couriers,COURIERS);
         PENDING=PENDING.filter(p=>!(p.id===id&&p.type==="courier")); save(SK.pending,PENDING);
