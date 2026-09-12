@@ -1067,7 +1067,7 @@
         <b style="flex:none;font-size:13px;color:var(--grey)">×${it.qty||1}</b>
       </div>`;
     }).join("");
-    return `<div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin:10px 0;max-height:230px;overflow-y:auto">${rows}</div>`;
+    return `<div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin:10px 0;max-height:230px;overflow-y:auto;text-align:left">${rows}</div>`;
   }
   function saveOrders(arr){ try{ localStorage.setItem(ORDER_KEY,JSON.stringify(arr)); }catch(e){} }
 
@@ -1664,6 +1664,7 @@
         <div class="arrived-emoji" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;margin:0 auto 8px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#FCEEDF,#F7E2E5)">${orderIconHtml(order,44)}</div>
         <div class="arrived-title">${I18N.t("st_arrived")}! 🎉</div>
         <div class="arrived-name">${esc(order.label)}</div>
+        ${trackItemsHtml(order)}
         <div class="arrived-msg">${I18N.t("arrived_msg")}</div>
         <button class="btn btn-primary" id="arrivedOk">${I18N.t("got_it")} ✓</button>
       </div>`;
