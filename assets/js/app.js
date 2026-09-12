@@ -1054,6 +1054,21 @@
     if(!(o && o.photo)) return `<span style="${fs}">${emoji}</span>`;
     return `<span style="${fs}">${emoji}</span><img src="${esc(o.photo)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit" data-onerr="remove">`;
   }
+  /* Kuzatuv oynasida BUYURTMADAGI HAR BIR taomni (rasmi + nomi + dona soni)
+     ko'rsatadi — 10 xil taom bo'lsa hammasi ro'yxatда, bittasi emas. */
+  function trackItemsHtml(o){
+    const items = (o && o.items) || [];
+    if(!items.length) return "";
+    const rows = items.map((it,idx)=>{
+      const bt = idx>0 ? "border-top:1px solid var(--line);" : "";
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;${bt}">
+        <div style="position:relative;width:38px;height:38px;border-radius:10px;overflow:hidden;flex:none;background:linear-gradient(135deg,#FCEEDF,#F7E2E5);display:flex;align-items:center;justify-content:center;font-size:19px">${orderIconHtml(it,19)}</div>
+        <div style="flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nm(it))}</div>
+        <b style="flex:none;font-size:13px;color:var(--grey)">×${it.qty||1}</b>
+      </div>`;
+    }).join("");
+    return `<div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin:10px 0;max-height:230px;overflow-y:auto">${rows}</div>`;
+  }
   function saveOrders(arr){ try{ localStorage.setItem(ORDER_KEY,JSON.stringify(arr)); }catch(e){} }
 
   function genOrderId(){ return Date.now()+"_"+Math.random().toString(36).slice(2,7); }
@@ -1173,7 +1188,7 @@
       photo,
       totalPrice,
       user: user.name || "Mehmon",   // backend buyurtmasiga moslash uchun
-      items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji, note:i.note||""})),
+      items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji, photo:i.photo||"", note:i.note||""})),
       rest: (firstItem && firstItem.rest) || "",
       eta,
       arriveAt,
@@ -1278,6 +1293,7 @@
         </div>
         <h2 style="text-align:center">Buyurtma qabul qilindi!</h2>
         <p class="modal-sub" style="text-align:center">${esc(o.label)}</p>
+        ${trackItemsHtml(o)}
         <div class="timer" id="tTimer">${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}</div>
         <div class="track-status" id="tStatus">${steps[step]||steps[0]}</div>
         <div class="track-bar" id="tBar">
