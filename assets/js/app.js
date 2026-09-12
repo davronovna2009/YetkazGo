@@ -1045,6 +1045,15 @@
   const ORDER_KEY = "yz_active_orders";
 
   function loadOrders(){ try{ return JSON.parse(localStorage.getItem(ORDER_KEY)||"[]"); }catch(e){ return []; } }
+  /* Buyurtma kuzatuv oynalari (qabul qilindi/yo'lda/yetib keldi) uchun BITTA
+     belgi: taom RASMI bo'lsa o'sha, bo'lmasa emoji — hamma joyда bir xil.
+     `box` — tashqi konteyner o'lchamiga mos font-size beradi (font-size bo'lsa). */
+  function orderIconHtml(o, fontSize){
+    const emoji = (o && o.emoji) || "🍽️";
+    const fs = fontSize ? `font-size:${fontSize}px` : "";
+    if(!(o && o.photo)) return `<span style="${fs}">${emoji}</span>`;
+    return `<span style="${fs}">${emoji}</span><img src="${esc(o.photo)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit" data-onerr="remove">`;
+  }
   function saveOrders(arr){ try{ localStorage.setItem(ORDER_KEY,JSON.stringify(arr)); }catch(e){} }
 
   function genOrderId(){ return Date.now()+"_"+Math.random().toString(36).slice(2,7); }
@@ -1154,12 +1163,14 @@
     const firstItemName = firstItem ? nm(firstItem) : "";
     const label = firstItem ? (cart.length>1 ? firstItemName+" +"+(cart.length-1)+" ta" : firstItemName) : "Buyurtma";
     const emoji = firstItem ? firstItem.emoji : "🛵";
+    const photo = firstItem ? (firstItem.photo||"") : "";
     const totalPrice = cartTotal();
 
     const order = {
       id: orderId,
       label,
       emoji,
+      photo,
       totalPrice,
       user: user.name || "Mehmon",   // backend buyurtmasiga moslash uchun
       items: cart.map(i=>({name:i.name, qty:i.qty, emoji:i.emoji, note:i.note||""})),
@@ -1263,7 +1274,7 @@
     openModal(`
       <div class="track" data-track-order="${o.id}">
         <div style="text-align:center;margin-bottom:4px">
-          <span style="font-size:48px">${o.emoji}</span>
+          <div style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#FCEEDF,#F7E2E5)">${orderIconHtml(o,40)}</div>
         </div>
         <h2 style="text-align:center">Buyurtma qabul qilindi!</h2>
         <p class="modal-sub" style="text-align:center">${esc(o.label)}</p>
@@ -1474,7 +1485,7 @@
           return `
           <div class="otb-order" data-oid="${o.id}" style="cursor:pointer">
             <div class="otb-order-top">
-              <span class="otb-emoji">${o.emoji}</span>
+              <span class="otb-emoji">${orderIconHtml(o,20)}</span>
               <div class="otb-info">
                 <div class="otb-name">${esc(o.label)}</div>
                 <div class="otb-status" style="color:${stepColors[step]}">${stepLabels[step]}</div>
@@ -1580,7 +1591,7 @@
         return `
         <div class="aop-order" data-oid="${o.id}" style="cursor:pointer">
           <div class="aop-row">
-            <span class="aop-emoji">${o.emoji}</span>
+            <span class="aop-emoji">${orderIconHtml(o,18)}</span>
             <div class="aop-info">
               <div class="aop-name">${esc(o.label)}</div>
               <div class="aop-status" style="color:${stepColors[step]}">${stepLabels[step]}</div>
@@ -1634,7 +1645,7 @@
     overlay.innerHTML = `
       <div class="arrived-card">
         <button class="arrived-close" id="arrivedClose">✕</button>
-        <div class="arrived-emoji">${order.emoji}</div>
+        <div class="arrived-emoji" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;margin:0 auto 8px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#FCEEDF,#F7E2E5)">${orderIconHtml(order,44)}</div>
         <div class="arrived-title">${I18N.t("st_arrived")}! 🎉</div>
         <div class="arrived-name">${esc(order.label)}</div>
         <div class="arrived-msg">${I18N.t("arrived_msg")}</div>
