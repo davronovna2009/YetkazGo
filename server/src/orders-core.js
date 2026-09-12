@@ -11,7 +11,7 @@ import { callRule, suspicionCheck, totalQty } from './order-rules.js';
 import { payMethodAllowed, deliveryFeeAmount } from './settings.js';
 
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
-const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
+const UZ_OPERATORS = ['20', '33', '50', '55', '77', '87', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
 export function normalizePhone(p) {
   return String(p == null ? '' : p).replace(/\D/g, '');
 }

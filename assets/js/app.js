@@ -510,9 +510,17 @@
       <div class="container rmenu">
         <h2>${I18N.t("rest_menu")}</h2>
         <div class="grid dishes-grid" id="rMenuGrid"></div>
+      </div>
+      <div class="container rrating-section">
+        <div class="section-head" style="margin-bottom:10px">
+          <h2>⭐ Restoran reytingi</h2>
+          <p class="modal-sub" style="margin:2px 0 0">${restStarTxt(r)}${r.ratingCount?" · "+r.ratingCount+" ta baho":""}</p>
+        </div>
+        <div class="grid reviews-grid" id="rPageReviews"></div>
       </div>`;
     const grid=view.querySelector("#rMenuGrid");
     (menu.length?menu:DISHES.slice(0,8)).forEach(d=>grid.appendChild(makeDishCard(d,true)));
+    renderRestPageReviews(r);
     /* Reklama banneri ishlaydi: chegirmali taomga bosilsa modal, «+» savatga qo'shadi */
     view.querySelectorAll(".rpromo-dish").forEach(it=>it.addEventListener("click",(e)=>{
       if(e.target.classList.contains("rpromo-add")) return;
@@ -641,6 +649,36 @@
         <p class="rv-text">${esc(txt)}</p>
         ${r.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(trTxt(r.reply))}</div>`:""}
         <div class="rv-dish">${isRest?`🏪 ${esc(trTxt(rest||r.rest||""))}`:`🍽️ ${esc(trTxt(r.dish))}${rest?` · 🏪 ${esc(trTxt(rest))}`:""}`}</div>`;
+      g.appendChild(el);
+    });
+  }
+
+  /* Bitta restoranga yozilgan BARCHA izohlarni o'sha restoran sahifasida
+     ko'rsatadi ("Restoran reytingi" bo'limi, menyu ostida — mijoz shu
+     restoranga qanday baho/izoh berilganini ko'rib olsin). Ommaviy
+     karuseldan farqli — reyting чекланmaydi, barcha izoh chiqadi. */
+  function renderRestPageReviews(r){
+    const g=document.getElementById("rPageReviews"); if(!g) return; g.innerHTML="";
+    const isCourierReview = rv => /^🛵\s*Kuryer:/.test(String(rv&&rv.dish||""));
+    const REST_RE = /^🏪\s*Restoran:\s*/;
+    const isRestaurantReview = rv => REST_RE.test(String(rv&&rv.dish||""));
+    const reviewRest = rv => rv.rest || ((catalog().find(x=>x.name===rv.dish)||{}).rest) || "";
+    const revDate = rv => { const raw=String(rv.date||rv.created_at||""); const m=raw.match(/(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+"."+m[2]+"."+m[1]):(raw.length<=12?raw:""); };
+    const live=(typeof STORE!=="undefined")?STORE.reviews():[];
+    const list=[...live,...REVIEWS].filter(rv=>!isCourierReview(rv) && reviewRest(rv)===r.name);
+    if(!list.length){ g.innerHTML=`<p style="color:var(--grey)">Bu restoranga hali izoh qoldirilmagan.</p>`; return; }
+    list.forEach(rv=>{
+      const stars="★".repeat(rv.rating)+"☆".repeat(5-rv.rating);
+      const txt = trTxt((I18N.current()==="cyr" && rv.textCyr) ? rv.textCyr : rv.text);
+      const dt=revDate(rv);
+      const isRest=isRestaurantReview(rv);
+      const el=document.createElement("div"); el.className="review-card";
+      el.innerHTML=`<div class="rv-head"><span class="rv-ava">${rv.ava||"👤"}</span>
+        <div><div class="rv-name">${esc(rv.name)}</div><div class="rv-stars">${stars}</div></div>
+        ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
+        <p class="rv-text">${esc(txt)}</p>
+        ${rv.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(trTxt(rv.reply))}</div>`:""}
+        ${isRest?"":`<div class="rv-dish">🍽️ ${esc(trTxt(rv.dish))}</div>`}`;
       g.appendChild(el);
     });
   }
@@ -783,7 +821,9 @@
       cart.forEach(i=>{
         const row=document.createElement("div"); row.className="cart-row";
         row.innerHTML=`
-          <div class="ci-img"><span>${i.emoji}</span></div>
+          <div class="ci-img"><span class="food-emoji" style="font-size:24px">${i.emoji}</span>
+            ${i.photo?`<img class="ci-photo-bg" src="${i.photo}" alt="" aria-hidden="true" data-onerr="remove">`:""}
+            <img class="ci-photo" src="${i.photo||""}" alt="${esc(nm(i))}" data-onerr="remove"></div>
           <div class="ci-info"><h4>${nm(i)}</h4><span>${fmt(i.price)} ${I18N.t("sum")}</span></div>
           <div class="qty"><button data-m="-1">−</button><input class="qty-num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
                  value="${i.qty}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;font-weight:700;color:inherit;text-align:center"><button data-m="1">+</button></div>
@@ -1235,6 +1275,9 @@
         <div style="background:#f0f9f4;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;color:#1c6b3f;text-align:center">
           🛵 Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
         </div>
+        <div id="tExpiredMsg" style="display:none;background:#fdecea;border-radius:12px;padding:12px;margin:0 0 14px;font-size:13px;color:#a61b1b;text-align:center;font-weight:600">
+          ⏰ Belgilangan vaqt tugadi. Iltimos, kuryer bilan bog'laning.
+        </div>
         <div id="tCourierBox"></div>
         <button class="btn btn-outline btn-block" id="trkClose">Tushunarli, yopish</button>
       </div>`);
@@ -1336,15 +1379,24 @@
       const tTimer = document.getElementById("tTimer");
       const tStatus = document.getElementById("tStatus");
       const tBar = document.getElementById("tBar");
-      if(tTimer && !tTimer.classList.contains("done")){
-        const m = Math.floor(left/60000);
-        const s = Math.floor((left%60000)/1000);
-        tTimer.textContent = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+      /* Belgilangan vaqt tugab, buyurtma hali yo'lda bo'lsa ("00:00" da oyna
+         muzlab qolganday ko'rinmasin) — mijozga kuryer bilan bog'lanishni
+         so'raymiz. */
+      const isReview = be && be.status==="review";
+      const timeExpired = left<=0 && step<4 && !isReview;
+      if(tTimer){
+        tTimer.classList.toggle("expired", timeExpired);
+        if(!tTimer.classList.contains("done")){
+          const m = Math.floor(left/60000);
+          const s = Math.floor((left%60000)/1000);
+          tTimer.textContent = String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+          tTimer.style.color = timeExpired ? "#c0392b" : "";
+        }
       }
       if(tStatus){
         const statusLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
         /* Katta buyurtма administrator tekshiruvida — shuni ko'rsatib turamiz */
-        tStatus.textContent = (be && be.status==="review") ? "Administrator tekshiruvida" : (statusLabels[step]||"");
+        tStatus.textContent = isReview ? "Administrator tekshiruvida" : (statusLabels[step]||"");
       }
       if(tBar){
         const steps = tBar.querySelectorAll(".track-step");
@@ -1353,13 +1405,18 @@
           el.classList.toggle("done-step", i<step);
         });
       }
-      /* Kuryer yo'lga chiqqach — mijoz unga qo'ng'iroq qila olsin. Raqam
-         AYNAN kuryer adminга bergan telefon (server/src/orders-core.js). */
+      const tExpired = document.getElementById("tExpiredMsg");
+      if(tExpired) tExpired.style.display = timeExpired ? "block" : "none";
+      /* Kuryer yo'lga chiqqach ("Yo'lda" bosqichi) — mijoz uning ismi va
+         telefonini ko'radi, qo'ng'iroq ham qila oladi. Raqam AYNAN kuryer
+         adminга bergan telefon (server/src/orders-core.js), faqat status
+         ontheway/arrived bo'lganda keladi — shu bosqichga yetmaguncha bo'sh. */
       const tCour = document.getElementById("tCourierBox");
       if(tCour){
         if(be && be.courierPhone){
           const dial = String(be.courierPhone).replace(/[^\d+]/g,"");
-          tCour.innerHTML = `<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">📞 ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
+          const nameLine = be.courier ? `<div style="font-weight:700;margin-bottom:8px;text-align:center">🛵 ${esc(be.courier)}</div>` : "";
+          tCour.innerHTML = `${nameLine}<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">📞 ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
         } else if(tCour.innerHTML) {
           tCour.innerHTML = "";
         }

@@ -771,7 +771,7 @@ try { if (typeof globalThis !== "undefined") globalThis.STORE = STORE; } catch (
 /* ===== Telefon raqami yordamchilari (barcha sahifalarda global) =====
    Faqat rasmiy O'zbekiston mobil raqamlari: +998 va operator kodi. */
 (function () {
-  var OPS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
+  var OPS = ['20', '33', '50', '55', '77', '87', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
   function digits(p) { return String(p == null ? "" : p).replace(/\D/g, ""); }
   function normUz(p) {
     var d = digits(p);

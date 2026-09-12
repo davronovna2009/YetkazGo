@@ -32,7 +32,7 @@ function sessionAccount(acc) {
 }
 
 /* O'zbekiston mobil raqami validatsiyasi (ro'yxatdan o'tishda) */
-const UZ_OPERATORS = ['20', '33', '50', '55', '77', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
+const UZ_OPERATORS = ['20', '33', '50', '55', '77', '87', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
 function validUzPhone(p) {
   const d = String(p == null ? '' : p).replace(/\D/g, '');
   return /^998\d{9}$/.test(d) && UZ_OPERATORS.includes(d.slice(3, 5));

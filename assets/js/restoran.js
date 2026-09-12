@@ -983,15 +983,37 @@
      yozadi. Bu izohlar taom nomi bilan mos kelmagani uchun quyidagi
      filtrga alohida qo'shiladi (aks holda restoran paneliga chiqmasdi). */
   function isRestLevelReview(r){ return /^🏪\s*Restoran:\s*/.test(String(r&&r.dish||"")) && r.rest===CUR.name; }
-  function renderRestReviews(){
-    const tb=$("#restReviews"); if(!tb) return;
+  /* Shu restoranga tegishli BARCHA izohlar — taom nomi bo'yicha yoki
+     "🏪 Restoran: <nom>" umumiy baho. Ikkala joyda ("Mijoz izohlari" —
+     dashboard va "Restoran reytingi" — sozlamalar pastida) ishlatiladi. */
+  function restReviewsFor(){
     const names=CUR.dishes.map(function(d){return d.name;});
-    const rv=((typeof STORE!=="undefined")?STORE.reviews():[]).filter(function(r){return names.indexOf(r.dish)>=0 || isRestLevelReview(r);});
-    tb.innerHTML=rv.length?rv.map(function(r){ const rr=Math.max(0,Math.min(5,r.rating|0));
+    return ((typeof STORE!=="undefined")?STORE.reviews():[]).filter(function(r){return names.indexOf(r.dish)>=0 || isRestLevelReview(r);});
+  }
+  function reviewsListHtml(rv){
+    return rv.length?rv.map(function(r){ const rr=Math.max(0,Math.min(5,r.rating|0));
       const label=isRestLevelReview(r) ? ("🏪 "+esc(CUR.name)) : esc(r.dish);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>${r.ava||"👤"} ${esc(r.name)} → ${label}</b><span class="star">${"★".repeat(rr)}${"☆".repeat(5-rr)}</span></div><div style="font-size:14px;margin-top:4px">${esc(r.text)} ${r.flagged?'<span class="pill red">signal</span>':''}</div></div>`; }).join(""):`<p style="color:var(--grey)">Sizga hali izoh yo'q.</p>`;
   }
-  function renderAll(){ renderDash(); renderOrdersView(); renderDishes(); renderIncome(); renderPromo(); renderRestReviews(); }
+  function renderRestReviews(){
+    const tb=$("#restReviews"); if(!tb) return;
+    tb.innerHTML=reviewsListHtml(restReviewsFor());
+  }
+  /* "Restoran reytingi" — Sozlamalar bo'limining ENG PASTIDA: umumiy
+     yulduzcha (server hisoblagan, live) + xuddi shu izohlar ro'yxati. */
+  function renderRestRating(){
+    const sum=$("#restRatingSummary"), box=$("#restRatingReviews");
+    if(!sum && !box) return;
+    const rv=restReviewsFor();
+    if(sum){
+      const be=curRestBackend();
+      const rating=(be&&be.rating)||0;
+      const count=(be&&be.ratingCount)||rv.length;
+      sum.textContent = rating>0 ? ("★ "+rating+" · "+count+" ta baho") : "★ hali baho yo'q";
+    }
+    if(box) box.innerHTML=reviewsListHtml(rv);
+  }
+  function renderAll(){ renderDash(); renderOrdersView(); renderDishes(); renderIncome(); renderPromo(); renderRestReviews(); renderRestRating(); }
 
   /* ===== SOZLAMALAR: login / parol o'zgartirish ===== */
   function curSession(){ try{ return (typeof STORE!=="undefined")?STORE.session():null; }catch(e){ return null; } }

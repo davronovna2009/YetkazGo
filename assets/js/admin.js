@@ -840,13 +840,22 @@
   const OSM={review:["🔎 Tekshiruvda (siz tasdiqlashingiz kerak)","warn"],new:["Yangi","warn"],accepted:["Tayyorlanmoqda","warn"],ready:["Tayyor","blue"],ontheway:["Yo'lda","blue"],arrived:["Yetkazildi (tasdiq)","blue"],done:["Yetkazildi","ok"],cancelled:["Bekor qilingan","red"]};
   /* "Bu buyurtmada mijoz izohi bor" belgisi — ro'yxatdan ham ko'rinsin */
   function noteFlag(x){ try{ return YZ_ITEMS.noteFlag(x); }catch(e){ return ""; } }
+  /* Buyurtma ro'yxatida (modalga kirmasdan turib) taomning RASMI ko'rinsin —
+     ilgari faqat emoji chiqardi, rasm faqat modalда (YZ_ITEMS.listHtml) bor edi. */
+  function orderThumb(x,px){
+    var p=px||34;
+    try{ var ls=YZ_ITEMS.lines(x); if(ls.length) return YZ_ITEMS.thumb(ls[0],p); }catch(e){}
+    return '<span style="width:'+p+'px;height:'+p+'px;border-radius:9px;background:#f3eef0;display:inline-flex;align-items:center;justify-content:center;font-size:'+Math.round(p*0.6)+'px;flex-shrink:0">'+esc(x.emoji||'🍽️')+'</span>';
+  }
+  /* Ko'p taomli buyurtma — barcha taomlar rasm lentasi (yon tomonga suriladi) */
+  function orderStrip(x){ try{ return ((x.items&&x.items.length)>1) ? YZ_ITEMS.strip(x) : ""; }catch(e){ return ""; } }
   function renderLiveOrders(){
     const o=(typeof STORE!=="undefined")?STORE.orders():[];
     // Desktop jadval
     const tb=$("#liveOrders"); if(tb){
       tb.innerHTML=o.length?o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
-        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji} ${esc(x.item)} ${noteFlag(x)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
+        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td><div style="display:flex;align-items:center;gap:8px">${orderThumb(x,30)}<span>${esc(x.item)} ${noteFlag(x)}</span></div>${orderStrip(x)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
       }).join("") : `<tr><td colspan="7" style="color:var(--grey);padding:18px">Buyurtma yo'q.</td></tr>`;
       $$("#liveOrders [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ openOrderModal(o.find(function(t){return t.id==row.dataset.oid;})); }); });
     }
@@ -856,7 +865,8 @@
       mc.innerHTML=o.slice(0,50).map(function(x){
         const s=OSM[x.status]||["?","warn"];
         return `<div class="lo-card" style="cursor:pointer" data-oid="${x.id}">
-          <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji}</div><div><div class="lo-item">${esc(x.item)} ${noteFlag(x)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+          <div class="lo-top"><div class="lo-left">${orderThumb(x,34)}<div><div class="lo-item">${esc(x.item)} ${noteFlag(x)}</div><div class="lo-rest">${esc(x.rest)}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+          ${orderStrip(x)}
           <div class="lo-row"><span class="lo-key">Mijoz</span><span class="lo-val">${esc(x.user)}</span></div>
           <div class="lo-row"><span class="lo-key">Kuryer</span><span class="lo-val">${esc(x.courier)}</span></div>
           <div class="lo-row"><span class="lo-key">Qayerdan</span><span class="lo-val">${srcBadge(x)}</span></div>
@@ -896,7 +906,8 @@
   function ordCardHtml(x){
     const s=OSM[x.status]||[x.status,"warn"];
     return `<div class="lo-card" style="cursor:pointer" data-oid="${x.id}">
-      <div class="lo-top"><div class="lo-left"><div class="lo-emoji">${x.emoji||"🍽️"}</div><div><div class="lo-item">#${x.id} · ${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)} · ${esc(fmtDateTime(x))}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+      <div class="lo-top"><div class="lo-left">${orderThumb(x,34)}<div><div class="lo-item">#${x.id} · ${esc(x.item)}</div><div class="lo-rest">${esc(x.rest)} · ${esc(fmtDateTime(x))}</div></div></div><span class="pill ${s[1]}">${s[0]}</span></div>
+      ${orderStrip(x)}
       <div class="lo-row"><span class="lo-key">Mijoz</span><span class="lo-val">${esc(x.user)} · ${esc(x.phone)}</span></div>
       <div class="lo-row"><span class="lo-key">Kuryer</span><span class="lo-val">${esc(x.courier)||"—"}</span></div>
       <div class="lo-row"><span class="lo-key">To'lov</span><span class="lo-val">${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(x.pay):(x.pay==="cash"?"💵 Naqd":"💳 Karta")}</span></div>
@@ -912,7 +923,7 @@
     if(tb){
       tb.innerHTML = shown.length ? shown.map(function(x){
         const s=OSM[x.status]||[x.status,"warn"];
-        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>#${x.id}</td><td style="white-space:nowrap">${esc(fmtDateTime(x))}</td><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td>${x.emoji||""} ${esc(x.item)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)||"—"}</td><td>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(x.pay):(x.pay==="cash"?"💵":"💳")}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
+        return `<tr style="cursor:pointer" data-oid="${x.id}"><td>#${x.id}</td><td style="white-space:nowrap">${esc(fmtDateTime(x))}</td><td>${esc(x.user)}</td><td>${esc(x.rest)}</td><td><div style="display:flex;align-items:center;gap:8px">${orderThumb(x,30)}<span>${esc(x.item)}</span></div>${orderStrip(x)}</td><td class="money">${money(x.amount)}</td><td>${esc(x.courier)||"—"}</td><td>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(x.pay):(x.pay==="cash"?"💵":"💳")}</td><td>${srcBadge(x)}</td><td><span class="pill ${s[1]}">${s[0]}</span></td></tr>`;
       }).join("") : `<tr><td colspan="10" style="color:var(--grey);padding:18px">Mos buyurtma topilmadi.</td></tr>`;
     }
     const mc=$("#ordCards");
