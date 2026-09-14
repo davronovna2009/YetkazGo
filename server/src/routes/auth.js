@@ -8,7 +8,13 @@ const router = Router();
 /* Migratsiya (accounts.email) db.js initSchema() da — jadval yaratilgandan keyin. */
 
 function publicAccount(a) {
-  return { id: a.id, role: a.role, login: a.login, name: a.name, phone: a.phone || '', email: a.email || '', target: a.target };
+  return {
+    id: a.id, role: a.role, login: a.login, name: a.name, phone: a.phone || '', email: a.email || '', target: a.target,
+    /* Tuzilgan manzil (faqat 'user' rolда to'ldiriladi, lekin boshqa rolда ham
+       bo'sh qiymat bilan xavfsiz qaytadi — panel UI'lari e'tiborsiz qoldiradi). */
+    addrRegion: a.addr_region || '', addrMahalla: a.addr_mahalla || '', addrStreet: a.addr_street || '',
+    addrLat: a.addr_lat != null ? a.addr_lat : null, addrLng: a.addr_lng != null ? a.addr_lng : null,
+  };
 }
 
 /* Sessiya uchun to'liq akkaunt. Kuryer o'z yetkazish haqini (fee) sessiyada
@@ -66,9 +72,19 @@ router.post('/register', (req, res) => {
   const exists = db.prepare('SELECT 1 FROM accounts WHERE login = ?').get(login);
   if (exists) return res.status(409).json({ error: 'Bu login band, boshqasini tanlang' });
 
+  /* Referral: ?ref=<taklif qilganning login'i> — "Do'stni taklif qil" bonusi
+     shuni sanaydi (routes/bonuses.js). O'zini-o'zi va mavjud bo'lmagan login'ni
+     e'tiborsiz qoldiramiz (soxta hisoblanmasin). */
+  const refLogin = String(req.body?.ref || '').trim();
+  let refBy = '';
+  if (refLogin && refLogin !== login) {
+    const refAcc = db.prepare('SELECT login FROM accounts WHERE login = ?').get(refLogin);
+    if (refAcc) refBy = refAcc.login;
+  }
+
   const info = db.prepare(
-    'INSERT INTO accounts (login, pass_hash, role, name, phone, target) VALUES (?,?,?,?,?,?)'
-  ).run(login, hashPassword(pass), 'user', name, phone, 'kabinet.html');
+    'INSERT INTO accounts (login, pass_hash, role, name, phone, target, ref_by) VALUES (?,?,?,?,?,?,?)'
+  ).run(login, hashPassword(pass), 'user', name, phone, 'kabinet.html', refBy);
 
   const acc = db.prepare('SELECT * FROM accounts WHERE id = ?').get(info.lastInsertRowid);
   const account = publicAccount(acc);
@@ -100,6 +116,17 @@ router.patch('/me', authRequired, (req, res) => {
   }
   if (b.phone != null) db.prepare('UPDATE accounts SET phone = ? WHERE id = ?').run(String(b.phone), acc.id);
   if (b.email != null) db.prepare('UPDATE accounts SET email = ? WHERE id = ?').run(String(b.email), acc.id);
+  /* Manzil — faqat 'user' (mijoz) roli uchun mantiqli, lekin cheklab qo'yishning
+     hojati yo'q (restoran/kuryer bu maydonlarni yubormaydi). */
+  if (b.addrRegion != null) db.prepare('UPDATE accounts SET addr_region = ? WHERE id = ?').run(String(b.addrRegion).trim(), acc.id);
+  if (b.addrMahalla != null) db.prepare('UPDATE accounts SET addr_mahalla = ? WHERE id = ?').run(String(b.addrMahalla).trim(), acc.id);
+  if (b.addrStreet != null) db.prepare('UPDATE accounts SET addr_street = ? WHERE id = ?').run(String(b.addrStreet).trim(), acc.id);
+  if (b.addrLat != null && b.addrLng != null) {
+    const lat = Number(b.addrLat), lng = Number(b.addrLng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      db.prepare('UPDATE accounts SET addr_lat = ?, addr_lng = ? WHERE id = ?').run(lat, lng, acc.id);
+    }
+  }
   /* b.login / b.pass — ATAYLAB e'tiborsiz qoldiriladi (faqat admin o'zgartiradi) */
   const updated = db.prepare('SELECT * FROM accounts WHERE id = ?').get(acc.id);
   res.json({ token: signToken(updated), account: sessionAccount(updated), loginLocked: true });

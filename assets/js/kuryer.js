@@ -316,6 +316,7 @@
     let itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:250}); }catch(e){}
     /* Mijoz izohi holat yorlig'idan ham TEPADA — kuryer birinchi shuni ko'radi */
     let notesTop=""; try{ notesTop=YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi — shuni bajaring"}); }catch(e){}
+    let groupHtml=""; try{ groupHtml=YZ_ITEMS.groupBreakdownHtml(o,{onPaidClick:true}); }catch(e){}
     const gate = s.next==="ontheway" && needsCall(o);
     el.innerHTML=`<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">
       <button id="ordModalClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
@@ -323,6 +324,7 @@
       <h3 style="text-align:center;margin:6px 0 2px">${esc(o.item)}</h3>
       <div style="text-align:center;margin-bottom:8px"><span class="pill ${s.p}">${s.t}</span></div>
       <div style="text-align:center">${callBadge(o)}</div>
+      ${groupHtml}
       ${notesTop}
       ${itemsHtml}
       <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
@@ -354,6 +356,11 @@
     if(adv) adv.addEventListener("click",()=>{ advance(o.id); close(); });
     const callBtn=document.getElementById("ordModalCall");
     if(callBtn) callBtn.addEventListener("click",()=>{ close(); openCallModal(o); });
+    $$("#ordModal .yz-gb-btn").forEach(btn=>btn.addEventListener("click",async(e)=>{
+      e.stopPropagation(); btn.disabled=true;
+      if(typeof STORE!=="undefined" && STORE.markGroupPaid) await STORE.markGroupPaid(o.id, +btn.dataset.gbidx);
+      close();
+    }));
   }
   /* App ortga: modal ochiq bo'lsa back uni yopadi (sahifadan chiqmaydi) */
   window.addEventListener("popstate",function(){ const m=document.getElementById("ordModal"); if(m){ if(m._closeOnBack) m._closeOnBack(); else m.remove(); } });

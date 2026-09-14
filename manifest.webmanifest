@@ -1,6 +1,7 @@
 {
-  "name": "Yetkaz.uz — Ovqat yetkazib berish",
-  "short_name": "Yetkaz.uz",
+  "id": "/site-app",
+  "name": "YetkazGo",
+  "short_name": "YetkazGo",
   "description": "Toshkent bo'ylab tez va ishonchli ovqat yetkazib berish xizmati.",
   "lang": "uz",
   "dir": "ltr",

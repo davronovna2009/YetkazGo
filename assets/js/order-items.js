@@ -94,6 +94,26 @@
       + rows + '</div>';
   }
 
+  /* ---- GURUH BUYURTMASI: har a'zoning ulushi/to'lovi ----
+     order.groupBreakdown = [{name,amount,pay,paid}] (server: orders-core.js).
+     Kuryer naqd puldan "olindi" deb belgilashi mumkin (opts.onPaidClick). */
+  function groupBreakdownHtml(order, opts) {
+    var bd = order && order.groupBreakdown;
+    if (!Array.isArray(bd) || !bd.length) return '';
+    var o = opts || {};
+    var rows = bd.map(function (m, i) {
+      var payLabel = m.pay === 'card' ? '💳 Karta' : '💵 Naqd';
+      var paidBadge = m.paid
+        ? '<span class="yz-gb-paid">✓ Olindi</span>'
+        : (o.onPaidClick ? '<button class="yz-gb-btn" data-gbidx="' + i + '">Olindi deb belgilash</button>' : '<span class="yz-gb-pending">Kutilmoqda</span>');
+      return '<div class="yz-gb-row">'
+        + '<span class="yz-gb-name">👤 ' + esc(m.name) + '</span>'
+        + '<span class="yz-gb-amount">' + money(m.amount) + " so'm · " + payLabel + '</span>'
+        + paidBadge + '</div>';
+    }).join('');
+    return '<div class="yz-gb-box"><h4>👥 Guruh — har kimning ulushi</h4>' + rows + '</div>';
+  }
+
   /* Bitta taom belgisi (rasm bo'lsa rasm, bo'lmasa emoji) */
   function thumb(line, size) {
     var px = size || 34;
@@ -208,7 +228,18 @@
       '.yz-note-dish{font-weight:800;color:#5c0f1c;flex:none;max-width:45%;word-break:break-word}' +
       '.yz-note-txt{font-weight:700;color:#8f1224;flex:1;word-break:break-word}' +
       '.yz-note-flag{display:inline-flex;align-items:center;gap:3px;background:#C8102E;color:#fff;' +
-        'border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:800;white-space:nowrap}';
+        'border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:800;white-space:nowrap}' +
+      /* ---- Guruh buyurtmasi: har a'zoning ulushi ---- */
+      '.yz-gb-box{border:2px solid #2563eb;background:#eff6ff;border-radius:14px;padding:10px 12px;margin:12px 0}' +
+      '.yz-gb-box h4{font-size:13px;color:#2563eb;margin:0 0 7px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.3px}' +
+      '.yz-gb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;' +
+        'padding:6px 0;border-top:1px dashed rgba(37,99,235,.25);font-size:13px}' +
+      '.yz-gb-row:first-of-type{border-top:none}' +
+      '.yz-gb-name{font-weight:800;color:#1e3a8a;flex:none}' +
+      '.yz-gb-amount{color:#334155;flex:1;min-width:140px}' +
+      '.yz-gb-paid{color:#16a34a;font-weight:800;font-size:12px;white-space:nowrap}' +
+      '.yz-gb-pending{color:#9a8d83;font-size:12px;white-space:nowrap}' +
+      '.yz-gb-btn{background:#16a34a;color:#fff;border:none;border-radius:8px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}';
     (root.document.head || root.document.documentElement).appendChild(st);
   }
   if (root.document) {
@@ -221,5 +252,7 @@
     thumb: thumb, strip: strip, listHtml: listHtml,
     /* Mijoz izohlari — kuryer/restoran/admin panellari shulardan foydalanadi */
     notes: notes, hasNotes: hasNotes, noteFlag: noteFlag, notesHtml: notesHtml,
+    /* Guruh buyurtmasi — har a'zoning ulushi (kuryer/restoran/admin) */
+    groupBreakdownHtml: groupBreakdownHtml,
   };
 })(typeof window !== 'undefined' ? window : this);

@@ -216,9 +216,11 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Taom qo'shish",income:"Daromad hisoboti",promo:"E'lon va chegirma",help:"Shikoyat / yordam",settings:"Sozlamalar"};
+    const t={dash:"Mening panelim",orders:"Buyurtmalar",dishes:"Taom qo'shish",income:"Daromad hisoboti",promo:"E'lon va chegirma",bonuses:"Bonuslar",events:"Tadbirlar",help:"Shikoyat / yordam",settings:"Sozlamalar"};
     if(view==="settings"){ fillSettings(); renderRestPhotoCard(); }
     if(view==="help"){ try{ YZ_COMPLAINT.mount(document.getElementById("restComplaintBox")); }catch(e){} }
+    if(view==="bonuses") renderBonusesRest();
+    if(view==="events") renderEventsRest();
     /* Sarlavhada restoran nomi ham turadi — qaysi restoran sifatida
        ishlayotgani har bo'limda ko'rinib tursin. */
     $("#tbTitle").textContent=(CUR&&CUR.name) ? (CUR.name+" — "+(t[view]||"")) : (t[view]||"");
@@ -672,6 +674,106 @@
     const pv=$("#annPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
     renderPromo(); toast(img?"E'lon rasm bilan joylandi — saytda ko'rinadi ✓":"E'lon joylandi — saytda ko'rinadi ✓");
   }
+  /* ============================================================
+     BONUSLAR — restoran O'ZINIKI (scope='restoran', rest majburan CUR.name,
+     server buni spoofingdan himoyalaydi) + admin qo'ygan umumiy bonuslarni
+     KO'RADI ("kim bajardi" ham), lekin o'chira olmaydi.
+     ============================================================ */
+  const BON_TYPE_LABEL_R={order_count:"📦 Buyurtmalar soni",referral:"🤝 Do'st taklif qilish",custom:"ℹ️ Ma'lumot"};
+  function bonusRowHtml(b, mine){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">'+
+      (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:22px;flex:none">🎁</span>')+
+      '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+esc(b.title)+'</div>'+
+        '<div style="color:var(--grey);font-size:12px">'+(BON_TYPE_LABEL_R[b.type]||b.type)+(b.target?' · maqsad: '+b.target:'')+'</div>'+
+        (b.rewardText?'<div style="color:#16a34a;font-size:12px;font-weight:700">🏆 '+esc(b.rewardText)+'</div>':'')+'</div>'+
+      '<button class="add-action-btn" data-bonqual="'+b.id+'" style="background:#2563eb;flex:none">👥 Kim bajardi?</button>'+
+      (mine?'<button class="add-action-btn" data-bondel="'+b.id+'" style="background:#C8102E;flex:none">🗑</button>':'')+
+      '</div>';
+  }
+  function renderBonusesRest(){
+    const all=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+    const mine=all.filter(b=>b.scope==="restoran" && b.rest===CUR.name);
+    const admins=all.filter(b=>b.scope==="admin");
+    const hostMine=$("#bonListMine");
+    if(hostMine) hostMine.innerHTML = mine.length ? mine.map(b=>bonusRowHtml(b,true)).join("") : '<p style="color:var(--grey);font-size:13px">Hali bonus qo\'ymagansiz.</p>';
+    const hostAdmin=$("#bonListAdmin");
+    if(hostAdmin) hostAdmin.innerHTML = admins.length ? admins.map(b=>bonusRowHtml(b,false)).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha umumiy bonus yo\'q.</p>';
+    document.querySelectorAll('#view-bonuses [data-bondel]').forEach(function(b){ b.addEventListener('click',async function(){
+      b.disabled=true;
+      const r=(typeof STORE!=="undefined"&&STORE.deleteBonus)? await STORE.deleteBonus(b.dataset.bondel):null;
+      if(r&&r.error){ b.disabled=false; toast(r.error); } else { toast("Bonus o'chirildi ✓"); renderBonusesRest(); }
+    }); });
+    document.querySelectorAll('#view-bonuses [data-bonqual]').forEach(function(b){ b.addEventListener('click',function(){ openBonusQualifiersRest(b.dataset.bonqual); }); });
+  }
+  async function openBonusQualifiersRest(id){
+    const c=$("#bonQualContent"); if(!c) return;
+    c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
+    $("#bonQualModal").classList.add("open"); $("#bonQualBackdrop").classList.add("open");
+    const rows=(typeof STORE!=="undefined"&&STORE.bonusQualifiers)? await STORE.bonusQualifiers(id) : [];
+    if(!Array.isArray(rows)||!rows.length){ c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Hozircha (oxirgi 7 kunda) hech kim shartga mos kelmadi.</p>'; return; }
+    c.innerHTML='<h2>👥 Kim bajardi? ('+rows.length+' ta)</h2>'+
+      '<div style="max-height:360px;overflow-y:auto;margin-top:10px">'+
+      rows.map(function(r){
+        return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px">'+
+          '<b>'+esc(r.user||"Noma'lum")+'</b><span style="color:var(--grey)">'+esc(r.phone||"")+' · '+r.count+' marta</span></div>';
+      }).join("")+'</div>';
+  }
+  async function postBonusRest(){
+    const t=$("#bonTitle"); if(!t||!t.value.trim()){ toast("Sarlavha kiriting"); return; }
+    const btn=$("#bonBtn"); if(btn){ btn.disabled=true; }
+    let image="";
+    const fi=$("#bonPhoto");
+    if(fi && fi.files && fi.files[0]){
+      const dataUrl=await resizeImage(fi.files[0], 900);
+      if(dataUrl){ image=(typeof STORE!=="undefined" && STORE.uploadImage)?((await STORE.uploadImage(dataUrl))||dataUrl):dataUrl; }
+    }
+    const type=$("#bonType")?$("#bonType").value:"custom";
+    const data={
+      title:t.value.trim(), descr:($("#bonDescr")?$("#bonDescr").value.trim():""),
+      type:type, target:($("#bonTarget")?Number($("#bonTarget").value)||0:0),
+      rewardText:($("#bonReward")?$("#bonReward").value.trim():""), image:image,
+    };
+    const r=(typeof STORE!=="undefined"&&STORE.addBonus)? await STORE.addBonus(data) : {error:"Tizim tayyor emas"};
+    if(btn){ btn.disabled=false; }
+    if(r&&r.error){ toast(r.error); return; }
+    toast("Bonus joylandi ✓"); t.value="";
+    if($("#bonDescr")) $("#bonDescr").value=""; if($("#bonReward")) $("#bonReward").value="";
+    if(fi) fi.value=""; const pv=$("#bonPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
+    setTimeout(renderBonusesRest, 300);
+  }
+
+  /* ============================================================
+     TADBIRLAR — FAQAT o'z restoraniga tegishlisi (server rol bo'yicha
+     filtrlaydi), lekin to'liq tafsilot bilan (mijoz+telefon+manzil+sana).
+     ============================================================ */
+  async function renderEventsRest(){
+    const host=$("#evListRest"); if(!host) return;
+    host.innerHTML='<p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
+    const list=(typeof STORE!=="undefined"&&STORE.myEvents)? await STORE.myEvents() : [];
+    if(!Array.isArray(list)||!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha tadbir yo\'q.</p>'; return; }
+    host.innerHTML=list.map(function(e){
+      return '<div style="padding:12px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">📅 '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
+        '<div style="font-size:13px;margin-top:4px">👤 '+esc(e.user)+' · 📞 '+esc(e.phone)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
+        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">📍 '+esc(e.addr)+'</div>':'')+
+        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
+          '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
+          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">🏷 Chegirma belgilash</button>'+
+          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">✓ '+e.discountPct+'% belgilangan</span>':'')+
+        '</div></div>';
+    }).join("");
+    host.querySelectorAll('[data-evsave]').forEach(function(b){ b.addEventListener('click',async function(){
+      var id=b.dataset.evsave; var inp=host.querySelector('[data-evpct="'+id+'"]');
+      var pct=inp?Number(inp.value)||0:0;
+      b.disabled=true;
+      var r=(typeof STORE!=="undefined"&&STORE.setEventDiscount)? await STORE.setEventDiscount(id,pct):null;
+      b.disabled=false;
+      if(r&&r.error){ toast(r.error); return; }
+      toast("Chegirma belgilandi ✓"); renderEventsRest();
+    }); });
+  }
+
   function applyDiscount(){
     const i=discSelIdx, pct=parseInt(($("#discPct").value||"").replace(/\D/g,""),10);
     if(i==null || !CUR.dishes[i]){ toast("Taom tanlang"); return; }
@@ -946,11 +1048,13 @@
        Ro'yxat uzun bo'lsa (20–30 mahsulot) ichida scroll bo'ladi, modal
        cho'zilib ketmaydi (YZ_ITEMS — order-items.js). */
     var itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:280}); }catch(e){}
+    var groupHtml=""; try{ groupHtml=YZ_ITEMS.groupBreakdownHtml(o,{onPaidClick:true}); }catch(e){}
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
       "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;z-index:2\">✕</button>"+
       head+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
+      groupHtml+
       itemsNotes(o)+
       itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
@@ -973,6 +1077,11 @@
     const close=function(){ el.remove(); if(!popped){ popped=true; try{ history.back(); }catch(e){} } };
     el._closeOnBack=function(){ popped=true; el.remove(); };
     $$("#ordModal .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); close(); }); });
+    $$("#ordModal .yz-gb-btn").forEach(function(btn){ btn.addEventListener("click",async function(e){
+      e.stopPropagation(); btn.disabled=true;
+      if(typeof STORE!=="undefined" && STORE.markGroupPaid) await STORE.markGroupPaid(o.id, +btn.dataset.gbidx);
+      close();
+    }); });
     el.addEventListener("click",function(e){ if(e.target===el) close(); });
     document.getElementById("ordModalClose").addEventListener("click",close);
   }
@@ -1153,6 +1262,23 @@
     });
     var ddb=$("#discDishBtn"); if(ddb) ddb.addEventListener("click",openDishPicker);
     $("#discBtn").addEventListener("click",applyDiscount);
+    /* Bonuslar */
+    var bb=$("#bonBtn"); if(bb) bb.addEventListener("click",postBonusRest);
+    var bonPhoto=$("#bonPhoto");
+    if(bonPhoto) bonPhoto.addEventListener("change", async function(e){
+      var f=e.target.files && e.target.files[0]; var pv=$("#bonPhotoPreview");
+      if(!f || !pv) return;
+      var dataUrl=await resizeImage(f, 500);
+      if(dataUrl){ pv.style.display="block"; pv.innerHTML='<img src="'+dataUrl+'" alt="" style="max-width:170px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">'; }
+    });
+    var bonType=$("#bonType");
+    if(bonType) bonType.addEventListener("change", function(){
+      var wrap=$("#bonTargetWrap"); if(wrap) wrap.style.display = bonType.value==="custom" ? "none" : "";
+    });
+    var bqc=$("#bonQualClose"), bqb=$("#bonQualBackdrop");
+    var closeBonQual=function(){ $("#bonQualModal").classList.remove("open"); $("#bonQualBackdrop").classList.remove("open"); };
+    if(bqc) bqc.addEventListener("click",closeBonQual);
+    if(bqb) bqb.addEventListener("click",closeBonQual);
     /* Sozlamalar */
     var sib=$("#setInfoBtn");  if(sib) sib.addEventListener("click",saveRestInfo);
     /* Ish vaqti maydonlari o'zgarganda "hozir ochiq/yopiq" darrov ko'rinsin */

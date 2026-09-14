@@ -386,6 +386,14 @@ async function onWebAppData(msg) {
       tgChatId: chatId,
     });
   } catch (e) {
+    /* Guest (ro'yxatdan o'tmagan) 2-marta buyurtma bermoqchi — botда to'liq
+       ro'yxatdan o'tish oynasi yo'q, shuning uchun saytga yo'naltiramiz. */
+    if (e instanceof OrderError && (e.code === 'REGISTER_REQUIRED' || e.code === 'REGISTER_LOGIN')) {
+      const link = PUBLIC_URL ? `${PUBLIC_URL}/` : '';
+      const cta = e.code === 'REGISTER_LOGIN' ? 'hisobingizga kiring' : 'ro`yxatdan o`ting';
+      const text = `🔒 <b>Ro'yxatdan o'tish kerak</b>\n\n${esc(e.message)}` + (link ? `\n\n👉 Saytda ${cta}: ${esc(link)}` : '');
+      return send(chatId, text, { reply_markup: mainKeyboard() });
+    }
     const reason = e instanceof OrderError ? e.message : 'Buyurtmani rasmiylashtirib bo`lmadi';
     console.warn('[BOT] buyurtma rad etildi:', reason);
     return send(chatId, `❌ <b>Buyurtma qabul qilinmadi</b>\n${esc(reason)}`, { reply_markup: mainKeyboard() });
@@ -657,8 +665,9 @@ botRouter.post('/api/tg/order', async (req, res) => {
   } catch (e) {
     const status = e instanceof OrderError ? e.status : 500;
     const reason = e instanceof OrderError ? e.message : 'Buyurtmani rasmiylashtirib bo`lmadi';
+    const code = e instanceof OrderError ? (e.code || undefined) : undefined;
     if (!(e instanceof OrderError)) console.error('[BOT] mini ilova buyurtmasi xatosi:', e);
-    return res.status(status).json({ error: reason });
+    return res.status(status).json({ error: reason, code });
   }
 
   const o = created.order;

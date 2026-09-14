@@ -21,6 +21,10 @@ import { migrateUploadsToDb, migrateDataUrlsToDb } from './migrate-images.js';
 import resetRoutes from './routes/reset.js';
 import adminExtraRoutes from './routes/admin-extra.js';
 import complaintsRoutes from './routes/complaints.js';
+import likesRoutes from './routes/likes.js';
+import bonusesRoutes from './routes/bonuses.js';
+import eventsRoutes from './routes/events.js';
+import groupsRoutes from './routes/groups.js';
 import { botRouter, startBot, notifyPhoneBlocked } from './bot.js';
 import { startDeadlineAlerts } from './alerts.js';
 import { setAutoBlockNotifier } from './blocks.js';
@@ -116,6 +120,10 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/orders', orderLimiter, ordersRoutes);   // <-- spam himoyasi qo'shildi
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/complaints', complaintsRoutes);
+app.use('/api/likes', likesRoutes);
+app.use('/api/bonuses', bonusesRoutes);
+app.use('/api/events', eventsRoutes);
+app.use('/api/groups', groupsRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api', dishesRoutes);   // /api/overrides, /api/dishes, /api/discounts
 app.use('/api', miscRoutes);     // /api/bootstrap, /api/restaurants, /api/couriers

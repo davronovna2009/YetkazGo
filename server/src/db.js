@@ -136,6 +136,16 @@ export function initSchema() {
       PRIMARY KEY (rest, name)
     );
 
+    -- Mijozning "yoqtirgan" (like bosgan) taomlari — FAQAT ro'yxatdan o'tgan
+    -- akkauntga bog'liq (accounts.id). Kabinet: taom kartida yurakcha tugmasi.
+    CREATE TABLE IF NOT EXISTS likes (
+      account_id INTEGER NOT NULL,
+      rest       TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (account_id, rest, name)
+    );
+
     CREATE TABLE IF NOT EXISTS announcements (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       rest       TEXT DEFAULT '',
@@ -226,6 +236,82 @@ export function initSchema() {
       reply_at   TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- ===== Bonuslar (admin/restoran belgilaydi, mijoz kabinetда ko'radi) =====
+    -- type: 'order_count' (masalan "7 kunда 3 marta buyurtma ber") | 'referral'
+    -- (do'st taklif qil) | 'custom' (faqat ma'lumot uchun, avtomatik kuzatuv yo'q).
+    CREATE TABLE IF NOT EXISTS bonuses (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope      TEXT NOT NULL DEFAULT 'admin',   -- admin | restoran
+      rest       TEXT DEFAULT '',                 -- scope='restoran' bo'lsa restoran nomi
+      title      TEXT NOT NULL,
+      descr      TEXT DEFAULT '',
+      image      TEXT DEFAULT '',
+      type       TEXT NOT NULL DEFAULT 'custom',
+      target     INTEGER DEFAULT 0,
+      reward_text TEXT DEFAULT '',
+      active     INTEGER DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ===== Tadbirlar (mijoz kelajakdagi tadbiri uchun oldindan xabar beradi) =====
+    -- Admin — HAMMASINI ko'radi; restoran — FAQAT o'ziga tegishlisini (to'liq).
+    CREATE TABLE IF NOT EXISTS events (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id    INTEGER NOT NULL,
+      user          TEXT DEFAULT '',
+      phone         TEXT DEFAULT '',
+      rest          TEXT NOT NULL DEFAULT '',
+      addr          TEXT DEFAULT '',
+      event_date    TEXT NOT NULL,        -- YYYY-MM-DD
+      name          TEXT NOT NULL,        -- tadbir nomi
+      headcount     INTEGER DEFAULT 0,    -- necha kishilik
+      advance_days  INTEGER DEFAULT 1,    -- necha kun oldin buyurtma berilishi kerak
+      discount_pct  INTEGER DEFAULT 0,    -- admin/restoran belgilagan chegirma
+      status        TEXT NOT NULL DEFAULT 'pending',   -- pending | discounted
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- ===== Guruh buyurtmasi: bir nechta mijoz BITTA yetkazishga, lekin HAR
+    -- KIM O'Z ulushini alohida to'laydi. Guruh "open" holatda a'zolar taom
+    -- qo'shadi (group_items), birov "tasdiqlash"ni bossa BITTA orders yozuviga
+    -- birlashtiriladi (orders.group_id/group_breakdown — pastroqda).
+    CREATE TABLE IF NOT EXISTS groups (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      code       TEXT NOT NULL UNIQUE,
+      created_by INTEGER NOT NULL,
+      rest       TEXT DEFAULT '',
+      addr       TEXT DEFAULT '',
+      status     TEXT NOT NULL DEFAULT 'open',   -- open | confirmed | cancelled
+      order_id   INTEGER DEFAULT NULL,           -- confirmed bo'lgach — yaratilgan orders.id
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS group_members (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id    INTEGER NOT NULL,
+      account_id  INTEGER NOT NULL,
+      name        TEXT NOT NULL,
+      pay         TEXT NOT NULL DEFAULT 'cash',   -- shu a'zoning O'Z to'lov turi
+      joined_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(group_id, account_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS group_items (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id    INTEGER NOT NULL,
+      account_id  INTEGER NOT NULL,
+      member_name TEXT NOT NULL,
+      dish_id     INTEGER NOT NULL,
+      dish_rest   TEXT NOT NULL,
+      dish_name   TEXT NOT NULL,
+      emoji       TEXT DEFAULT '🍽️',
+      qty         INTEGER NOT NULL DEFAULT 1,
+      note        TEXT DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_group_items_group ON group_items(group_id);
 
     CREATE INDEX IF NOT EXISTS idx_orders_rest    ON orders(rest);
     CREATE INDEX IF NOT EXISTS idx_orders_courier ON orders(courier);
@@ -337,6 +423,23 @@ export function initSchema() {
     // va keyin o'zgarmaydi. Barcha panel (restoran/kuryer/admin) shundan hisoblaydi.
     'ALTER TABLE orders ADD COLUMN commission_pct INTEGER DEFAULT -1',   // -1 = eski buyurtma (restoran joriy foizi ishlatiladi)
     'ALTER TABLE orders ADD COLUMN courier_fee INTEGER DEFAULT -1',      // -1 = hali yetkazilmagan / eski buyurtma
+    // ===== Mijoz profili: tuzilgan manzil (tuman/mahalla/ko'cha) + saqlangan joylashuv =====
+    // Kabinet "Sozlamalar"да bitta erkin matn o'rniga 3 ta aniq maydon; checkout
+    // shu yerdan yig'ib olingan manzilni oldindan to'ldiradi (har safar so'raladi,
+    // faqat maydon bo'sh qolmaydi).
+    "ALTER TABLE accounts ADD COLUMN addr_region TEXT DEFAULT ''",
+    "ALTER TABLE accounts ADD COLUMN addr_mahalla TEXT DEFAULT ''",
+    "ALTER TABLE accounts ADD COLUMN addr_street TEXT DEFAULT ''",
+    'ALTER TABLE accounts ADD COLUMN addr_lat REAL DEFAULT NULL',
+    'ALTER TABLE accounts ADD COLUMN addr_lng REAL DEFAULT NULL',
+    // Referral: kim taklif qilgan (referal qilganning login'i). "Do'stni taklif
+    // qil" bonusi shu ustunga qarab hisoblanadi (bonuses.js: qualifiers).
+    "ALTER TABLE accounts ADD COLUMN ref_by TEXT DEFAULT ''",
+    // Guruh buyurtmasi: tasdiqlanganda BITTA orders yozuviga birlashtiriladi —
+    // shu ikki ustun "bu buyurtma qaysi guruhdan kelgani" va har a'zoning
+    // ulushi/to'lovi (JSON: [{name,amount,pay,paid}]) ni saqlaydi.
+    'ALTER TABLE orders ADD COLUMN group_id INTEGER DEFAULT NULL',
+    "ALTER TABLE orders ADD COLUMN group_breakdown TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 
   reconcileLogins();

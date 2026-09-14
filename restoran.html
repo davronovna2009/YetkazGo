@@ -42,6 +42,8 @@
         <a class="sb-link" data-view="dishes"><span class="ic">🍽️</span> Taom qo'shish</a>
         <a class="sb-link" data-view="income"><span class="ic">💰</span> Daromad hisoboti</a>
         <a class="sb-link" data-view="promo"><span class="ic">📢</span> E'lon va chegirma</a>
+        <a class="sb-link" data-view="bonuses"><span class="ic">🎁</span> Bonuslar</a>
+        <a class="sb-link" data-view="events"><span class="ic">🎉</span> Tadbirlar</a>
         <a class="sb-link" data-view="help"><span class="ic">📣</span> Shikoyat / yordam</a>
         <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
       </nav>
@@ -262,6 +264,70 @@
             </div>
           </div>
 
+        </section>
+
+        <!-- BONUSLAR -->
+        <section class="view" id="view-bonuses">
+          <div class="settings-group">
+            <div class="settings-group-title">🎁 Yangi bonus (mijozlar kabinetда ko'radi)</div>
+            <div class="setting-item column" style="padding:14px 16px">
+              <div class="setting-label"><span class="setting-name">Sarlavha</span></div>
+              <input type="text" id="bonTitle" class="full-textarea" style="height:auto" placeholder="Masalan: Shu hafta 3 marta buyur, tekin yetkazish yut">
+            </div>
+            <div class="setting-item column" style="padding:0 16px 14px">
+              <div class="setting-label"><span class="setting-name">Tavsif</span></div>
+              <textarea id="bonDescr" rows="2" class="full-textarea" placeholder="Qisqacha shartlar"></textarea>
+            </div>
+            <div class="setting-item" style="padding:12px 16px">
+              <div class="setting-label"><span class="setting-name">Turi</span></div>
+              <select id="bonType" class="select-input">
+                <option value="order_count">📦 Buyurtmalar soni</option>
+                <option value="referral">🤝 Do'st taklif qilish</option>
+                <option value="custom">ℹ️ Boshqa (ma'lumot uchun)</option>
+              </select>
+            </div>
+            <div class="setting-item" id="bonTargetWrap" style="padding:12px 16px">
+              <div class="setting-label"><span class="setting-name">Maqsad son</span></div>
+              <input type="number" id="bonTarget" min="1" value="3" style="width:80px" />
+            </div>
+            <div class="setting-item column" style="padding:0 16px 14px">
+              <div class="setting-label"><span class="setting-name">Sovg'a (reward)</span></div>
+              <input type="text" id="bonReward" class="full-textarea" style="height:auto" placeholder="Masalan: Tekin yetkazib berish">
+            </div>
+            <div class="setting-item column" style="padding:0 16px 14px">
+              <div class="setting-label"><span class="setting-name">Rasm (ixtiyoriy)</span></div>
+              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash
+                <input type="file" id="bonPhoto" accept="image/*" capture="environment" style="display:none">
+              </label>
+              <div id="bonPhotoPreview" style="display:none"></div>
+            </div>
+            <div class="settings-footer">
+              <button class="btn-save" id="bonBtn">Bonusni joylash</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Mening bonuslarim</h3></div>
+            <div class="panel-body" id="bonListMine"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>🌐 Admin qo'ygan umumiy bonuslar</h3></div>
+            <div class="panel-body" id="bonListAdmin"></div>
+          </div>
+        </section>
+
+        <!-- Kim bajardi? modal -->
+        <div class="kmodal-backdrop" id="bonQualBackdrop"></div>
+        <div class="kmodal" id="bonQualModal">
+          <button class="kmodal-close" id="bonQualClose">✕</button>
+          <div id="bonQualContent"></div>
+        </div>
+
+        <!-- TADBIRLAR -->
+        <section class="view" id="view-events">
+          <div class="panel">
+            <div class="panel-head"><h3>🎉 Mijozlardan kelgan tadbirlar</h3></div>
+            <div class="panel-body" id="evListRest"><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p></div>
+          </div>
         </section>
 
         <!-- HELP: adminga shikoyat / murojaat -->

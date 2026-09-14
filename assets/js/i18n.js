@@ -458,18 +458,18 @@ const I18N = (function(){
 
     /* Taom nomlari (nameCyr) */
     if(typeof DISHES!=='undefined'){
-      document.querySelectorAll('#kMenu .kcard').forEach(card=>{
+      document.querySelectorAll('#kMenu .card').forEach(card=>{
         const id=+card.dataset.id;
         const d=DISHES.find(x=>x.id===id);
         if(!d) return;
-        const h4=card.querySelector('h4');
-        if(h4) h4.textContent = lang==='cyr' ? YZ_TRANSLIT.toCyr(d.nameCyr||d.name) : YZ_TRANSLIT.toLat(d.name);
+        const h3=card.querySelector('h3');
+        if(h3) h3.textContent = lang==='cyr' ? YZ_TRANSLIT.toCyr(d.nameCyr||d.name) : YZ_TRANSLIT.toLat(d.name);
       });
     }
 
     /* Restoran nomlari */
     if(typeof RESTAURANTS!=='undefined'){
-      document.querySelectorAll('#kRestGrid .krest-card').forEach(card=>{
+      document.querySelectorAll('#kRestGrid .rest-card').forEach(card=>{
         const rname=card.dataset.rest;
         const r=RESTAURANTS.find(x=>x.name===rname);
         if(!r) return;

@@ -14,6 +14,7 @@ const STORE = (function () {
     sess: "yz_session",
     token: "yz_token",
     otok: "yz_order_tokens",   // buyurtma "track token"lari (id -> token), mehmon tasdig'i uchun
+    likes: "yz_likes",         // yoqtirgan taomlar (faqat login qilgan mijoz — kabinet)
   };
 
   /* ---- API manzili: backend bilan bir xil origin bo'lsa nisbiy '/api' ---- */
@@ -47,6 +48,8 @@ const STORE = (function () {
     accounts: null,   // admin «Loginlar» ro'yxati (xotirada; xato bo'lsa oxirgi holat qoladi)
     ratings: lsRead("yz_ratings", { dishes: {}, couriers: {} }),
     settings: lsRead("yz_settings", {}),
+    likes: lsRead(K.likes, []),   // [{rest,name}] — joriy (login qilgan) mijoz yoqtirganlari
+    bonuses: lsRead("yz_bonuses", []),   // admin/restoran belgilagan bonuslar (ommaviy)
   };
   if (!cache.overrides || typeof cache.overrides !== "object") cache.overrides = { added: [], removed: [], discounts: {}, soldout: [] };
   cache.overrides.added = cache.overrides.added || [];
@@ -217,6 +220,7 @@ const STORE = (function () {
       changed = applyIfChanged("reviews", K.reviews, b.reviews || []) || changed;
       changed = applyIfChanged("announcements", K.ann, b.announcements || []) || changed;
       changed = applyIfChanged("restaurants", K.rests, b.restaurants || []) || changed;
+      changed = applyIfChanged("bonuses", "yz_bonuses", b.bonuses || []) || changed;
       const ovr = b.overrides || { added: [], removed: [], discounts: {} };
       changed = applyIfChanged("overrides", K.ovr, ovr) || changed;
       /* Jonli reytinglar va sayt sozlamalari (egasi raqami) — keshda saqlaymiz */
@@ -652,6 +656,83 @@ const STORE = (function () {
         .catch(e => ({ error: (e.data && e.data.error) || e.message || "Xatolik" }));
     },
 
+    /* ---- BONUSLAR (admin/restoran belgilaydi, kabinet + reklama banner ko'radi) ---- */
+    bonuses: () => cache.bonuses,
+    async addBonus(data) {
+      try {
+        const r = await api("/bonuses", { method: "POST", body: data, auth: true });
+        if (r && r.id) { refreshPublic(); return r; }
+        return r || { error: "Xatolik" };
+      } catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async deleteBonus(id) {
+      try { await api("/bonuses/" + id, { method: "DELETE", auth: true }); refreshPublic(); return { ok: true }; }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async bonusQualifiers(id) {
+      try { return await api("/bonuses/" + id + "/qualifiers", { auth: true }); }
+      catch (e) { return []; }
+    },
+
+    /* ---- TADBIRLAR (kabinet yaratadi; admin/restoran ko'radi + chegirma belgilaydi) ---- */
+    async addEvent(data) {
+      try {
+        const r = await api("/events", { method: "POST", body: data, auth: true });
+        if (r && r.id) return r;
+        return r || { error: "Xatolik" };
+      } catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async myEvents() {
+      try { return await api("/events", { auth: true }); } catch (e) { return []; }
+    },
+    async setEventDiscount(id, discountPct) {
+      try { return await api("/events/" + id, { method: "PATCH", body: { discountPct }, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+
+    /* ---- GURUH BUYURTMASI (bir nechta a'zo, har biri o'z ulushini to'laydi) ---- */
+    async createGroup(rest) {
+      try { return await api("/groups", { method: "POST", body: { rest }, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async joinGroup(code) {
+      try { return await api("/groups/join", { method: "POST", body: { code }, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async getGroup(id) {
+      try { return await api("/groups/" + id, { auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async addGroupItem(id, data) {
+      try { return await api("/groups/" + id + "/items", { method: "POST", body: data, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async deleteGroupItem(id, itemId) {
+      try { return await api("/groups/" + id + "/items/" + itemId, { method: "DELETE", auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async setGroupPay(id, pay) {
+      try { return await api("/groups/" + id + "/pay", { method: "PATCH", body: { pay }, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async setGroupAddr(id, addr) {
+      try { return await api("/groups/" + id + "/addr", { method: "PATCH", body: { addr }, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    async confirmGroup(id) {
+      try { return await api("/groups/" + id + "/confirm", { method: "POST", auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+    /* Guruh buyurtmasida bitta a'zoning naqd ulushi "olindi" deb belgilanadi
+       (restoran/kuryer/admin panelida) */
+    async markGroupPaid(orderId, index) {
+      try {
+        const r = await api("/orders/" + orderId + "/group-paid", { method: "POST", body: { index }, auth: true });
+        if (r && r.id) { const o = cache.orders.find(x => String(x.id) === String(orderId)); if (o) { Object.assign(o, r); lsWrite(K.orders, cache.orders); fire(); } }
+        return r;
+      } catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
+
     /* ---- AUTH (async — backend tekshiradi) ---- */
     async login(login, pass) {
       try {
@@ -680,14 +761,20 @@ const STORE = (function () {
         return { offline: true };           // serverga/internetga ulanib bo'lmadi
       }
     },
-    /* O'Z profili — FAQAT ism/telefon/email. Login va parolni FAQAT admin
-       o'zgartiradi (server /auth/me ham bularni qabul qilmaydi). */
+    /* O'Z profili — ism/telefon/email + manzil (tuman/mahalla/ko'cha/GPS).
+       Login va parolni FAQAT admin o'zgartiradi (server /auth/me ham bularni
+       qabul qilmaydi). */
     async updateProfile(data) {
       const d = data || {};
       const body = {};
       if (d.name != null) body.name = d.name;
       if (d.phone != null) body.phone = d.phone;
       if (d.email != null) body.email = d.email;
+      if (d.addrRegion != null) body.addrRegion = d.addrRegion;
+      if (d.addrMahalla != null) body.addrMahalla = d.addrMahalla;
+      if (d.addrStreet != null) body.addrStreet = d.addrStreet;
+      if (d.addrLat != null) body.addrLat = d.addrLat;
+      if (d.addrLng != null) body.addrLng = d.addrLng;
       try {
         const r = await api("/auth/me", { method: "PATCH", body, auth: true });
         if (r && r.token) { setToken(r.token); this.setSession(r.account); return r.account; }
@@ -704,6 +791,51 @@ const STORE = (function () {
     /* Eski sinxron API — endi backend orqali tekshiriladi, shuning uchun null */
     findAccount() { return null; },
     userExists() { return false; },
+
+    /* Guest-limit: checkout boshlanishidan oldin — shu telefon bilan avval
+       buyurtma bo'lganmi (2-marta bo'lsa ro'yxatdan o'tish/kirish so'raladi).
+       Fail-open: tarmoq xatosida bloklamaymiz — haqiqiy to'siq baribir
+       serverда (POST /orders, 428) turadi. */
+    async guestStatus(phone) {
+      try {
+        const r = await api("/orders/guest-status?phone=" + encodeURIComponent(phone));
+        return r || { blocked: false, hasAccount: false };
+      } catch (e) { return { blocked: false, hasAccount: false }; }
+    },
+
+    /* ---- LIKES (faqat login qilgan mijoz — kabinet) ---- */
+    likes() { return cache.likes; },
+    async refreshLikes() {
+      if (!getToken()) { cache.likes = []; return cache.likes; }
+      try {
+        const r = await api("/likes", { auth: true });
+        cache.likes = Array.isArray(r) ? r : [];
+        lsWrite(K.likes, cache.likes);
+      } catch (e) { /* tarmoq xatosida — oxirgi keshdagi holat qoladi */ }
+      return cache.likes;
+    },
+    async toggleLike(rest, name) {
+      try {
+        const r = await api("/likes/toggle", { method: "POST", body: { rest, name }, auth: true });
+        if (r && r.liked) {
+          if (!cache.likes.some((l) => l.rest === rest && l.name === name)) cache.likes.push({ rest, name });
+        } else {
+          cache.likes = cache.likes.filter((l) => !(l.rest === rest && l.name === name));
+        }
+        lsWrite(K.likes, cache.likes); fire();
+        return r;
+      } catch (e) { return { error: (e && e.data && e.data.error) || (e && e.message) || "Xatolik" }; }
+    },
+
+    /* ---- AI maslahat: shu telefon uchun hozir taklif qilsa bo'ladigan "odat"
+       taom bormi (server/src/habit.js). Fail-open: xato bo'lsa hech narsa
+       taklif qilinmaydi (dish:null) — bezovta qiluvchi xato ko'rsatilmaydi. */
+    async habitSuggestion(phone) {
+      try {
+        const r = await api("/habit?phone=" + encodeURIComponent(phone));
+        return (r && r.dish) || null;
+      } catch (e) { return null; }
+    },
 
     setPanelRole,
     /* Bu TAB ning sessiyasi (sessionStorage) — birlamchi; bo'lmasa localStorage */

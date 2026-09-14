@@ -7,14 +7,16 @@
    iOS/deferred bo'lmasa — qo'lда o'rnatish yo'riqnomasi ko'rsatiladi. */
 (function () {
   var PANELS = {
+    "index.html":    { key: "site",     label: "YetkazGo", emoji: "🛵", isSite: true },
     "restoran.html": { key: "restoran", label: "Restoran", emoji: "🏪" },
     "kuryer.html":   { key: "kuryer",   label: "Kuryer",   emoji: "🛵" },
     "admin.html":    { key: "admin",    label: "Admin",    emoji: "🛡️" },
     "kabinet.html":  { key: "kabinet",  label: "Kabinet",  emoji: "👤" },
   };
   var path = (location.pathname.split("/").pop() || "").toLowerCase();
+  if (!path) path = "index.html"; // "/" -> bosh sahifa
   var panel = PANELS[path];
-  if (!panel) return; // faqat panellarda ishlaydi
+  if (!panel) return; // faqat panellar + bosh sahifada ishlaydi
 
   var LS = "yz_pwa_" + panel.key;
   var deferred = null;
@@ -36,7 +38,9 @@
     } catch (e) { return false; }
   }
   function setLS(v) { try { localStorage.setItem(LS, v); } catch (e) {} }
-  function loggedIn() { var a = document.getElementById("app"); return !!(a && a.classList.contains("show")); }
+  /* Bosh sahifada (panel emas) login tushunchasi yo'q — har doim "tayyor"
+     hisoblanadi, shuning uchun taklif LOGIN kutmasdan ko'rinishi mumkin. */
+  function loggedIn() { if (panel.isSite) return true; var a = document.getElementById("app"); return !!(a && a.classList.contains("show")); }
 
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; ensureTopBtn(); maybeShow(); });
   window.addEventListener("appinstalled", function () { setLS("installed"); hide(); removeTopBtn(); });
@@ -143,7 +147,9 @@
         '<button class="pwa-x" id="pwaX" aria-label="Yopish">✕</button>' +
         '<div class="pwa-emoji">' + panel.emoji + '</div>' +
         '<h3>' + panel.label + ' ilovasini o\'rnatasizmi?</h3>' +
-        '<p>Yetkaz ' + panel.label + ' panelini telefoningizga ilova qilib qo\'ying</p>' +
+        '<p>' + (panel.isSite
+          ? "Tezroq buyurtma bering — ilovani telefoningizga o'rnating"
+          : "Yetkaz " + panel.label + " panelini telefoningizga ilova qilib qo'ying") + '</p>' +
         '<svg class="pwa-wave" viewBox="0 0 400 26" preserveAspectRatio="none" aria-hidden="true"><path d="M0,12 C80,30 150,2 220,14 C290,25 340,24 400,14 L400,26 L0,26 Z" fill="#fff"/></svg>' +
       '</div>' +
       '<div class="pwa-body">' + bodyHtml() + '</div>';

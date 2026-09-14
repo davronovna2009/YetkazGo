@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
-import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee, courierPhoneOf } from '../orders-core.js';
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee, courierPhoneOf, guestOrderStatus, validPhone } from '../orders-core.js';
 /* Katta/shubhali buyurtma qoidalari (kuryer qo'ng'irog'i, admin tekshiruvi) */
 import { rulesSnapshot } from '../order-rules.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
@@ -76,14 +76,31 @@ router.get('/', authRequired, (req, res) => {
   res.json(db.prepare(sql).all(...params).map(rowToOrder));
 });
 
+/* GET /api/orders/guest-status?phone=... — ochiq: checkout boshlanishidan OLDIN
+   frontend shu bilan tekshiradi ("2-marta guest buyurtma" xato-va-orqaga-qaytarish
+   o'rniga, oldindan ogohlantiradi). Bu FAQAT maslahat — haqiqiy to'siq createOrder
+   ichida (POST /). Noto'g'ri raqamда shunchaki blocked:false (createOrder o'zi
+   format xatosini aytadi). MUHIM: bu :id dan OLDIN turishi kerak (aks holda
+   "guest-status" :id sifatida ushlanib qolardi). */
+router.get('/guest-status', (req, res) => {
+  const phone = String(req.query.phone || '');
+  if (!validPhone(phone)) return res.json({ blocked: false, hasAccount: false });
+  res.json(guestOrderStatus(phone));
+});
+
 /* POST /api/orders — ochiq (mehmon checkout: bosh sahifadan ham buyurtma berish mumkin).
-   Butun logika orders-core.js da — bot ham AYNAN shuni chaqiradi. */
+   Butun logika orders-core.js da — bot ham AYNAN shuni chaqiradi.
+   `authed` — faqat haqiqiy ro'yxatdan o'tgan MIJOZ (role==='user') tokeni bilan
+   true bo'ladi; shundagina guest-cheklovi (orders-core.js: guestOrderStatus)
+   chetlab o'tiladi. Admin/restoran/kuryer tokeni bu yerga tushmaydi (ular bu
+   endpointdan mijoz sifatida foydalanmaydi). */
 router.post('/', (req, res) => {
   let created;
   try {
-    created = createOrder(req.body || {});
+    const authed = !!(req.user && req.user.role === 'user');
+    created = createOrder(req.body || {}, { authed });
   } catch (e) {
-    if (e instanceof OrderError) return res.status(e.status).json({ error: e.message });
+    if (e instanceof OrderError) return res.status(e.status).json({ error: e.message, code: e.code || undefined });
     console.error('Buyurtma yaratish xatosi:', e);
     return res.status(500).json({ error: 'Buyurtmani yaratib bo`lmadi' });
   }
@@ -212,6 +229,28 @@ router.post('/:id/call-confirm', requireRole('kuryer', 'restoran', 'admin'), (re
 
   db.prepare("UPDATE orders SET call_done = 1, call_by = ?, call_at = datetime('now') WHERE id = ?")
     .run(String(req.user.name || req.user.login || ''), id);
+  res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
+});
+
+/* ===== GURUH BUYURTMASI: bitta a'zoning naqd ulushi "olindi" deb belgilash =====
+   POST /api/orders/:id/group-paid { index } — kuryer (yetkazayotgan) yoki
+   restoran/admin shu buyurtmaning group_breakdown massividagi `index`-chi
+   a'zosini paid=true qiladi. Karta to'lovi bu yerdan EMAS — pay.html/QR
+   oqimi orqali (kelajakda kengaytiriladi). */
+router.post('/:id/group-paid', requireRole('kuryer', 'restoran', 'admin'), (req, res) => {
+  const id = Number(req.params.id);
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!o) return res.status(404).json({ error: 'Buyurtma topilmadi' });
+  if (req.user.role === 'kuryer' && o.courier !== req.user.name)
+    return res.status(403).json({ error: 'Ruxsat berilmagan' });
+  if (req.user.role === 'restoran' && o.rest !== req.user.name)
+    return res.status(403).json({ error: 'Ruxsat berilmagan' });
+  let bd = [];
+  try { bd = o.group_breakdown ? JSON.parse(o.group_breakdown) : []; } catch (e) { bd = []; }
+  const idx = Number(req.body?.index);
+  if (!Array.isArray(bd) || !bd[idx]) return res.status(400).json({ error: 'Guruh a`zosi topilmadi' });
+  bd[idx].paid = true;
+  db.prepare('UPDATE orders SET group_breakdown = ? WHERE id = ?').run(JSON.stringify(bd), id);
   res.json(rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(id)));
 });
 

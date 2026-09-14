@@ -877,8 +877,11 @@
   function closeModal(){ $("#modal").classList.remove("open"); $("#modalBackdrop").classList.remove("open"); }
 
   /* Step 1: auth */
-  /* ---- UMUMIY KIRISH (login/ro'yxatdan o'tish) ---- */
-  function openLogin(){
+  /* ---- UMUMIY KIRISH (login/ro'yxatdan o'tish) =====
+     `resume` — BERILSA, muvaffaqiyatli kirish/ro'yxatdan o'tishdan keyin
+     BOSHQA sahifaga o'tilmaydi — shu yerda (masalan checkout jarayonida)
+     davom etiladi, savat yo'qolmaydi (guest-limit gate: openGuestGate). */
+  function openLogin(resume){
     openModal(`
       <div class="auth-head">
         <div class="auth-emoji">🔐</div>
@@ -893,11 +896,11 @@
       <button class="btn btn-primary btn-block" id="lg-btn">Kirish</button>
       <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz yo'qmi? <a id="lg-reg" style="color:var(--red);font-weight:700;cursor:pointer">Ro'yxatdan o'tish</a></p>
       </div>`);
-    $("#lg-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(); });
-    $("#lg-btn").addEventListener("click",doLogin);
-    $("#lg-reg").addEventListener("click",openRegister);
+    $("#lg-pass").addEventListener("keydown",e=>{ if(e.key==="Enter") doLogin(resume); });
+    $("#lg-btn").addEventListener("click",()=>doLogin(resume));
+    $("#lg-reg").addEventListener("click",()=>openRegister(resume));
   }
-  async function doLogin(){
+  async function doLogin(resume){
     const login=$("#lg-login").value.trim(), pass=$("#lg-pass").value.trim();
     if(!login||!pass){ $("#lg-err").textContent="Login va parolni kiriting"; return; }
     const btn=$("#lg-btn"); if(btn){ btn.disabled=true; btn.textContent="Kirilmoqda..."; }
@@ -905,10 +908,12 @@
     if(btn){ btn.disabled=false; btn.textContent="Kirish"; }
     if(acc && acc.offline){ $("#lg-err").textContent="Serverga ulanib bo'lmadi. Saytni server orqali oching (masalan http://localhost:5050) va internetni tekshiring."; return; }
     if(!acc){ $("#lg-err").textContent="Login yoki parol xato. Akkountingiz bo'lmasa, ro'yxatdan o'ting."; return; }
+    if(resume){ resumeAfterAuth(acc, resume); return; }
     /* Rolga qarab paneliga yo'naltiramiz: admin->admin.html, restoran->restoran.html, kuryer->kuryer.html, user->kabinet.html */
     try{ window.location.href=acc.target || "kabinet.html"; }catch(e){}
   }
-  function openRegister(){
+  function openRegister(resume, prefill){
+    const pf = prefill||{};
     openModal(`
       <div class="auth-head">
         <div class="auth-emoji">🎉</div>
@@ -917,19 +922,19 @@
         <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
       </div>
       <div class="auth-body">
-      <div class="field"><label>Ism</label><input id="rg-name" placeholder="Ismingiz"></div>
-      <div class="field"><label>Telefon</label><input id="rg-phone" placeholder="+998 90 123 45 67"></div>
+      <div class="field"><label>Ism</label><input id="rg-name" placeholder="Ismingiz" value="${esc(pf.name||"")}"></div>
+      <div class="field"><label>Telefon</label><input id="rg-phone" placeholder="+998 90 123 45 67" value="${esc(pf.phone||"")}"></div>
       <div class="field"><label>Login</label><input id="rg-login" placeholder="login tanlang"></div>
       <div class="field"><label>Parol</label><input id="rg-pass" type="password" placeholder="••••••"></div>
       <div id="rg-err" style="color:var(--red);font-size:13px;min-height:18px;font-weight:600;margin-bottom:6px"></div>
       <button class="btn btn-primary btn-block" id="rg-btn">Ro'yxatdan o'tish</button>
       <p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz bormi? <a id="rg-back" style="color:var(--red);font-weight:700;cursor:pointer">Kirish</a></p>
       </div>`);
-    $("#rg-btn").addEventListener("click",doRegister);
-    $("#rg-back").addEventListener("click",openLogin);
+    $("#rg-btn").addEventListener("click",()=>doRegister(resume));
+    $("#rg-back").addEventListener("click",()=>openLogin(resume));
     if(window.YZ_PHONE) YZ_PHONE.attach($("#rg-phone"));
   }
-  async function doRegister(){
+  async function doRegister(resume){
     const name=$("#rg-name").value.trim(), phone=$("#rg-phone").value.trim(), login=$("#rg-login").value.trim(), pass=$("#rg-pass").value.trim();
     const err=m=>{ const e=$("#rg-err"); if(e) e.textContent=m; };
     if(name.length<2) return err("Ismingizni kiriting");
@@ -938,11 +943,24 @@
     if(pass.length<4) return err("Parol kamida 4 belgi bo'lsin");
     if(typeof STORE==="undefined") return err("Tizim tayyor emas");
     const btn=$("#rg-btn"); if(btn){ btn.disabled=true; btn.textContent="Yuborilmoqda..."; }
-    const acc=await STORE.register({name:name,phone:(window.YZ_PHONE?YZ_PHONE.pretty(phone):phone),login:login,pass:pass});
+    /* Referral: ?ref=<taklif qilganning login'i> — "Do'stni taklif qil" bonusi
+       shuni sanaydi (server: accounts.ref_by, routes/bonuses.js). */
+    let refCode=""; try{ refCode=new URLSearchParams(location.search).get("ref")||""; }catch(e){}
+    const acc=await STORE.register({name:name,phone:(window.YZ_PHONE?YZ_PHONE.pretty(phone):phone),login:login,pass:pass,ref:refCode});
     if(btn){ btn.disabled=false; btn.textContent="Ro'yxatdan o'tish"; }
     if(!acc) return err("Ro'yxatdan o'tishda xatolik");
     if(acc.error) return err(acc.error);
+    if(resume){ resumeAfterAuth(acc, resume); return; }
     try{ window.location.href=acc.target; }catch(e){}
+  }
+  /* Checkout jarayonida (guest-limit gate) kirish/ro'yxatdan o'tish
+     muvaffaqiyatli bo'lса — sahifadan chiqmasdan davom etamiz. STORE token'ni
+     shu sahifada ham topa olishi uchun panel-rolini o'rnatamiz (store.js:
+     setPanelRole eski/umumiy tokenni O'SHA rol kalitiga ko'chiradi). */
+  function resumeAfterAuth(acc, resume){
+    try{ if(acc && acc.role && typeof STORE!=="undefined" && STORE.setPanelRole) STORE.setPanelRole(acc.role); }catch(e){}
+    closeModal();
+    try{ resume(acc); }catch(e){}
   }
 
   /* ===== Oxirgi kiritilgan kontakt — faqat MAYDONNI OLDINDAN TO'LDIRISH uchun =====
@@ -979,7 +997,7 @@
       <button class="btn btn-primary btn-block" id="authNext">${I18N.t("continue")}</button>`);
     const geoBtn=$("#geoBtn"); if(geoBtn) geoBtn.addEventListener("click",()=>detectLocation($("#in-addr"), geoBtn));
     if(window.YZ_PHONE) YZ_PHONE.attach($("#in-phone"));
-    $("#authNext").addEventListener("click",()=>{
+    $("#authNext").addEventListener("click",async ()=>{
       const name=$("#in-name").value.trim(), phone=$("#in-phone").value.trim(), addr=$("#in-addr").value.trim();
       let ok=true;
       const setErr=(id,bad)=>{ $(id).classList.toggle("invalid",bad); if(bad) ok=false; };
@@ -988,10 +1006,45 @@
       setErr("#f-phone", !phoneOk);
       setErr("#f-addr", addr.length<4);
       if(!ok) return;
-      user.name=name; user.phone=(window.YZ_PHONE?YZ_PHONE.pretty(phone):phone); user.address=addr;
+      const prettyPh = window.YZ_PHONE?YZ_PHONE.pretty(phone):phone;
+      /* Ro'yxatdan o'tmagan (guest) mijoz — BIRINCHI buyurtmasini erkin beradi.
+         Shu telefon bilan avval buyurtma bo'lgan bo'lsa (2-marta), davom
+         etishdan oldin ro'yxatdan o'tish/kirish so'raladi (server ham buni
+         yakuniy nazorat qiladi — orders-core.js: guestOrderStatus). */
+      const btn=$("#authNext"); if(btn){ btn.disabled=true; }
+      let gs=null;
+      try{ if(typeof STORE!=="undefined" && STORE.guestStatus) gs=await STORE.guestStatus(prettyPh); }catch(e){}
+      if(btn){ btn.disabled=false; }
+      user.name=name; user.phone=prettyPh; user.address=addr;
       rememberContact(user.name, user.phone, user.address);
+      if(gs && gs.blocked){ openGuestGate(gs.hasAccount, name, prettyPh, next); return; }
       if(typeof next==="function") next();
     });
+  }
+
+  /* Guest-limit "darvozasi": mijoz shu raqam bilan avval buyurtma bergan —
+     davom etish uchun ro'yxatdan o'tishi (yoki akkaunti bo'lsa kirishi) kerak.
+     Muvaffaqiyatdan keyin savat/checkout YO'QOLMAYDI — shu yerда davom etadi
+     (resumeAfterAuth -> next()). */
+  function openGuestGate(hasAccount, name, phone, next){
+    openModal(`
+      <div class="auth-head">
+        <div class="auth-emoji">🔒</div>
+        <h2>Ro'yxatdan o'ting</h2>
+        <p>Birinchi buyurtmangizni mehmon sifatida qabul qildik</p>
+        <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
+      </div>
+      <div class="auth-body">
+      <p style="color:var(--grey);font-size:14px;line-height:1.6;margin:0 0 16px">
+        ${hasAccount
+          ? "Bu telefon raqami ro'yxatdan o'tgan. Keyingi buyurtmalar uchun hisobingizga kiring."
+          : "Keyingi buyurtmalar uchun (bir martalik, tez) ro'yxatdan o'ting — buyurtmalaringiz tarixi ham saqlanadi."}
+      </p>
+      <button class="btn btn-primary btn-block" id="gg-main">${hasAccount?"🔐 Kirish":"📝 Ro'yxatdan o'tish"}</button>
+      ${hasAccount?"":'<p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz bormi? <a id="gg-alt" style="color:var(--red);font-weight:700;cursor:pointer">Kirish</a></p>'}
+      </div>`);
+    $("#gg-main").addEventListener("click",()=> hasAccount ? openLogin(next) : openRegister(next,{name:name,phone:phone}));
+    const alt=$("#gg-alt"); if(alt) alt.addEventListener("click",()=>openLogin(next));
   }
 
   /* Step 2: order confirm (min + debt checks) */
@@ -1097,6 +1150,15 @@
        bu muhim xabar, toast juda tez yo'qoladi. Modalда to'liq ko'rsatamiz. */
     const st = err && err.status;
     if(st===403 || st===429){ showRestrictionModal(err.message, st===403); return; }
+    /* Guest-limit (odatda "authNext" bosqichida oldindan ushlanadi — bu yerда
+       faqat zaxira: masalan ikkita tab bir vaqtда buyurtma yuborsa). */
+    const code = err && err.data && err.data.code;
+    if(st===428 && (code==="REGISTER_REQUIRED"||code==="REGISTER_LOGIN")){
+      openGuestGate(code==="REGISTER_LOGIN", user.name, user.phone, ()=>{
+        toast("Endi buyurtmani qaytadan yuborishingiz mumkin","success");
+      });
+      return;
+    }
     /* Taom miqdor cheklovi (409) — xabarда sayt egasi raqami bor, mijoz uni
        ko'rib qo'ng'iroq qilishi kerak. Toast juda tez yo'qoladi — modalда beramiz. */
     if(st===409 && err.message && /qo'ng'iroq|raqam/i.test(err.message)){ showLimitModal(err.message); return; }
@@ -1882,10 +1944,21 @@
     let stored=[];
     try{ stored=JSON.parse(localStorage.getItem("yetkaz_announcements")||"[]"); }catch(e){}
     const be=(typeof STORE!=="undefined" && STORE.announcements)?STORE.announcements():[];
-    const all=[...be, ...stored, ...DEFAULT_PROMOS].filter(p=>p&&p.text);
+    const all=[...be, ...stored, ...DEFAULT_PROMOS].filter(p=>p&&p.text).map(p=>({...p, kind:p.kind||"ann"}));
     /* rest+text bo'yicha takrorlanmasin (localStorage + backend) */
     const seen=new Set();
-    return all.filter(p=>{ const k=(p.rest||"")+"|"+p.text; if(seen.has(k)) return false; seen.add(k); return true; });
+    const anns = all.filter(p=>{ const k=(p.rest||"")+"|"+p.text; if(seen.has(k)) return false; seen.add(k); return true; });
+    /* Bonuslar (admin/restoran belgilagan) — header banner + promo modalда ham
+       ko'rinadi. Bosilsa kabinetga (Bonuslar bo'limiga) yo'naltiriladi —
+       Tadbirlar (guruh) singari bonuslar ham FAQAT login qilgan mijoz uchun. */
+    let bonuses=[];
+    try{
+      bonuses=(typeof STORE!=="undefined"&&STORE.bonuses?STORE.bonuses():[]).map(b=>({
+        kind:"bonus", text:b.title, tag:"BONUS", emoji:"🎁", img:b.image||"",
+        rest:b.scope==="restoran"?b.rest:"", rewardText:b.rewardText||"",
+      }));
+    }catch(e){}
+    return [...anns, ...bonuses];
   }
 
   /* Promo uchun HAQIQIY rasm topish (emoji fallback bilan):
@@ -1952,7 +2025,9 @@
 
   /* Promo modal — e'longa bosganda */
   function openPromoModal(){
-    const promos = getAllPromos();
+    const allPromos = getAllPromos();
+    const promos = allPromos.filter(p=>p.kind!=="bonus");
+    const bonusPromos = allPromos.filter(p=>p.kind==="bonus");
     /* FAQAT aksiya/reklamaga tushgan taomlar (chegirма yoki e'lonда nomlangan) */
     const discDishes = getPromoDishCards();
 
@@ -1983,7 +2058,25 @@
         </div>
         ` : ""}
 
-        <div class="promo-section-title" style="margin-top:${discDishes.length?'16px':'0'}">📢 Restoranlar e'lonlari</div>
+        ${bonusPromos.length ? `
+        <div class="promo-section-title" style="margin-top:${discDishes.length?'16px':'0'}">🎁 Bonuslar</div>
+        <div class="promo-announcements">
+          ${bonusPromos.map(p=>`
+          <div class="promo-ann promo-ann-clickable" data-bonus="1">
+            <div class="promo-ann-icon">
+              ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px">🎁</span>`}
+            </div>
+            <div class="promo-ann-body">
+              <div class="promo-ann-rest">${p.rest?esc(trTxt(p.rest)):"Yetkaz.uz"}</div>
+              <div class="promo-ann-text">${esc(p.text)}${p.rewardText?" — "+esc(p.rewardText):""}</div>
+              <div class="promo-ann-action">Bonuslar bo'limiga o'tish →</div>
+            </div>
+            <span class="promo-ann-tag">BONUS</span>
+          </div>`).join("")}
+        </div>
+        ` : ""}
+
+        <div class="promo-section-title" style="margin-top:${(discDishes.length||bonusPromos.length)?'16px':'0'}">📢 Restoranlar e'lonlari</div>
         <div class="promo-announcements">
           ${promos.map(p=>`
           <div class="promo-ann promo-ann-clickable" data-rest="${esc(p.rest)}">
@@ -2022,6 +2115,7 @@
     document.querySelectorAll(".promo-ann").forEach(ann=>{
       ann.style.cursor="pointer";
       ann.addEventListener("click",()=>{
+        if(ann.dataset.bonus){ closeModal(); location.href="kabinet.html#bonus"; return; }
         const restName = ann.dataset.rest;
         if(!restName){ closeModal(); return; }
         const rest = RESTAURANTS.find(r=>r.name===restName);
@@ -2166,7 +2260,18 @@
       dotEls.forEach((d,i)=>d.addEventListener("click",()=>{ go(i); }));
     }
 
-    sec.querySelectorAll(".apb-cta").forEach(b=>b.addEventListener("click", openPromoModal));
+    /* Reklama ustiga bosilganda — mumkin bo'lsa TO'G'RIDAN-TO'G'RI shu narsaga
+       o'tadi (chegirmali taom → taom, bonus → Bonuslar bo'limi, restoran
+       e'loni → restoran sahifasi); aniq manzil topilmasa — umumiy modal. */
+    sec.querySelectorAll(".apb-cta").forEach((b,i)=>{
+      b.addEventListener("click", ()=>{
+        const p=list[i];
+        if(p && p.kind==="bonus"){ location.href="kabinet.html#bonus"; return; }
+        if(p && p.dish){ const d=catalog().find(x=>x.rest===p.rest&&x.name===p.dish); if(d){ openDishModal(d); return; } }
+        if(p && p.rest && !p.dish){ const r=RESTAURANTS.find(x=>x.name===p.rest); if(r){ location.hash="restoran/"+r.id; return; } }
+        openPromoModal();
+      });
+    });
     const grid = sec.querySelector("#adPromoGrid");
     if(grid) cards.forEach((d,i)=>{ const card = makeDishCard(d); card.classList.add("apd-"+(i%3)); grid.appendChild(card); });
   }

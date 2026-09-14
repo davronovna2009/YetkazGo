@@ -140,6 +140,10 @@ export function rowToOrder(r) {
     /* Kuryer YETKAZISH VAQTI (daqiqa): buyurtма kelgan paytdan kuryer "Yetkazdim"
        bosgan (yoki mijoz tasdiqlagan) paytgacha. Faqat yetkazilgan buyurtмада. */
     deliveryMin: deliveryMinutes(r),
+    /* Guruh buyurtmasi bo'lsa — har a'zoning ulushi/to'lovi (restoran/kuryer/admin
+       panellari shu yerdan "kim qancha, qanday to'laydi" ko'rsatadi). */
+    groupId: r.group_id != null ? r.group_id : null,
+    groupBreakdown: (() => { try { return r.group_breakdown ? JSON.parse(r.group_breakdown) : null; } catch (e) { return null; } })(),
   };
 }
 
@@ -237,9 +241,30 @@ export function assignCourier(rest) {
   return withFree[0].c.name;
 }
 
-/* Chaqiruvchiga tushunarli xato — HTTP status bilan birga */
+/* Chaqiruvchiga tushunarli xato — HTTP status va (ixtiyoriy) mashina kodi bilan */
 export class OrderError extends Error {
-  constructor(message, status) { super(message); this.status = status || 400; }
+  constructor(message, status, code) { super(message); this.status = status || 400; this.code = code || ''; }
+}
+
+/* ===== Guest (ro'yxatdan o'tmagan) buyurtma cheklovi =====
+   Birinchi buyurtma — ro'yxatdan o'tmasdan (mehmon sifatida) erkin qabul qilinadi.
+   Shu telefon raqami bilan IKKINCHI marta buyurtma berilmoqchi bo'lsa — ro'yxatdan
+   o'tish (yoki akkaunti bo'lsa, kirish) talab qilinadi. Ro'yxatdan o'tgan (login
+   qilgan, opts.authed=true) so'rovlar bu cheklovga tushmaydi — ular istagancha
+   buyurtma bera oladi.
+   Qamrov: SAYT (routes/orders.js) va TELEGRAM BOT (bot.js) — ikkalasi ham AYNAN
+   shu funksiyani chaqiradi, chunki ikkalasi ham createOrder orqali o'tadi. */
+export function guestOrderStatus(phone) {
+  const p = prettyPhone(phone);
+  const prior = db.prepare('SELECT 1 FROM orders WHERE phone = ? LIMIT 1').get(p);
+  if (!prior) return { blocked: false, hasAccount: false };
+  /* accounts.phone RAQAM formatlanmagan holda ham saqlanishi mumkin (masalan
+     to'g'ridan-to'g'ri API orqali ro'yxatdan o'tishda) — shuning uchun QIYOS
+     raqamlar (oxirgi 9 ta) bo'yicha, aniq matn bo'yicha EMAS. */
+  const norm = normalizePhone(phone).slice(-9);
+  const accs = db.prepare("SELECT phone FROM accounts WHERE role = 'user'").all();
+  const hasAccount = accs.some((a) => normalizePhone(a.phone).slice(-9) === norm);
+  return { blocked: true, hasAccount };
 }
 
 /* Buyurtma yaratadi.
@@ -252,12 +277,25 @@ export class OrderError extends Error {
    b.tgChatId — Telegram botdan kelgan buyurtmada mijozning chat_id'si.
    Shu orqali unga holat o'zgarishi haqida xabar yuboriladi.
 
+   opts.authed — true bo'lsa, so'rovchi ro'yxatdan o'tgan (login qilgan) hisoblanadi
+   va guest-cheklovi qo'llanilmaydi (routes/orders.js: JWT'dagi role==='user').
+
    Qaytaradi: { order, token, lines } — token FAQAT shu yerда beriladi. */
-export function createOrder(b = {}) {
+export function createOrder(b = {}, opts = {}) {
   if (!validPhone(b.phone)) {
     throw new OrderError('Telefon raqamini to`g`ri kiriting: +998 XX XXX XX XX', 400);
   }
   const phone = prettyPhone(b.phone);
+
+  if (!opts.authed) {
+    const gs = guestOrderStatus(phone);
+    if (gs.blocked) {
+      const msg = gs.hasAccount
+        ? 'Bu telefon raqami ro`yxatdan o`tgan. Davom etish uchun hisobingizga kiring.'
+        : 'Birinchi buyurtmangizni mehmon sifatida qabul qildik. Keyingi buyurtmalar uchun (bir martalik, tez) ro`yxatdan o`ting.';
+      throw new OrderError(msg, 428, gs.hasAccount ? 'REGISTER_LOGIN' : 'REGISTER_REQUIRED');
+    }
+  }
 
   /* ===== AVTOMATIK CHEKLOVLAR (blocks.js) — sayt o'zi qo'llaydi =====
      1) Raqam allaqachon bloklangan yoki 5 daqiqalik pauzadami?
@@ -278,13 +316,21 @@ export function createOrder(b = {}) {
     throw new OrderError('Bu to`lov usuli hozir mavjud emas. Boshqa usulni tanlang.', 409);
   }
 
+  /* opts.precomputed — GURUH buyurtmasi (routes/groups.js): bir nechta a'zoning
+     qatorlari allaqachon priceOrderLines bilan narxlangan va birlashtirilgan
+     (priceOrder'ning normalizeItems'i BIR XIL id'ni bitta qatorga birlashtirib
+     yuborardi — turli a'zolarning bir xil taomi aralashib ketardi). */
   let priced;
-  try {
-    priced = priceOrder(b.items);
-  } catch (e) {
-    if (e instanceof PriceError) throw new OrderError(e.message, e.status);
-    console.error('Narxlash xatosi:', e);
-    throw new OrderError('Buyurtmani hisoblab bo`lmadi', 500);
+  if (opts.precomputed) {
+    priced = opts.precomputed;
+  } else {
+    try {
+      priced = priceOrder(b.items);
+    } catch (e) {
+      if (e instanceof PriceError) throw new OrderError(e.message, e.status);
+      console.error('Narxlash xatosi:', e);
+      throw new OrderError('Buyurtmani hisoblab bo`lmadi', 500);
+    }
   }
 
   /* Sabotajga qarshi maxfiy "track token" — mehmon shu token bilan buyurtmasini
@@ -320,13 +366,14 @@ export function createOrder(b = {}) {
 
   const info = db.prepare(
     `INSERT INTO orders (user, phone, rest, item, emoji, amount, addr, pay, courier, status, eta, time, token, delivery, items_json, tg_chat_id, source,
-                         qty_total, call_required, suspicious, suspicious_reason, commission_pct)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+                         qty_total, call_required, suspicious, suspicious_reason, commission_pct, group_id, group_breakdown)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
   ).run(
     String(b.user || ''), phone, priced.rest, priced.item, priced.emoji,
     priced.amount, String(b.addr || ''), String(b.pay || 'card'),
     courier, status, eta, String(b.time || ''), token, delivery, JSON.stringify(priced.lines), tgChatId, source,
-    totalQty(priced.lines), call.required ? 1 : 0, suspect.suspicious ? 1 : 0, suspect.reason, commissionPct
+    totalQty(priced.lines), call.required ? 1 : 0, suspect.suspicious ? 1 : 0, suspect.reason, commissionPct,
+    opts.groupId != null ? opts.groupId : null, opts.groupBreakdown ? JSON.stringify(opts.groupBreakdown) : ''
   );
 
   const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(info.lastInsertRowid);

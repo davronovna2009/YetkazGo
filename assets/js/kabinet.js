@@ -31,12 +31,18 @@
   /* Foydalanuvchi ma'lumoti kirgandan so'ng backenddan to'ladi (haqiqiy buyurtmalar).
      Soxta namuna buyurtma/izoh YO'Q. */
   const USER={
-    name:"", phone:"", login:"", pass:"",
+    id:null, name:"", phone:"", login:"", pass:"",
     orders:[],
     reviews:[]
   };
 
   let selRating=0, cart=[], activeCat="Hammasi";
+  /* Mijozning O'Z tadbirlari (sinxron keshdan — kabPromoList uni async
+     so'ramasdan o'qishi uchun). enterUser'да va yangi tadbir yuborilganda yangilanadi. */
+  let KAB_MY_EVENTS=[];
+  async function refreshMyEventsCache(){
+    try{ KAB_MY_EVENTS=(typeof STORE!=="undefined"&&STORE.myEvents)? (await STORE.myEvents())||[] : []; }catch(e){}
+  }
   let tT; function toast(m,type){
     const e=$("#toast2"); if(!e) return;
     e.textContent=m; e.className="toast2 show"+(type?" "+type:"");
@@ -112,12 +118,49 @@
 
   function enterUser(acc){
     /* Haqiqiy foydalanuvchi ma'lumoti — buyurtmalar backenddan yuklanadi */
-    USER.name=acc.name; USER.login=acc.login; USER.phone=acc.phone||""; USER.orders=[]; USER.reviews=[];
+    USER.id=acc.id; USER.name=acc.name; USER.login=acc.login; USER.phone=acc.phone||""; USER.orders=[]; USER.reviews=[];
+    /* Saqlangan manzil (tuman/mahalla/ko'cha) — HAR SAFAR buyurtmada oldindan
+       to'ldirilishi uchun (openCheckout: USER.address birinchi navbatda
+       tekshiriladi). Hali saqlanmagan bo'lsa — shu qurilmadagi eski qiymat. */
+    var savedAddr=formatAddr(acc.addrRegion,acc.addrMahalla,acc.addrStreet);
+    if(!savedAddr){ try{ savedAddr=localStorage.getItem("yz_user_addr")||""; }catch(e){ savedAddr=""; } }
+    USER.address=savedAddr;
     hydrateOrders();
     /* Foydalanuvchi avval buyurtma bergan restoranga avtomatik yo'naltiramiz */
     var pr=preferredRest(); if(pr) activeRest=pr;
     $("#loginWrap").style.display="none"; $("#app").classList.add("show");
     $("#sbName").textContent=USER.name; renderAll();
+    /* Birinchi marta kirgan (yoki hali manzil saqlamagan) foydalanuvchiga
+       bir martalik taklif: "Ma'lumotlaringizni saqlab qo'ying". */
+    try{ maybeShowOnboarding(acc); }catch(e){}
+    /* Yoqtirganlar RO'YXATI va BUYURTMALAR TARIXI — "eng ko'p buyurilgan +
+       yoqtirilgan birinchi" saralashi shularga tayanadi. Keshdagi (localStorage)
+       eski holat bilan darhol chizamiz (renderAll yuqorida), YANGI ma'lumot
+       kelgach FAQAT BIR MARTA qayta saralab chizamiz (har poll tikida EMAS —
+       aks holda ko'rib turgan grid navbat bilan aralashib ketardi). */
+    if(typeof STORE!=="undefined"){
+      Promise.all([
+        STORE.refreshLikes ? STORE.refreshLikes() : null,
+        STORE.refresh ? STORE.refresh() : null,
+      ]).then(function(){
+        hydrateOrders();
+        try{ if(activeRest) filterByRest(activeRest); else renderMenu(); }catch(e){}
+      });
+    }
+    /* AI maslahat: "har doim shu payt shu taomni buyurasiz — bugun ham xohlaysizmi?" */
+    try{ checkHabitSuggestion(); }catch(e){}
+    /* Tadbirlar (chegirmali bo'lsa reklama bannerда ko'rinishi uchun) */
+    refreshMyEventsCache().then(function(){ try{ renderKabPromoBand(); }catch(e){} });
+    /* Oldingi faol guruh (agar bo'lsa) — boshqa qurilma/sessiyada ham davom etsin.
+       DOM hozir ko'rinmasa ham xavfsiz (renderGroupView ichidagi elementlar
+       topilmasa jim o'tadi), lekin "Guruh yaratish"ga kirganda darrov tayyor bo'ladi. */
+    restoreActiveGroup().then(function(){ try{ renderGroupView(); }catch(e){} });
+    /* index.html'dagi reklama bannerdan "kabinet.html#bonus" kabi to'g'ridan-to'g'ri
+       havola bilan kirilsa — o'sha bo'limni ochamiz (masalan #bonus, #events). */
+    try{
+      var h=(location.hash||"").replace("#","");
+      if(h && document.getElementById("view-"+h)) nav(h);
+    }catch(e){}
     if(typeof STORE!=="undefined" && STORE.onChange && !window.__kabSub){ window.__kabSub=true;
       STORE.onChange(function(){
         hydrateOrders();
@@ -131,6 +174,323 @@
     /* Kirganда tasdiqlanmagan buyurtma bo'lsa — darrov so'raymiz */
     if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(function(){ try{ askPendingConfirmKab(); }catch(e){} }).catch(function(){});
     startKabOpenWatch();
+  }
+
+  /* ===== ONBOARDING: birinchi kirishда manzilni saqlashga taklif =====
+     Hisob hali tuzilgan manzil saqlamagan bo'lsa (yoki bu qurilmada hali
+     ko'rsatilmagan bo'lsa) — "Saqlash" bosilsa Sozlamalar/Profil bo'limiga
+     olib boradi (u yerda Tuman/Mahalla/Ko'cha + Joylashuvni yoqish bor). */
+  function maybeShowOnboarding(acc){
+    var hasAddr = !!(acc && (acc.addrRegion || acc.addrMahalla || acc.addrStreet));
+    if(hasAddr) return;
+    var key="yz_onboard_shown_"+(acc&&acc.login||"");
+    try{ if(localStorage.getItem(key)) return; }catch(e){}
+    var c=$("#koContent"); if(!c) return;
+    c.innerHTML=`<div style="text-align:center;padding:6px 4px">
+      <div style="font-size:44px">📋</div>
+      <h2 style="margin:10px 0 4px">Ma'lumotlaringizni saqlab qo'ying</h2>
+      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Ism va manzilingizni bir marta saqlab qo'ysangiz, keyingi buyurtmalarda hammasi tayyor turadi — sizga oson bo'ladi 😊</p>
+      <div style="display:flex;gap:10px">
+        <button id="obLater" style="flex:1;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer">Keyinroq</button>
+        <button id="obSave" class="set-save" style="flex:1">💾 Saqlash</button>
+      </div>
+    </div>`;
+    $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+    var close=function(){ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); };
+    var dismiss=function(){ try{ localStorage.setItem(key,"1"); }catch(e){} close(); };
+    var later=$("#obLater"); if(later) later.addEventListener("click",dismiss);
+    var save=$("#obSave"); if(save) save.addEventListener("click",function(){ dismiss(); nav("settings"); });
+  }
+
+  /* ===== BONUSLAR: admin/restoran belgilagan, mijoz shu yerда ko'radi =====
+     Referral (do'st taklif qilish) turdagi bonusda — o'zining ulashish
+     linki (index.html?ref=<login>) va nusxalash tugmasi ko'rsatiladi. */
+  const BON_TYPE_LABEL_K={order_count:"📦 Buyurtmalar soni",referral:"🤝 Do'st taklif qilish",custom:"ℹ️ Ma'lumot"};
+  function refLink(){ try{ return location.origin+"/?ref="+encodeURIComponent(USER.login||""); }catch(e){ return ""; } }
+  function renderBonusesKab(){
+    const host=$("#bonusListKab"); if(!host) return;
+    const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+    if(!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px;text-align:center;padding:20px 0">Hozircha bonus yo\'q. Tez orada qo\'shiladi!</p>'; return; }
+    host.innerHTML=list.map(function(b){
+      const who=b.scope==="restoran" ? ('🏪 '+esc(b.rest)) : '🌐 Barcha restoranlar';
+      const shareBtn = b.type==="referral"
+        ? '<button class="set-save" data-bonshare style="margin-top:8px;width:100%;background:#f1eef0;color:#555">🔗 Ulashish havolamni nusxalash</button>'
+        : '';
+      return '<div class="panel" style="margin-bottom:12px">'+
+        '<div style="display:flex;gap:12px;align-items:flex-start;padding:14px">'+
+          (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none">':'<span style="font-size:32px;flex:none">🎁</span>')+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-weight:800;font-size:15px">'+esc(b.title)+'</div>'+
+            '<div style="color:var(--grey);font-size:12px;margin-top:2px">'+who+' · '+(BON_TYPE_LABEL_K[b.type]||b.type)+(b.target?' · maqsad: '+b.target:'')+'</div>'+
+            (b.descr?'<p style="font-size:13.5px;margin-top:6px;color:#444">'+esc(b.descr)+'</p>':'')+
+            (b.rewardText?'<div style="color:#16a34a;font-size:13px;font-weight:800;margin-top:6px">🏆 '+esc(b.rewardText)+'</div>':'')+
+            shareBtn+
+          '</div>'+
+        '</div></div>';
+    }).join("");
+    host.querySelectorAll('[data-bonshare]').forEach(function(btn){
+      btn.addEventListener("click",async function(){
+        const link=refLink();
+        try{ await navigator.clipboard.writeText(link); toast("Havola nusxalandi 🔗","success"); }
+        catch(e){ toast(link); }
+      });
+    });
+  }
+
+  /* ===== TADBIRLAR: mijoz oldindan yuboradi, admin/restoran ko'radi va
+     chegirma belgilaydi (routes/events.js). ===== */
+  const EV_STATUS_LABEL={pending:"⏳ Kutilmoqda",discounted:"✅ Chegirma belgilandi"};
+  function fillEventRestSelect(){
+    const sel=$("#evRest"); if(!sel) return;
+    const rests=restListK();
+    sel.innerHTML=rests.map(r=>`<option value="${esc(r.name)}">${esc(trTxt(r.name))}</option>`).join("");
+  }
+  async function renderEventsKab(){
+    fillEventRestSelect();
+    const host=$("#evListKab"); if(!host) return;
+    const list=(typeof STORE!=="undefined"&&STORE.myEvents)? await STORE.myEvents() : [];
+    if(!Array.isArray(list)||!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hali tadbir yubormagansiz.</p>'; return; }
+    host.innerHTML=list.map(function(e){
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+EV_STATUS_LABEL[e.status]+'</span></div>'+
+        '<div style="font-size:12.5px;color:var(--grey);margin-top:2px">🏪 '+esc(trTxt(e.rest))+' · 📅 '+esc(e.eventDate)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
+        (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:2px">🏷 '+e.discountPct+'% chegirma belgilandi</div>':'')+
+        '</div>';
+    }).join("");
+  }
+  async function submitEvent(){
+    const rest=$("#evRest")?$("#evRest").value:"", name=$("#evName")?$("#evName").value.trim():"";
+    const date=$("#evDate")?$("#evDate").value:"", headcount=$("#evHeadcount")?Number($("#evHeadcount").value)||0:0;
+    const advance=$("#evAdvance")?Number($("#evAdvance").value)||1:1;
+    const msg=$("#evMsg");
+    const setMsg=(t,ok)=>{ if(msg){ msg.style.color=ok?"#16a34a":"#C8102E"; msg.textContent=t; } };
+    if(!rest) return setMsg("Restoranni tanlang", false);
+    if(!name) return setMsg("Tadbir nomini kiriting", false);
+    if(!date) return setMsg("Sanani tanlang", false);
+    const btn=$("#evSubmit"); if(btn) btn.disabled=true;
+    const r=(typeof STORE!=="undefined"&&STORE.addEvent)? await STORE.addEvent({rest:rest,name:name,event_date:date,headcount:headcount,advance_days:advance}) : {error:"Tizim tayyor emas"};
+    if(btn) btn.disabled=false;
+    if(r&&r.error){ setMsg(r.error, false); return; }
+    setMsg("✓ Yuborildi", true); toast("Tadbir yuborildi ✓","success");
+    if($("#evName")) $("#evName").value=""; if($("#evDate")) $("#evDate").value=""; if($("#evHeadcount")) $("#evHeadcount").value="";
+    renderEventsKab();
+    refreshMyEventsCache();
+  }
+
+  /* ============================================================
+     GURUH BUYURTMASI — bir nechta a'zo, bitta yetkazish, HAR KIM O'Z
+     ulushini alohida to'laydi (server: routes/groups.js). Faol guruh
+     localStorage'да saqlanadi — sahifa qayta ochilsa ham davom etadi.
+     ============================================================ */
+  const GROUP_ID_KEY="yz_active_group_id";
+  let ACTIVE_GROUP=null, _groupPoll=null;
+
+  function fillGroupRestSelect(){
+    const sel=$("#grpNewRest"); if(!sel) return;
+    sel.innerHTML=restListK().map(r=>`<option value="${esc(r.name)}">${esc(trTxt(r.name))}</option>`).join("");
+  }
+  function stopGroupPoll(){ if(_groupPoll){ clearInterval(_groupPoll); _groupPoll=null; } }
+  function startGroupPoll(){
+    stopGroupPoll();
+    _groupPoll=setInterval(async ()=>{
+      if(!ACTIVE_GROUP || ACTIVE_GROUP.status!=="open") { stopGroupPoll(); return; }
+      await refreshActiveGroup();
+    }, 4000);
+  }
+  async function refreshActiveGroup(){
+    if(!ACTIVE_GROUP) return;
+    const r=await STORE.getGroup(ACTIVE_GROUP.id);
+    if(r && !r.error){ ACTIVE_GROUP=r; try{ renderGroupView(); }catch(e){} }
+  }
+  /* Sahifa (yoki login) qayta ochilganda — oldingi faol guruhni tiklaymiz. */
+  async function restoreActiveGroup(){
+    let gid=null; try{ gid=localStorage.getItem(GROUP_ID_KEY); }catch(e){}
+    if(!gid) return;
+    const r=await STORE.getGroup(gid);
+    if(r && !r.error){ ACTIVE_GROUP=r; if(r.status!=="open"){ try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){} } }
+    else { try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){} }
+  }
+
+  function renderGroupView(){
+    fillGroupRestSelect();
+    const intro=$("#groupIntro"), active=$("#groupActive"), done=$("#groupDone");
+    if(ACTIVE_GROUP && ACTIVE_GROUP.status==="open"){
+      if(intro) intro.style.display="none"; if(done) done.style.display="none"; if(active) active.style.display="";
+      renderActiveGroup(); startGroupPoll();
+    } else if(ACTIVE_GROUP && ACTIVE_GROUP.status==="confirmed"){
+      if(intro) intro.style.display="none"; if(active) active.style.display="none"; if(done) done.style.display="";
+      renderGroupDone(); stopGroupPoll();
+    } else {
+      if(intro) intro.style.display=""; if(active) active.style.display="none"; if(done) done.style.display="none";
+      stopGroupPoll();
+    }
+  }
+
+  async function createGroup(){
+    const rest=$("#grpNewRest")?$("#grpNewRest").value:"";
+    const msg=$("#grpMsg"); if(msg) msg.textContent="";
+    if(!rest) return;
+    const r=await STORE.createGroup(rest);
+    if(r&&r.error){ if(msg){msg.style.color="#C8102E";msg.textContent=r.error;} return; }
+    ACTIVE_GROUP=r; try{ localStorage.setItem(GROUP_ID_KEY,String(r.id)); }catch(e){}
+    toast("Guruh yaratildi! Kodi: "+r.code,"success");
+    renderGroupView();
+  }
+  async function joinGroupCode(){
+    const code=$("#grpJoinCode")?$("#grpJoinCode").value.trim().toUpperCase():"";
+    const msg=$("#grpMsg"); if(msg) msg.textContent="";
+    if(!code){ if(msg){msg.style.color="#C8102E";msg.textContent="Kodni kiriting";} return; }
+    const r=await STORE.joinGroup(code);
+    if(r&&r.error){ if(msg){msg.style.color="#C8102E";msg.textContent=r.error;} return; }
+    ACTIVE_GROUP=r; try{ localStorage.setItem(GROUP_ID_KEY,String(r.id)); }catch(e){}
+    toast("Guruhga qo'shildingiz ✓","success");
+    renderGroupView();
+  }
+
+  function renderActiveGroup(){
+    const g=ACTIVE_GROUP; if(!g) return;
+    const titleEl=$("#grpTitle"); if(titleEl) titleEl.textContent="👥 "+esc(trTxt(g.rest))+" — guruh";
+    const codeEl=$("#grpCodeBadge"); if(codeEl) codeEl.textContent="Kod: "+g.code;
+    const addrEl=$("#grpAddr");
+    if(addrEl && document.activeElement!==addrEl) addrEl.value=g.addr||"";
+    const myMember=(g.members||[]).find(m=>m.accountId===USER.id);
+    const payEl=$("#grpMyPay");
+    if(payEl && document.activeElement!==payEl) payEl.value=(myMember&&myMember.pay)||"cash";
+
+    /* Guruh savati — a'zo ismi bo'yicha guruhlangan, har taom alohida qator */
+    const byMember={};
+    (g.items||[]).forEach(it=>{ (byMember[it.memberName]=byMember[it.memberName]||[]).push(it); });
+    const cartHost=$("#grpCart");
+    const names=Object.keys(byMember);
+    if(cartHost){
+      if(!names.length){ cartHost.innerHTML='<p style="color:var(--grey);font-size:13px">Hali hech kim taom qo\'shmagan.</p>'; }
+      else {
+        cartHost.innerHTML=names.map(name=>{
+          const rows=byMember[name].map(it=>{
+            const mine=it.accountId===USER.id;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line)">
+              <span style="font-size:13.5px">${it.emoji} ${esc(it.dishName)} ×${it.qty}${it.note?' <span style="color:var(--grey);font-size:12px">💬 '+esc(it.note)+'</span>':''}</span>
+              ${mine?`<button data-grpitemdel="${it.id}" style="background:none;border:none;color:#C8102E;cursor:pointer;font-size:15px;flex:none">✕</button>`:''}
+            </div>`;
+          }).join("");
+          return `<div style="margin-bottom:10px"><b style="font-size:13.5px">👤 ${esc(name)}</b>${rows}</div>`;
+        }).join("");
+        cartHost.querySelectorAll("[data-grpitemdel]").forEach(b=>b.addEventListener("click",async()=>{
+          b.disabled=true;
+          const r=await STORE.deleteGroupItem(g.id,b.dataset.grpitemdel);
+          if(r&&!r.error){ ACTIVE_GROUP=r; renderActiveGroup(); }
+        }));
+      }
+    }
+
+    /* Guruh restoranining taomlari — oddiy "+" bilan qo'shiladi (guruh
+       savati shaxsiy savatdan ALOHIDA — bu yerдаgi "+" shaxsiy cart'ga
+       tegmaydi, faqat guruhga qo'shadi). */
+    const dishGrid=$("#grpDishGrid");
+    if(dishGrid){
+      const dishes=kcatalog().filter(d=>d.rest===g.rest);
+      dishGrid.innerHTML=dishes.map(d=>`
+        <div class="card">
+          <div class="card-img tone-${esc(d.kw||"")}"><span class="food-emoji">${d.emoji}</span>
+            ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">`:""}
+          </div>
+          <div class="card-body">
+            <h3>${esc(nm(d))}</h3>
+            <div class="card-rest">${esc(trTxt(d.rest))}</div>
+            <div class="card-foot"><span class="price">${money(d.price)} <small>so'm</small></span></div>
+          </div>
+          <div class="card-pod"><div class="card-pod-action"><button class="add-btn" data-grpadd="${d.id}">+</button></div></div>
+        </div>`).join("");
+      dishGrid.querySelectorAll("[data-grpadd]").forEach(b=>b.addEventListener("click",async()=>{
+        b.disabled=true;
+        const id=+b.dataset.grpadd;
+        const r=await STORE.addGroupItem(g.id,{dishId:id,qty:1});
+        b.disabled=false;
+        if(r&&r.error){ toast(r.error); return; }
+        ACTIVE_GROUP=r; renderActiveGroup();
+      }));
+    }
+  }
+
+  function renderGroupDone(){
+    const g=ACTIVE_GROUP, body=$("#grpDoneBody"); if(!body) return;
+    body.innerHTML=`<div style="text-align:center;padding:10px 4px">
+      <div style="font-size:48px">✅</div>
+      <p style="font-weight:700;margin:8px 0">Buyurtma raqami: #${g.orderId}</p>
+      <p style="color:var(--grey);font-size:13.5px">Guruh a'zolari va ularning ulushi buyurtma tarkibida saqlandi. Yetkazilishini "Mening kabinetim" bo'limidan kuzatishingiz mumkin.</p>
+      <button class="set-save" id="grpNewOne" style="margin-top:14px">➕ Yangi guruh boshlash</button>
+    </div>`;
+    const nb=$("#grpNewOne"); if(nb) nb.addEventListener("click",()=>{
+      ACTIVE_GROUP=null; try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){}
+      renderGroupView();
+    });
+  }
+
+  async function saveGroupAddr(){
+    const g=ACTIVE_GROUP; if(!g) return;
+    const addr=$("#grpAddr")?$("#grpAddr").value.trim():"";
+    if(!addr){ toast("Manzilni kiriting"); return; }
+    const r=await STORE.setGroupAddr(g.id,addr);
+    if(r&&r.error){ toast(r.error); return; }
+    ACTIVE_GROUP=r; toast("Manzil saqlandi ✓","success");
+  }
+  async function changeGroupPay(){
+    const g=ACTIVE_GROUP; if(!g) return;
+    const pay=$("#grpMyPay")?$("#grpMyPay").value:"cash";
+    const r=await STORE.setGroupPay(g.id,pay);
+    if(r&&!r.error) ACTIVE_GROUP=r;
+  }
+  async function confirmGroupOrder(){
+    const g=ACTIVE_GROUP; if(!g) return;
+    const msg=$("#grpConfirmMsg"); if(msg) msg.textContent="";
+    const btn=$("#grpConfirmBtn"); if(btn) btn.disabled=true;
+    const r=await STORE.confirmGroup(g.id);
+    if(btn) btn.disabled=false;
+    if(r&&r.error){ if(msg){msg.style.color="#C8102E";msg.textContent=r.error;} return; }
+    ACTIVE_GROUP=r.group;
+    try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){}
+    toast("Guruh buyurtmasi yakunlandi ✅","success");
+    renderGroupView();
+  }
+
+  /* ===== AI MASLAHAT: buyurtma "odati" ===== =====
+     Mijoz har doim (kamida 3 kun) bir xil taomni bir xil payt atrofida
+     buyurtsa — server (habit.js) shuni aniqlaydi. Hozir aynan shu payt bo'lsa
+     va bugun hali olmagan bo'lsa — bitta marta (kunига bitta) so'raymiz:
+     "Bugun ham {taom} buyurasizmi?" — kuniga bir marta, rad etilsa ertaga
+     qayta so'raladi (localStorage: sana bo'yicha kalit). */
+  function habitDismissKey(){ return "yz_habit_dismiss_"+new Date().toISOString().slice(0,10); }
+  async function checkHabitSuggestion(){
+    if(!USER.phone) return;
+    try{ if(localStorage.getItem(habitDismissKey())) return; }catch(e){}
+    if(typeof STORE==="undefined" || !STORE.habitSuggestion) return;
+    let dish=null;
+    try{ dish=await STORE.habitSuggestion(USER.phone); }catch(e){}
+    if(!dish || !dish.name) return;
+    showHabitPrompt(dish);
+  }
+  function showHabitPrompt(dish){
+    const c=$("#koContent"); if(!c) return;
+    const dishName=esc(dish.name);
+    c.innerHTML=`<div style="text-align:center;padding:6px 4px">
+      <div style="font-size:44px">${esc(dish.emoji||'🍽️')}</div>
+      <h2 style="margin:10px 0 4px">Bugun ham ${dishName} buyurasizmi?</h2>
+      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Siz odatda shu payt <b>${esc(dish.rest)}</b>dan <b>${dishName}</b> buyurtma qilasiz 😊</p>
+      <div style="display:flex;gap:10px">
+        <button id="habitNo" style="flex:1;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer">Yo'q, rahmat</button>
+        <button id="habitYes" class="set-save" style="flex:1">Ha, xohlayman</button>
+      </div>
+    </div>`;
+    $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+    const close=()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); };
+    const dismiss=()=>{ try{ localStorage.setItem(habitDismissKey(),"1"); }catch(e){} close(); };
+    const no=$("#habitNo"); if(no) no.addEventListener("click",dismiss);
+    const yes=$("#habitYes"); if(yes) yes.addEventListener("click",()=>{
+      const d=kcatalog().find(x=>x.rest===dish.rest && x.name===dish.name);
+      if(d){ addToCart(d.id); toast("Savatga qo'shildi 🛒","success"); }
+      dismiss();
+    });
   }
 
   /* Ish vaqti chegarasidan o'tganda kabinetni O'ZI yangilaydi (sahifani qayta
@@ -168,26 +528,22 @@
     host.style.display="none";
   }
 
+  /* Alohida "Taomlar" tab YO'Q — taomlar FAQAT Restoranlar orqali ko'rinadi
+     (restoran tanlansa #view-taomlar'даgi grid o'sha restoran menyusi bilan
+     to'ldirilib ko'rsatiladi — pastroqdagi restoran-karta click handlerga qarang). */
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    /* view-rests yo'q bo'lsa ham ishlaydi */
-    const viewEl=document.getElementById("view-"+view);
-    if(!viewEl){
-      /* Restoranlar uchun taomlar view da ko'rsatamiz */
-      if(view==="rests"){
-        $$(".view").forEach(v=>v.classList.remove("show"));
-        const vr=document.getElementById("view-rests");
-        if(vr) vr.classList.add("show");
-      }
-    }
-    const t={taomlar:"Taomlar",profil:"Mening kabinetim",rests:"Restoranlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish",settings:"Sozlamalar"};
+    const t={profil:"Mening kabinetim",rests:"Restoranlar",group:"Guruh yaratish",bonus:"Bonuslar",events:"Tadbirlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish",settings:"Sozlamalar"};
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
     if(view==="review") renderReviewForm();
     if(view==="settings") renderSettings();
     if(view==="help") fillSupportContact();
     if(view==="rests")  renderKabRests();
-    if(view==="taomlar"){ if(activeRest){ filterByRest(activeRest); } else { renderFilters(); renderMenu(); } }
+    if(view==="bonus")  renderBonusesKab();
+    if(view==="events") renderEventsKab();
+    if(view==="group")  renderGroupView();
+    else try{ stopGroupPoll(); }catch(e){}   // boshqa bo'limga o'tsa — fonda so'rov yubormaymiz
   }
 
   function kabCancelOrder(oid){
@@ -228,6 +584,16 @@
     });
   }
 
+  /* Tuman/mahalla/ko'cha — bitta o'qiladigan manzil satriga birlashtiriladi.
+     orders-core.js `addr` maydoni oddiy STRING kutadi — buni o'zgartirmaymiz,
+     faqat kabinet tomonda FORMATLAYMIZ. */
+  function formatAddr(region,mahalla,street){
+    var parts=[];
+    if(region) parts.push(String(region).trim());
+    if(mahalla) parts.push(String(mahalla).trim()+" mahallasi");
+    if(street) parts.push(String(street).trim());
+    return parts.join(", ");
+  }
   function renderSettings(){
     var ses=(typeof STORE!=="undefined")?STORE.session():null;
     var set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v||""; };
@@ -235,7 +601,9 @@
     set("stPhone", USER.phone||(ses&&ses.phone));
     set("stEmail", (ses&&ses.email)||"");
     set("stLogin", USER.login||(ses&&ses.login));
-    try{ set("stAddr", localStorage.getItem("yz_user_addr")||""); }catch(e){}
+    set("stRegion", ses&&ses.addrRegion);
+    set("stMahalla", ses&&ses.addrMahalla);
+    set("stStreet", ses&&ses.addrStreet);
     try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("kabLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     var snd=document.getElementById("stSound");
     try{ if(snd) snd.checked = localStorage.getItem("yz_sound")!=="0"; }catch(e){}
@@ -394,19 +762,21 @@
   function kHours(rest){ try{ return YZ_TIME.restHoursByName(rest); }catch(e){ return "09:00–23:00"; } }
   function kClosedMsg(rest){ return "🔴 "+rest+" hozir yopiq · ish vaqti "+kHours(rest); }
 
-  /* Taom kartasidagi tugma — saytdagi bilan bir xil ustuvorlik:
+  /* Taom kartasidagi tugma — saytdagi bilan bir xil ustuvorlik VA bir xil
+     klasslar (.add-btn/.card-qty/.qty-btn — index.html: assets/js/app.js
+     updateCardQty), shu sabab ko'rinishi ham AYNAN bir xil bo'ladi:
        1) restoran yopiq → ⏱   2) savatda bor → −/+   3) aks holda → + */
   function kActionHTML(d, qty){
     if(qty>0){
       const shut=!kIsOpen(d.rest);
-      return `<div class="kcard-qty"><button class="kqty-btn" data-id="${d.id}" data-m="-1">−</button>`+
-             `<span class="kqty-num">${qty}</span>`+
-             `<button class="kqty-btn${shut?" kshut":""}" data-id="${d.id}" data-m="1">+</button></div>`;
+      return `<div class="card-qty"><button class="qty-btn qty-minus" data-id="${d.id}" data-m="-1">−</button>`+
+             `<span class="qty-num">${qty}</span>`+
+             `<button class="qty-btn qty-plus${shut?" qty-closed":""}" data-id="${d.id}" data-m="1">+</button></div>`;
     }
     if(!kIsOpen(d.rest)){
-      return `<button class="kshut-add" data-shut="${esc(d.rest)}" title="${esc(kClosedMsg(d.rest))}">⏱</button>`;
+      return `<button class="add-btn add-closed kshut-add" data-shut="${esc(d.rest)}" title="${esc(kClosedMsg(d.rest))}">⏱</button>`;
     }
-    return `<button class="kadd" data-id="${d.id}">+</button>`;
+    return `<button class="add-btn" data-id="${d.id}">+</button>`;
   }
   /* Yopiq restoran tugmalarini bog'lash (faqat xabar chiqadi) */
   function bindShutButtons(root){
@@ -465,75 +835,129 @@
     $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
   }
 
-  /* Kard qty ko'rinishini yangilash */
+  /* Kard qty ko'rinishini yangilash — narx/rasm (card-body) tegilmaydi,
+     faqat pastdagi yoysimon "pod" (card-pod-action) qayta chiziladi. */
   function updateKMenuQty(){
     /* Katalogni BIR MARTA olamiz — kcatalog() har chaqiruvda menyuni qaytadan
        birlashtiradi, uni sikl ichida chaqirish kartalar soniga karrali sekinlik. */
     const cat=kcatalog();
-    $$("#kMenu .kcard").forEach(card=>{
+    $$("#kMenu .card").forEach(card=>{
       const id=+card.dataset.id; if(!id) return;
       const d=cat.find(x=>x.id===id); if(!d) return;
       const qty=(cart.find(i=>i.id===id)||{}).qty||0;
-      const foot=card.querySelector(".kfoot");
-      if(!foot) return;
-      const priceEl=card.querySelector(".kprice");
-      const priceHTML=priceEl?priceEl.outerHTML:`<span class="kprice"></span>`;
-      /* Restoran ish vaqti o'zgargan bo'lishi mumkin — kartani ham yangilaymiz */
-      card.classList.toggle("kcard-shut", !kIsOpen(d.rest));
-      foot.innerHTML=priceHTML+kActionHTML(d,qty);
-      const add=foot.querySelector(".kadd");
+      const pod=card.querySelector(".card-pod-action");
+      if(!pod) return;
+      pod.innerHTML=kActionHTML(d,qty);
+      const add=pod.querySelector(".add-btn:not(.add-closed)");
       if(add) add.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(id); });
-      foot.querySelectorAll(".kqty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); syncKabBar(); }));
-      bindShutButtons(foot);
+      pod.querySelectorAll(".qty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); syncKabBar(); }));
+      bindShutButtons(pod);
     });
     syncKabBar();
   }
 
   /* Taom kartasi — renderMenu va renderMenuFiltered UCHUN BITTA manba.
      (Ilgari ikkala joyda nusxa markup bor edi va biri yangilanganda ikkinchisi
-     eskirib qolardi — masalan "yopiq" holati.) */
-  /* Taom yulduzchasi (server: sotuvga qarab / baholardan) + sotuv soni */
+     eskirib qolardi — masalan "yopiq" holati.)
+     MUHIM: markup va klasslar index.html bilan AYNAN bir xil (card, card-img,
+     tone-N, card-body, card-pod va h.k.) — ko'rinish assets/css/kabinet-cards.css
+     (styles.css dan ko'chirilgan) orqali bosh saytdagidek chiqadi. Chegirma
+     yorlig'i endi CSS o'zi chizadi ([data-discounted="true"]::after), shuning
+     uchun alohida badge span kerak emas. */
   function kDishStar(d){ const r=Number(d&&d.rating)||0; return r>0?("⭐ "+r):"🆕 yangi"; }
   function kDishSold(d){ const s=Math.max(0,Number(d&&d.sold)||0); return s?(" · 🛒 "+s):""; }
-  function kCardHTML(d, badgeText){
+  /* Yurakcha (like) SVG — rangi CSS orqali boshqariladi: yoqtirilmagan holatда
+     bo'z chiziq, yoqtirilганда SAYT rangi (var(--red)) bilan to'ladi — boshqa
+     (masalan pushti/kult qizil) rang EMAS, aynan sayt bosh rangi. */
+  const HEART_SVG='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 21s-7.2-4.6-9.9-8.7C.4 9.4 1.2 5.5 4.6 4.1c2.4-1 5-.1 6.5 1.9l.9 1.2.9-1.2c1.5-2 4.1-2.9 6.5-1.9 3.4 1.4 4.2 5.3 2.5 8.2C19.2 16.4 12 21 12 21z"/></svg>';
+  function isLiked(d){
+    try{ return (STORE.likes()||[]).some(l=>l.rest===d.rest && l.name===d.name); }catch(e){ return false; }
+  }
+  function kCardHTML(d){
     const qty=(cart.find(i=>i.id===d.id)||{}).qty||0;
-    const price=d.discount?`<span style="text-decoration:line-through;color:#b9a;font-size:11px">${money(d.price)}</span> ${money(d.eff)}`:money(d.price);
+    const price=d.discount?`<span style="text-decoration:line-through;color:#b9a;font-size:13px">${money(d.price)}</span> ${money(d.eff)}`:money(d.price);
     const disc=d.discount>0;
-    const shut=!kIsOpen(d.rest);
-    return `<div class="kcard${disc?' kcard-disc':''}${shut?' kcard-shut':''}" data-id="${d.id}" data-discounted="${disc}">
-        <div class="kimg" data-id="${d.id}"><span class="kemoji">${d.emoji}</span>
-          ${d.photo?`<img class="kimg-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
-          <img class="kimg-fg" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
-          ${disc?`<span class="kcard-disc-badge">${badgeText||'🏷'}</span>`:''}
+    const liked=isLiked(d);
+    const weightHtml=d.weight?`<span class="card-weight">${esc(d.weight)}</span>`:"";
+    return `<div class="card" data-id="${d.id}" data-discounted="${disc}">
+        <div class="card-img tone-${esc(d.kw||"")}" data-id="${d.id}"><span class="food-emoji">${d.emoji}</span>
+          ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
+          <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
+          <button class="card-like${liked?' liked':''}" data-rest="${esc(d.rest)}" data-name="${esc(d.name)}" aria-label="Yoqtirish" title="Yoqtirish">${HEART_SVG}</button>
         </div>
-        <div class="kbody">
-          <h4 data-id="${d.id}">${esc(nm(d))}</h4>
-          <div class="krest">${esc(trTxt(d.rest))}</div>
-          <div class="krest" style="font-size:12px">${kDishStar(d)}${kDishSold(d)}</div>
-          <div class="kfoot"><span class="kprice">${price} so'm</span>${kActionHTML(d,qty)}</div>
-        </div></div>`;
+        <div class="card-body">
+          <h3 data-id="${d.id}">${esc(nm(d))}</h3>
+          <div class="card-rest">${esc(trTxt(d.rest))}</div>
+          <div class="card-meta"><span class="cm-star">${kDishStar(d)}</span>${kDishSold(d)}</div>
+          <div class="card-foot">${weightHtml}<span class="price">${price} <small>so'm</small></span></div>
+        </div>
+        <div class="card-pod"><div class="card-pod-action">${kActionHTML(d,qty)}</div></div>
+      </div>`;
+  }
+  /* ===== SHAXSIYLASHTIRISH: eng ko'p buyurilgan + yoqtirilgan taomlar birinchi =====
+     Buyurtma chastotasi — joriy mijozning O'Z buyurtmalari tarixidan (server
+     GET /orders "user"rolida allaqachon SHU mijozniki bilan filtrlangan). */
+  function dishOrderCounts(){
+    const counts={};
+    try{
+      (typeof STORE!=="undefined"?STORE.orders():[]).forEach(o=>{
+        if(!o || o.status==="cancelled") return;
+        (o.items||[]).forEach(it=>{
+          if(!it || !it.name) return;
+          const key=o.rest+"|"+it.name;
+          counts[key]=(counts[key]||0)+(Number(it.qty)||1);
+        });
+      });
+    }catch(e){}
+    return counts;
+  }
+  function personalizedSort(list){
+    let likedSet; try{ likedSet=new Set((STORE.likes()||[]).map(l=>l.rest+"|"+l.name)); }catch(e){ likedSet=new Set(); }
+    const counts=dishOrderCounts();
+    return list.map((d,i)=>({d,i})).sort((a,b)=>{
+      const key=x=>x.rest+"|"+x.name;
+      const al=likedSet.has(key(a.d))?1:0, bl=likedSet.has(key(b.d))?1:0;
+      if(al!==bl) return bl-al;
+      const ac=counts[key(a.d)]||0, bc=counts[key(b.d)]||0;
+      if(ac!==bc) return bc-ac;
+      return a.i-b.i;   // asl tartib (barqaror saralash)
+    }).map(x=>x.d);
   }
   function renderMenu(){
     renderKabPromoBand();
     if(activeRest){ filterByRest(activeRest); return; }
     const g=$("#kMenu"); if(!g) return;
-    g.innerHTML=kcatalog().filter(d=>activeCat==="Hammasi"||kDishCat(d)===activeCat)
-      .map(d=>kCardHTML(d,'🏷')).join("");
+    const list=kcatalog().filter(d=>activeCat==="Hammasi"||kDishCat(d)===activeCat);
+    g.innerHTML=personalizedSort(list).map(d=>kCardHTML(d)).join("");
     bindMenuEvents();
   }
 
   /* ===== AKSIYA BANNERI — bosh saytdagi kabi (index.html adPromo) =====
      Restoran e'lonlari navbatма-navbat aylanadi; bosilганда «Aksiyalar» modali.
      E'lon ham, chegirмали taom ham bo'lmasa — banner yashiriladi. */
-  var _kabPromoTimer=null, _kabPromoIdx=0;
+  var _kabPromoTimer=null, _kabPromoIdx=0, _kabPromoSlides=[];
   function kabPromoList(){
     var anns=[];
     try{
       var be=(typeof STORE!=="undefined"&&STORE.announcements)?STORE.announcements():[];
       var stored=[]; try{ stored=JSON.parse(localStorage.getItem("yetkaz_announcements")||"[]"); }catch(e){}
-      anns=stored.concat(be).filter(function(p){ return p && (p.text||p.dish); });
+      anns=stored.concat(be).filter(function(p){ return p && (p.text||p.dish); }).map(function(p){ return Object.assign({kind:"ann"},p); });
     }catch(e){}
-    return anns;
+    /* Bonuslar — hammaga (ommaviy) */
+    var bonuses=[];
+    try{
+      bonuses=((typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[]).map(function(b){
+        return { kind:"bonus", text:b.title, tag:"BONUS", emoji:"🎁", img:b.image||"", rest:b.scope==="restoran"?b.rest:"", rewardText:b.rewardText||"" };
+      });
+    }catch(e){}
+    /* Tadbirlar — FAQAT o'zining chegirma belgilangan tadbirlari (maxfiy, shaxsiy) */
+    var events=[];
+    try{
+      events=(KAB_MY_EVENTS||[]).filter(function(e){ return e.discountPct>0; }).map(function(e){
+        return { kind:"event", text:e.name+" — "+e.discountPct+"% chegirma", tag:"TADBIR", emoji:"🎉", rest:e.rest };
+      });
+    }catch(e){}
+    return anns.concat(bonuses).concat(events);
   }
   function kabPromoHasDish(){
     try{ return kcatalog().some(function(d){ return d.discount>0; }) || kabPromoList().some(function(p){ return p.dish; }); }catch(e){ return false; }
@@ -549,7 +973,8 @@
       return;
     }
     band.style.display="flex";
-    var slides=list.length?list:[{tag:"AKSIYA",text:"Bugungi chegirмали taomlarни ko'ring!",emoji:"🔥"}];
+    var slides=list.length?list:[{kind:"ann",tag:"AKSIYA",text:"Bugungi chegirмали taomlarни ko'ring!",emoji:"🔥"}];
+    _kabPromoSlides=slides;
     function paint(){
       var p=slides[_kabPromoIdx%slides.length]||slides[0];
       inner.innerHTML=
@@ -567,6 +992,18 @@
         setTimeout(function(){ paint(); el.style.opacity="1"; },200);
       },5000);
     }
+  }
+  /* Banner bosilganda — joriy (ko'rinib turgan) slaydga qarab TO'G'RIDAN-TO'G'RI
+     tegishli bo'limga o'tadi; aniq manzil bo'lmasa umumiy modal ochiladi. */
+  function handleKabPromoClick(){
+    var p=_kabPromoSlides[_kabPromoIdx%(_kabPromoSlides.length||1)];
+    if(p){
+      if(p.kind==="bonus"){ nav("bonus"); return; }
+      if(p.kind==="event"){ nav("events"); return; }
+      if(p.dish){ var d=kcatalog().find(function(x){ return x.rest===p.rest && x.name===p.dish; }); if(d){ openKDishModal(d); return; } }
+      if(p.rest && p.kind==="ann"){ var sl=document.querySelector('.sb-link[data-view="rests"]'); if(sl) sl.click(); setTimeout(function(){ filterByRest(p.rest); },80); return; }
+    }
+    openKabPromoModal();
   }
   function cartTotal(){ return cart.reduce((s,i)=>s+i.price*i.qty,0); }
   function addToCart(id){
@@ -1055,52 +1492,68 @@
     try{ const be=(typeof STORE!=="undefined"&&STORE.restaurants)?STORE.restaurants().find(x=>x.name===name):null;
       const p=(be&&be.photo)||""; return /^\/(?:uploads|img)\/|^data:/.test(p)?p:""; }catch(e){ return ""; }
   }
+  /* Restoran "chegirmada"mi — kamida bitta taomi chegirmali BO'LSA, yashil
+     porlash chegara chiqadi (xuddi taom kartasidagi kabi, index.html'dagi
+     bilan bir xil CSS: .rest-card[data-discounted]). */
+  function restHasDiscount(rname){
+    try{ return kcatalog().some(d=>d.rest===rname && d.discount>0); }catch(e){ return false; }
+  }
   function renderKabRests(filter){
     const grid=document.getElementById("kRestGrid"); if(!grid) return;
     const src=restListK();
     const q=(document.getElementById("kRestSearch")||{}).value||"";
     const list=src.filter(r=> (!filter||r.name===filter) && (!q||r.name.toLowerCase().includes(q.toLowerCase())));
-    /* Aksiya bor restoranlarni aniqlash */
-    const promoRests=new Set();
-    try{
-      const be=(typeof STORE!=="undefined"&&STORE.announcements)?STORE.announcements():[];
-      const stored=JSON.parse(localStorage.getItem("yetkaz_announcements")||"[]").concat(be);
-      stored.forEach(p=>p.rest&&promoRests.add(p.rest));
-      /* Chegirmali taomlardan ham */
-      kcatalog().forEach(d=>{ if(d.discount>0) promoRests.add(d.rest); });
-    }catch(e){}
 
+    /* Markup index.html'dagi renderRests() (app.js) bilan AYNAN bir xil —
+       .rest-card/.rest-img/.rest-body/tone-* — ko'rinish bir xil bo'lishi uchun. */
     grid.innerHTML=list.map(r=>{
-      const hasPromo=promoRests.has(r.name);
-      /* Ish vaqti — restoran o'zi (yoki admin) belgilaydi; mijoz shu yerda ko'radi */
       const open=kIsOpen(r.name), hrs=kHours(r.name);
-      return `<div class="krest-card${hasPromo?' krest-promo':''}${open?'':' krest-shut'}" data-rest="${r.name}">
-        <div class="krest-img tone-${r.kw||'burger'}">
-          <span class="kemoji" style="font-size:44px;position:relative;z-index:1">${r.emoji||"🏪"}</span>
-          ${(function(){const p=restPhotoK(r.name);return p?`<img src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:0">`:"";})()}
-          <span class="yz-openbadge ${open?'is-open':'is-closed'}">${open?'🟢 Ochiq':'🔴 Yopiq'}</span>
-          ${hasPromo?'<span class="krest-promo-badge">🏷 AKSIYA</span>':''}
+      const disc=restHasDiscount(r.name);
+      const liked=isLiked({rest:r.name,name:""});
+      const photo=restPhotoK(r.name);
+      const dishCount=kcatalog().filter(d=>d.rest===r.name).length;
+      return `<div class="rest-card" data-discounted="${disc}" data-rest="${esc(r.name)}">
+        <div class="rest-img tone-${esc(r.kw||'burger')}" style="position:relative">
+          <span class="food-emoji">${r.emoji||"🏪"}</span>
+          ${photo?`<img class="rest-photo-bg" src="${photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${photo}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:""}
+          <span class="rest-openbadge ${open?'is-open':'is-closed'}">${open?'🟢 Ochiq':'🔴 Yopiq'}</span>
+          <button class="card-like${liked?' liked':''}" data-rest="${esc(r.name)}" data-name="" aria-label="Yoqtirish" title="Yoqtirish">${HEART_SVG}</button>
         </div>
-        <div class="krest-body">
+        <div class="rest-body">
           <h3>${esc(nm(r))}</h3>
-          <div class="krest-meta">
+          <div class="rest-meta">
             <span class="star">★ ${r.rating}</span>
             <span>⏱ ${r.eta} ${typeof KT==="function"?KT('daq'):'daq'}</span>
-            <span>📍 ${r.dist}</span>
+            <span>📍 ${esc(trTxt(r.dist||""))}</span>
           </div>
-          <div class="krest-meta" style="margin-top:2px"><span>🕒 ${esc(hrs)}</span></div>
+          <div class="rest-info2">
+            <span>🍽️ ${dishCount} ta taom</span>
+            ${hrs?`<span>🕒 ${esc(hrs)}</span>`:""}
+          </div>
+          ${r.addr?`<div class="rest-addr">📍 ${esc(trTxt(r.addr))}</div>`:""}
+          ${r.descr?`<div class="rest-descr">${esc(trTxt(String(r.descr).slice(0,90)))}</div>`:""}
         </div>
       </div>`;
     }).join("");
-    grid.querySelectorAll(".krest-card").forEach(c=>{
+    grid.querySelectorAll(".rest-card .card-like").forEach(b=>{
+      b.addEventListener("click", async (e)=>{
+        e.stopPropagation();
+        if(typeof STORE==="undefined" || !STORE.toggleLike) return;
+        b.classList.toggle("liked");
+        await STORE.toggleLike(b.dataset.rest, b.dataset.name);
+        renderKabRests(filter);
+      });
+    });
+    grid.querySelectorAll(".rest-card").forEach(c=>{
       c.addEventListener("click",()=>{
         const rname=c.dataset.rest;
-        /* Taomlar bo'limiga o'tish */
+        /* Taom gridi (#view-taomlar) shu yerда ko'rsatiladi, lekin sidebar'da
+           alohida "Taomlar" tab yo'q — "Restoranlar" faol bo'lib qoladi. */
         $$(".view").forEach(v=>v.classList.remove("show"));
         const tv=document.getElementById("view-taomlar");
         if(tv) tv.classList.add("show");
-        $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view==="taomlar"));
-        if($("#tbTitle")) $("#tbTitle").textContent="Taomlar";
+        $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view==="rests"));
+        if($("#tbTitle")) $("#tbTitle").textContent=rname;
         window.scrollTo({top:0});
         /* Restoran filtr */
         filterByRest(rname);
@@ -1134,25 +1587,42 @@
         closedBar+
         (isPref?`<div style="flex-basis:100%;width:100%;margin-top:8px;font-size:13px;color:#16a34a;background:#eafaf0;border:1px solid #bdebd0;border-radius:10px;padding:8px 12px">⭐ Siz shu restorandan buyurtma bergansiz — taomlar shu yerdan tavsiya qilinmoqda. Boshqa restoran uchun ✕ bosing.</div>`:``);
       const chip=box.querySelector("#kRestFilterChip");
-      if(chip) chip.addEventListener("click",()=>{ activeRest=null; renderFilters(); renderMenu(); });
+      /* "Taomlar" alohida tab emas — filtr olib tashlansa Restoranlar ro'yxatiga qaytamiz */
+      if(chip) chip.addEventListener("click",()=>{ activeRest=null; nav("rests"); });
     }
     renderMenuFiltered(list);
   }
   function renderMenuFiltered(list){
     renderKabPromoBand();
     const g=document.getElementById("kMenu"); if(!g) return;
-    g.innerHTML=list.map(d=>kCardHTML(d,'🏷 CHEGIRMA')).join("");
+    g.innerHTML=personalizedSort(list).map(d=>kCardHTML(d)).join("");
     bindMenuEvents();
   }
+  /* Yurakcha bosilganda — toggle qilib, ro'yxatni DARHOL qayta saralaymiz
+     (yoqtirilgan taom birinchi bo'lib chiqishi kerak). */
+  function bindLikeButtons(){
+    document.querySelectorAll("#kMenu .card-like").forEach(b=>{
+      if(b._likeBound) return; b._likeBound=true;
+      b.addEventListener("click",async (e)=>{
+        e.stopPropagation();
+        if(typeof STORE==="undefined" || !STORE.toggleLike) return;
+        const rest=b.dataset.rest, name=b.dataset.name;
+        b.classList.toggle("liked");   // optimistik — darhol ko'rinadi
+        await STORE.toggleLike(rest,name);
+        if(activeRest) filterByRest(activeRest); else renderMenu();
+      });
+    });
+  }
   function bindMenuEvents(){
-    document.querySelectorAll("#kMenu .kimg, #kMenu h4").forEach(el=>el.addEventListener("click",()=>{
+    document.querySelectorAll("#kMenu .card-img, #kMenu h3").forEach(el=>el.addEventListener("click",()=>{
       const id=+el.dataset.id; const d=kcatalog().find(x=>x.id===id); if(!d) return;
       /* Restoran ichida bo'lsak — taom tafsiloti; aks holda taomga bosilsa o'sha restoranga kiramiz */
       if(activeRest){ openKDishModal(d); }
       else { filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){} }
     }));
-    document.querySelectorAll("#kMenu .kadd").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(+b.dataset.id); }));
-    document.querySelectorAll("#kMenu .kqty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
+    document.querySelectorAll("#kMenu .add-btn:not(.add-closed)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(+b.dataset.id); }));
+    document.querySelectorAll("#kMenu .qty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
+    bindLikeButtons();
     bindShutButtons(document.getElementById("kMenu"));
   }
 
@@ -1169,6 +1639,9 @@
     }catch(e){}
     /* Chegirmali taomlar */
     const discDishes=kcatalog().filter(d=>d.discount>0);
+    /* Bonuslar (ommaviy) + o'zining chegirmali tadbirlari (shaxsiy) */
+    const bonusList=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+    const myDiscEvents=(KAB_MY_EVENTS||[]).filter(e=>e.discountPct>0);
     const modal=document.getElementById("kpmodModal");
     const bd=document.getElementById("kpmodBackdrop");
     const content=document.getElementById("kpmodContent");
@@ -1196,7 +1669,35 @@
             <button class="kpm-add" data-id="${d.id}">+</button>
           </div>`).join("")}
       </div>`:""}
-      <div class="kpm-sec-title" style="margin-top:${discDishes.length?16:0}px">📢 E'lonlar</div>
+      ${bonusList.length?`
+      <div class="kpm-sec-title" style="margin-top:${discDishes.length?16:0}px">🎁 Bonuslar</div>
+      <div class="kpm-anns">
+        ${bonusList.map(b=>`
+          <div class="kpm-ann" data-bonus="1" style="cursor:pointer">
+            <span class="kpm-ann-emoji">🎁</span>
+            <div class="kpm-ann-body">
+              <div class="kpm-ann-rest">${b.scope==='restoran'?esc(trTxt(b.rest)):"Yetkaz.uz"}</div>
+              <div class="kpm-ann-text">${esc(b.title)}${b.rewardText?" — "+esc(b.rewardText):""}</div>
+              <div class="kpm-ann-action">Bonuslar bo'limiga o'tish →</div>
+            </div>
+            <span class="kpm-tag">BONUS</span>
+          </div>`).join("")}
+      </div>`:""}
+      ${myDiscEvents.length?`
+      <div class="kpm-sec-title" style="margin-top:16px">🎉 Tadbirlaringiz chegirmasi</div>
+      <div class="kpm-anns">
+        ${myDiscEvents.map(e=>`
+          <div class="kpm-ann" data-event="1" style="cursor:pointer">
+            <span class="kpm-ann-emoji">🎉</span>
+            <div class="kpm-ann-body">
+              <div class="kpm-ann-rest">${esc(trTxt(e.rest))}</div>
+              <div class="kpm-ann-text">${esc(e.name)} — ${e.discountPct}% chegirma</div>
+              <div class="kpm-ann-action">Tadbirlar bo'limiga o'tish →</div>
+            </div>
+            <span class="kpm-tag">TADBIR</span>
+          </div>`).join("")}
+      </div>`:""}
+      <div class="kpm-sec-title" style="margin-top:16px">📢 E'lonlar</div>
       <div class="kpm-anns">
         ${promos.map(p=>`
           <div class="kpm-ann" data-rest="${p.rest}" style="cursor:pointer">
@@ -1223,9 +1724,11 @@
         btn.textContent="✓"; btn.style.background="var(--green)";
       });
     });
-    /* E'lon bosilganda restoranga o'tish */
+    /* E'lon bosilganda restoranga (yoki bonus/tadbir bo'lsa — o'sha bo'limga) o'tish */
     content.querySelectorAll(".kpm-ann").forEach(el=>{
       el.addEventListener("click",()=>{
+        if(el.dataset.bonus){ closeKabPromoModal(); nav("bonus"); return; }
+        if(el.dataset.event){ closeKabPromoModal(); nav("events"); return; }
         const rname=el.dataset.rest;
         closeKabPromoModal();
         const sl=document.querySelector('.sb-link[data-view="rests"]');
@@ -1268,20 +1771,58 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#ulPass").value=""; try{location.href="index.html";}catch(e){} });
     // menuToggle — HTML script boshqaradi
     $("#revSubmit").addEventListener("click",submitReview);
+    const evBtn=$("#evSubmit"); if(evBtn) evBtn.addEventListener("click",submitEvent);
+    /* Guruh buyurtmasi */
+    const grpC=$("#grpCreateBtn"); if(grpC) grpC.addEventListener("click",createGroup);
+    const grpJ=$("#grpJoinBtn"); if(grpJ) grpJ.addEventListener("click",joinGroupCode);
+    const grpSA=$("#grpSaveAddr"); if(grpSA) grpSA.addEventListener("click",saveGroupAddr);
+    const grpPay=$("#grpMyPay"); if(grpPay) grpPay.addEventListener("change",changeGroupPay);
+    const grpConf=$("#grpConfirmBtn"); if(grpConf) grpConf.addEventListener("click",confirmGroupOrder);
     /* ===== Sozlamalar ===== */
     (function(){
       var v=function(id){ var el=document.getElementById(id); return el?el.value.trim():""; };
       var sp=document.getElementById("stSaveProfile");
       if(sp) sp.addEventListener("click", async function(){
         var msg=document.getElementById("stMsg");
-        var name=v("stName"), phone=v("stPhone"), email=v("stEmail"), addr=v("stAddr");
+        var name=v("stName"), phone=v("stPhone"), email=v("stEmail");
+        var region=v("stRegion"), mahalla=v("stMahalla"), street=v("stStreet");
         if(name.length<2){ if(msg){msg.style.color="#C8102E";msg.textContent="Ismni to'g'ri kiriting";} return; }
         if(email && window.YZ_EMAIL && !YZ_EMAIL.valid(email)){ if(msg){msg.style.color="#C8102E";msg.textContent="Email noto'g'ri formatda";} return; }
-        try{ localStorage.setItem("yz_user_addr", addr); }catch(e){}
-        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({name:name,phone:phone,email:email}) : {error:"Serverga ulanmadi"};
-        if(r && !r.error){ USER.name=name; USER.phone=phone; var sn=document.getElementById("sbName"); if(sn) sn.textContent=name;
-          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Profil saqlandi ✓","success"); }
+        var addr=formatAddr(region,mahalla,street);
+        var payload={name:name,phone:phone,email:email,addrRegion:region,addrMahalla:mahalla,addrStreet:street};
+        if(USER.geo){ payload.addrLat=USER.geo.lat; payload.addrLng=USER.geo.lng; }
+        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile(payload) : {error:"Serverga ulanmadi"};
+        if(r && !r.error){
+          USER.name=name; USER.phone=phone; USER.address=addr;
+          try{ localStorage.setItem("yz_user_addr", addr); localStorage.setItem("yz_user_name", name); if(phone) localStorage.setItem("yz_user_phone", phone); }catch(e){}
+          var sn=document.getElementById("sbName"); if(sn) sn.textContent=name;
+          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Profil saqlandi ✓","success");
+        }
         else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
+      });
+      /* Joylashuvni yoqish — GPSdan manzilni aniqlaydi VA darhol profilga
+         saqlaydi (foydalanuvchi alohida "Saqlash" bosishi shart emas, lekin
+         forma maydonlarini ham to'ldiradi — u baribir tahrirlashi mumkin). */
+      var stGeoBtn=document.getElementById("stGeoBtn");
+      if(stGeoBtn) stGeoBtn.addEventListener("click", async function(){
+        var geoMsg=document.getElementById("stGeoMsg");
+        if(!navigator.geolocation){ if(geoMsg) geoMsg.textContent="Brauzeringiz joylashuvni qo'llamaydi"; return; }
+        stGeoBtn.disabled=true; var orig=stGeoBtn.textContent; stGeoBtn.textContent="📍 Aniqlanmoqda...";
+        navigator.geolocation.getCurrentPosition(async function(pos){
+          stGeoBtn.disabled=false; stGeoBtn.textContent=orig;
+          var lat=pos.coords.latitude, lng=pos.coords.longitude, addrTxt="";
+          try{
+            var r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+lat+"&lon="+lng+"&accept-language=uz",{headers:{"Accept":"application/json"}});
+            var j=await r.json(); addrTxt=(j&&j.display_name)||"";
+          }catch(e){}
+          USER.geo={lat:lat,lng:lng,addr:addrTxt};
+          if(addrTxt){ var st=document.getElementById("stStreet"); if(st && !st.value) st.value=addrTxt; }
+          if(geoMsg) geoMsg.textContent="✓ Joylashuv aniqlandi — endi \"Saqlash\"ni bosing";
+          toast("Joylashuv aniqlandi 📍","success");
+        }, function(err){
+          stGeoBtn.disabled=false; stGeoBtn.textContent=orig;
+          if(geoMsg) geoMsg.textContent = err&&err.code===1 ? "Joylashuvga ruxsat berilmadi" : "Joylashuvni aniqlab bo'lmadi";
+        }, { enableHighAccuracy:true, timeout:10000, maximumAge:60000 });
       });
       /* Login/parolni o'zgartirish mijoz panelidan OLIB TASHLANDI —
          buni FAQAT administrator bajaradi (admin panel «Loginlar» bo'limi). */
@@ -1312,19 +1853,14 @@
     if(kpBd)    kpBd.addEventListener("click",closeKabPromoModal);
     /* Promo banner click */
     const kpBand=document.getElementById("kabPromoInner");
-    if(kpBand) kpBand.addEventListener("click",openKabPromoModal);
+    if(kpBand) kpBand.addEventListener("click",handleKabPromoClick);
     const kpBand2=document.getElementById("kabPromoBand");
-    if(kpBand2) kpBand2.addEventListener("click",function(e){ if(!e.target.closest(".kab-promo-close")) openKabPromoModal(); });
-    /* Rests view listener */
+    if(kpBand2) kpBand2.addEventListener("click",function(e){ if(!e.target.closest(".kab-promo-close")) handleKabPromoClick(); });
+    /* Rests view listener (link kabinet.html'да statik — pastroqda .sb-link
+       umumiy click bog'lovchisi nav("rests")ни chaqiradi, bu FAQAT renderKabRests
+       uchun qo'shimcha) */
     const rlBtn=document.querySelector('.sb-link[data-view="rests"]');
     if(rlBtn) rlBtn.addEventListener("click",()=>renderKabRests());
-    /* Restoranlar sidebar link qo'shish */
-    const sbn=document.querySelector(".sb-nav");
-    if(sbn && !document.querySelector('.sb-link[data-view="rests"]')){
-      const a=document.createElement("a"); a.className="sb-link"; a.dataset.view="rests";
-      a.innerHTML='<span class="ic">🏪</span><span class="ic-label">Restoranlar</span>';
-      a.addEventListener("click",()=>nav("rests")); sbn.appendChild(a);
-    }
     /* Lang — I18N ga bog'lash */
     const knsLat=document.getElementById("knsLatin");
     const knsCyr=document.getElementById("knsCyrillic");

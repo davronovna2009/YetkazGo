@@ -242,7 +242,7 @@
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
     const titles={dash:"Dashboard",orders:"Buyurtmalar",rest:"Restoranlar",courier:"Kuryerlar",income:"Daromad",user:"Foydalanuvchilar",
                   logins:"Loginlar",suspicious:"Shubhali buyurtmalar",comments:"Izohlar",complaints:"Shikoyatlar",
-                  blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
+                  bonuses:"Bonuslar belgilash",events:"Tadbirlar",blocked:"Bloklangan raqamlar",settings:"Sozlamalar"};
     $("#tbTitle").textContent=titles[view]||"";
     $("#sidebar").classList.remove("open");
     window.scrollTo({top:0});
@@ -252,6 +252,8 @@
     if(view==="suspicious") renderSuspicious();
     if(view==="comments") renderComments();
     if(view==="complaints") loadComplaints();
+    if(view==="bonuses") renderBonusesAdmin();
+    if(view==="events") renderEventsAdmin();
     if(view==="logins"){
       /* Qidiruvni tozalab kiramiz — aks holda oldingi filtr "hech narsa yo'q"
          ko'rsatib turishi mumkin edi (foydalanuvchi buni "yuklanmadi" deb tushunardi). */
@@ -944,12 +946,14 @@
     var qty=0; try{ qty=YZ_ITEMS.qty(o); }catch(e){}
     /* Mijoz izohlari — nizo chiqsa admin nimani so'raganini aniq ko'radi */
     var notesHtml=""; try{ notesHtml=YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi"}); }catch(e){}
+    var groupHtml=""; try{ groupHtml=YZ_ITEMS.groupBreakdownHtml(o,{onPaidClick:true}); }catch(e){}
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
       "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer\">✕</button>"+
       "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>"+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
       (o.suspiciousReason?"<div style=\"background:#fff7ed;color:#c2410c;border-radius:10px;padding:8px 11px;font-size:13px;font-weight:700;margin-bottom:10px\">⚠️ Shubha sababi: "+esc(o.suspiciousReason)+"</div>":"")+
+      groupHtml+
       notesHtml+
       itemsHtml+
       "<div style=\"display:flex;flex-direction:column;gap:10px;font-size:14px\">"+
@@ -970,6 +974,11 @@
     el._closeOnBack=function(){ popped=true; el.remove(); };
     el.addEventListener("click",function(e){ if(e.target===el) close(); });
     document.getElementById("ordModalClose").addEventListener("click",close);
+    $$("#ordModal .yz-gb-btn").forEach(function(btn){ btn.addEventListener("click",async function(e){
+      e.stopPropagation(); btn.disabled=true;
+      if(typeof STORE!=="undefined" && STORE.markGroupPaid) await STORE.markGroupPaid(o.id, +btn.dataset.gbidx);
+      close();
+    }); });
   }
   /* App ortga: ochiq modal (ordModal/infoModal) back bilan yopiladi */
   window.addEventListener("popstate",function(){
@@ -2501,6 +2510,108 @@
     }); });
   }
 
+  /* ============================================================
+     BONUSLAR BELGILASH — admin istalgan (umumiy) yoki restoranga tegishli
+     bonus yaratadi/o'chiradi, "Kim bajardi?" ni ko'radi (server jonli hisoblaydi).
+     ============================================================ */
+  const BON_TYPE_LABEL={order_count:"📦 Buyurtmalar soni",referral:"🤝 Do'st taklif qilish",custom:"ℹ️ Ma'lumot"};
+  function renderBonusesAdmin(){
+    const host=$("#bonList"); if(!host) return;
+    const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+    if(!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha bonus yo\'q.</p>'; return; }
+    host.innerHTML=list.map(function(b){
+      const who=b.scope==="restoran" ? ("🏪 "+esc(b.rest)) : "🌐 Umumiy (barcha restoranlar)";
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">'+
+        (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:22px;flex:none">🎁</span>')+
+        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+esc(b.title)+'</div>'+
+          '<div style="color:var(--grey);font-size:12px">'+who+' · '+(BON_TYPE_LABEL[b.type]||b.type)+(b.target?' · maqsad: '+b.target:'')+'</div>'+
+          (b.rewardText?'<div style="color:#16a34a;font-size:12px;font-weight:700">🏆 '+esc(b.rewardText)+'</div>':'')+'</div>'+
+        '<button class="add-action-btn" data-bonqual="'+b.id+'" style="background:#2563eb;flex:none">👥 Kim bajardi?</button>'+
+        '<button class="add-action-btn" data-bondel="'+b.id+'" style="background:#C8102E;flex:none">🗑</button>'+
+        '</div>';
+    }).join("");
+    host.querySelectorAll('[data-bondel]').forEach(function(b){ b.addEventListener('click',async function(){
+      b.disabled=true;
+      const r=(typeof STORE!=="undefined"&&STORE.deleteBonus)? await STORE.deleteBonus(b.dataset.bondel):null;
+      if(r&&r.error){ b.disabled=false; toast(r.error); } else { toast("Bonus o'chirildi ✓"); renderBonusesAdmin(); }
+    }); });
+    host.querySelectorAll('[data-bonqual]').forEach(function(b){ b.addEventListener('click',function(){ openBonusQualifiers(b.dataset.bonqual); }); });
+  }
+  async function openBonusQualifiers(id){
+    const c=$("#bonQualContent"); if(!c) return;
+    c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
+    $("#bonQualModal").classList.add("open"); $("#bonQualBackdrop").classList.add("open");
+    const rows=(typeof STORE!=="undefined"&&STORE.bonusQualifiers)? await STORE.bonusQualifiers(id) : [];
+    if(!Array.isArray(rows)||!rows.length){ c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Hozircha (oxirgi 7 kunda) hech kim shartga mos kelmadi.</p>'; return; }
+    c.innerHTML='<h2>👥 Kim bajardi? ('+rows.length+' ta)</h2>'+
+      '<div style="max-height:360px;overflow-y:auto;margin-top:10px">'+
+      rows.map(function(r){
+        return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px">'+
+          '<b>'+esc(r.user||"Noma'lum")+'</b><span style="color:var(--grey)">'+esc(r.phone||"")+' · '+r.count+' marta</span></div>';
+      }).join("")+'</div>';
+  }
+  function bondQualCloseWire(){
+    const bc=$("#bonQualClose"), bb=$("#bonQualBackdrop");
+    const close=function(){ $("#bonQualModal").classList.remove("open"); $("#bonQualBackdrop").classList.remove("open"); };
+    if(bc) bc.addEventListener("click",close);
+    if(bb) bb.addEventListener("click",close);
+  }
+  async function postBonus(){
+    const t=$("#bonTitle"); if(!t||!t.value.trim()){ toast("Sarlavha kiriting"); return; }
+    const btn=$("#bonBtn"); if(btn){ btn.disabled=true; }
+    let image="";
+    const fi=$("#bonPhoto");
+    if(fi && fi.files && fi.files[0]){
+      const dataUrl=await resizeImage(fi.files[0], 900);
+      if(dataUrl){ image=(typeof STORE!=="undefined" && STORE.uploadImage)?((await STORE.uploadImage(dataUrl))||dataUrl):dataUrl; }
+    }
+    const type=$("#bonType")?$("#bonType").value:"custom";
+    const data={
+      title:t.value.trim(), descr:($("#bonDescr")?$("#bonDescr").value.trim():""),
+      type:type, target:($("#bonTarget")?Number($("#bonTarget").value)||0:0),
+      rewardText:($("#bonReward")?$("#bonReward").value.trim():""), image:image,
+    };
+    const r=(typeof STORE!=="undefined"&&STORE.addBonus)? await STORE.addBonus(data) : {error:"Tizim tayyor emas"};
+    if(btn){ btn.disabled=false; }
+    if(r&&r.error){ toast("❌ "+r.error); return; }
+    toast("Bonus joylandi ✓"); t.value="";
+    if($("#bonDescr")) $("#bonDescr").value=""; if($("#bonReward")) $("#bonReward").value="";
+    if(fi) fi.value=""; const pv=$("#bonPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
+    setTimeout(renderBonusesAdmin, 300);
+  }
+
+  /* ============================================================
+     TADBIRLAR — admin BARCHA restoranlarniki, to'liq tafsilot bilan ko'radi
+     (mijoz, telefon, restoran, sana, kishilar, manzil) + chegirma belgilaydi.
+     ============================================================ */
+  async function renderEventsAdmin(){
+    const host=$("#evListAdmin"); if(!host) return;
+    host.innerHTML='<p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
+    const list=(typeof STORE!=="undefined"&&STORE.myEvents)? await STORE.myEvents() : [];
+    if(!Array.isArray(list)||!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha tadbir yo\'q.</p>'; return; }
+    host.innerHTML=list.map(function(e){
+      return '<div style="padding:12px 0;border-bottom:1px solid var(--line)">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">📅 '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
+        '<div style="font-size:13px;margin-top:4px">👤 '+esc(e.user)+' · 📞 '+esc(e.phone)+' · 🏪 '+esc(e.rest)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
+        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">📍 '+esc(e.addr)+'</div>':'')+
+        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
+          '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
+          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">🏷 Chegirma belgilash</button>'+
+          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">✓ '+e.discountPct+'% belgilangan</span>':'')+
+        '</div></div>';
+    }).join("");
+    host.querySelectorAll('[data-evsave]').forEach(function(b){ b.addEventListener('click',async function(){
+      const id=b.dataset.evsave; const inp=host.querySelector('[data-evpct="'+id+'"]');
+      const pct=inp?Number(inp.value)||0:0;
+      b.disabled=true;
+      const r=(typeof STORE!=="undefined"&&STORE.setEventDiscount)? await STORE.setEventDiscount(id,pct):null;
+      b.disabled=false;
+      if(r&&r.error){ toast(r.error); return; }
+      toast("Chegirma belgilandi ✓"); renderEventsAdmin();
+    }); });
+  }
+
   function renderAdminReviews(){
     const tb=$("#adminReviews"); if(!tb) return;
     const rv=(typeof STORE!=="undefined")?STORE.reviews():[];
@@ -2771,5 +2882,19 @@
       if(dataUrl){ pv.style.display="block"; pv.innerHTML='<img src="'+dataUrl+'" alt="" style="max-width:170px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">'; }
     });
     renderAnnList();
+    /* Bonuslar */
+    const bb=$("#bonBtn"); if(bb) bb.addEventListener("click",postBonus);
+    const bonPhoto=$("#bonPhoto");
+    if(bonPhoto) bonPhoto.addEventListener("change", async (e)=>{
+      const f=e.target.files && e.target.files[0]; const pv=$("#bonPhotoPreview");
+      if(!f || !pv) return;
+      const dataUrl=await resizeImage(f, 500);
+      if(dataUrl){ pv.style.display="block"; pv.innerHTML='<img src="'+dataUrl+'" alt="" style="max-width:170px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">'; }
+    });
+    const bonType=$("#bonType");
+    if(bonType) bonType.addEventListener("change", function(){
+      const wrap=$("#bonTargetWrap"); if(wrap) wrap.style.display = bonType.value==="custom" ? "none" : "";
+    });
+    bondQualCloseWire();
   });
 })();

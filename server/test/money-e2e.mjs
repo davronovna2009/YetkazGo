@@ -197,10 +197,17 @@ async function main() {
         Buyurtma A: 2 Osh + 1 Somsa = 72000, karta
         Buyurtma B: 3 Somsa           = 36000, naqd
         Buyurtma C: 1 Osh + 2 Somsa   = 54000, karta                       */
+  /* Dilnoza 2 marta buyurtma beradi — guest-limit qoidasiga ko'ra (orders-core.js:
+     guestOrderStatus) 2-buyurtmadan oldin ro'yxatdan o'tishi kerak, aks holda 428
+     qaytadi. Shuning uchun OLDINDAN ro'yxatdan o'tkazamiz — pul-hisob mantig'iga
+     bu ta'sir qilmaydi ('Aziza Karimova' pastdaроqda AYNAN shu naqshда). */
+  const dilReg = await api('POST', '/auth/register', { name: 'Dilnoza', phone: '+998901234501', login: 'e2e_dilnoza', pass: 'dilnoza-pass' });
+  const DT = dilReg.data && dilReg.data.token;
+
   const orderSpecs = [
-    { user: 'Dilnoza', phone: '+998901234501', pay: 'card', items: [{ id: 900001, qty: 2 }, { id: 900002, qty: 1 }], expect: 72000 },
+    { user: 'Dilnoza', phone: '+998901234501', pay: 'card', items: [{ id: 900001, qty: 2 }, { id: 900002, qty: 1 }], expect: 72000, token: DT },
     { user: 'Bekzod', phone: '+998901234502', pay: 'cash', items: [{ id: 900002, qty: 3 }], expect: 36000 },
-    { user: 'Dilnoza', phone: '+998901234501', pay: 'card', items: [{ id: 900001, qty: 1 }, { id: 900002, qty: 2 }], expect: 54000 },
+    { user: 'Dilnoza', phone: '+998901234501', pay: 'card', items: [{ id: 900001, qty: 1 }, { id: 900002, qty: 2 }], expect: 54000, token: DT },
   ];
 
   const placed = [];
@@ -208,7 +215,7 @@ async function main() {
     const r = await api('POST', '/orders', {
       user: spec.user, phone: spec.phone, pay: spec.pay,
       items: spec.items, addr: 'Test ko\'cha 1', amount: 999, // amount ataylab noto'g'ri — server e'tibormasin
-    });
+    }, spec.token);
     eq(r.status, 201, `buyurtma (${spec.user}) yaratildi`);
     eq(r.data.amount, spec.expect, `buyurtma summasi server hisobi (${spec.user})`);
     eq(r.data.commissionPct, 20, `buyurtma komissiya foizi muhrlandi 20% (${spec.user})`);
@@ -402,10 +409,11 @@ async function main() {
   eq(guestSpent(afterCancel, '+998901234503'), 0, 'ADMIN mehmon: Sardor sarflagan 0 (yo\'lda)');
   // Kamola (+998901234504): bekor -> 0
   eq(guestSpent(afterCancel, '+998901234504'), 0, 'ADMIN mehmon: Kamola sarflagan 0 (bekor)');
-  // /api/users guests ro'yxatida chiqadi
+  // /api/users guests ro'yxatida chiqadi (Dilnoza endi ro'yxatdan o'tgan — guest
+  // EMAS, shuning uchun hali ham mehmon bo'lib qolgan Sardor bilan tekshiramiz)
   const usersResp = (await api('GET', '/users', null, AT)).data;
   const guests = (usersResp && usersResp.guests) || [];
-  ok(guests.some((g) => digs(g.phone) === '998901234501'), '/api/users: Dilnoza mehmonlar ro\'yxatida');
+  ok(guests.some((g) => digs(g.phone) === '998901234503'), '/api/users: Sardor mehmonlar ro\'yxatida');
 
   /* ============ PART G: CHEGIRMA — butun zanjir ============ */
   console.log('\n--- Chegirma (discount) ---');
@@ -417,11 +425,16 @@ async function main() {
   const ovr = (await api('GET', '/overrides', null)).data;
   eq((ovr.discounts || {})['E2E Milliy Taomlar|Somsa'], 25, '/api/overrides: Somsa 25% chegirma');
 
+  /* Gul ham shu bo'limda 2 marta buyurtma beradi — guest-limit tufayli avval
+     ro'yxatdan o'tkazamiz (Dilnoza'dagi kabi). */
+  const gulReg = await api('POST', '/auth/register', { name: 'Gul', phone: '+998901234511', login: 'e2e_gul', pass: 'gul-pass-123' });
+  const GT = gulReg.data && gulReg.data.token;
+
   /* Yangi buyurtma: 4 Somsa. Chegirmasiz 48000, chegirма bilan 4*9000 = 36000 */
   const rd = await api('POST', '/orders', {
     user: 'Gul', phone: '+998901234511', pay: 'card',
     items: [{ id: 900002, qty: 4 }], addr: 'Chegirma ko\'cha',
-  });
+  }, GT);
   eq(rd.status, 201, 'chegirmali buyurtma yaratildi');
   eq(rd.data.amount, 36000, 'CHEGIRMA: summa chegirmali narxda (4 × 9000 = 36000, 48000 EMAS)');
   const sline = (rd.data.items || []).find((l) => l.name === 'Somsa');
@@ -452,7 +465,7 @@ async function main() {
   const rd2 = await api('POST', '/orders', {
     user: 'Gul', phone: '+998901234511', pay: 'card',
     items: [{ id: 900002, qty: 2 }], addr: 'Chegirma ko\'cha',
-  });
+  }, GT);
   eq(rd2.data.amount, 24000, 'CHEGIRMA olib tashlandi: 2 Somsa = 24000 (to\'liq narx)');
   await api('POST', '/orders/' + rd2.data.id + '/cancel', { token: rd2.data.token });
 

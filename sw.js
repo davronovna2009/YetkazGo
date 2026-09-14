@@ -3,7 +3,30 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v33 — MUAMMO TUZATILDI: bitta brauzerда IKKI restoran (yoki ikki kuryer)
+/* v36 — Kabinet katta yangilanish: Profil/manzil (tuman/mahalla/ko'cha +
+   GPS, onboarding taklifi), Bonuslar (admin/restoran belgilaydi, referral
+   linki, "kim bajardi" jonli hisoblanadi), Tadbirlar (kalendar, admin/
+   restoran chegirma belgilaydi), Restoranlar bo'limi index.html uslubida +
+   restoranga like, reklama banner endi bonus/tadbir-chegirmasini avtomatik
+   ko'rsatadi (to'g'ri bo'limga yo'naltiradi), va Guruh buyurtmasi (bir
+   nechta a'zo bitta yetkazishga, HAR KIM O'Z ulushini alohida to'laydi —
+   restoran/kuryer/admin panelida ko'rinadi). Backend: bonuses/events/
+   groups/group_items jadvallari, accounts manzil+referral ustunlari,
+   orders.group_id/group_breakdown. 207 ta yangi backend test qo'shildi.
+   (v35 — Kabinet: taom kartalari endi bosh sayt bilan bir xil ko'rinishda
+   (assets/css/kabinet-cards.css); sidebar tartibi qayta tuzildi (Asosiy
+   sahifa/Restoranlar/Guruh yaratish/Bonuslar/Tadbirlar/Izoh/Yordam/
+   Sozlamalar/Kabinetim), "Taomlar" alohida tab emas. Yurakcha (like) tugmasi
+   qo'shildi — yoqtirilgan va eng ko'p buyurilgan taomlar ro'yxat boshida
+   chiqadi. "AI maslahat": mijoz odatiy vaqtida ochsa, doim buyuradigan
+   taomini eslatadi (server/src/habit.js).
+   (v34 — Bosh sahifa endi "YetkazGo" nomi bilan ilova sifatida o'rnatiladi
+   (manifest.webmanifest: name/short_name; pwa-install.js index.html'ni ham
+   qamrab oldi — avtomatik taklif, alohida tugma yo'q). Guest (ro'yxatdan
+   o'tmagan) mijoz FAQAT 1-marta buyurtma beradi; 2-martada ro'yxatdan
+   o'tish/kirish so'raladi — sayt VA Telegram bot ikkalasida ham
+   (server/src/orders-core.js: guestOrderStatus).
+   (v33 — MUAMMO TUZATILDI: bitta brauzerда IKKI restoran (yoki ikki kuryer)
    panelini ochsangiz — birini yangilasangiz ikkinchisiga (masalan "Shashlik"
    yangilaganда "ECO FISH"ga) aylanib qolardi. Sabab: ikkala tab bitta
    localStorage kalitini bo'lishardi, oxirgi kirgan hammasini bosib ketardi.
@@ -94,10 +117,10 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v33';
+const CACHE = 'yetkaz-v36';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
-  '/assets/css/styles.css', '/assets/css/admin.css',
+  '/assets/css/styles.css', '/assets/css/admin.css', '/assets/css/kabinet-cards.css',
   '/assets/js/safe.js', '/assets/js/hours.js', '/assets/js/order-items.js', '/assets/js/complaint-box.js',
   '/assets/js/store.js', '/assets/js/support.js', '/assets/js/i18n.js', '/assets/js/data.js', '/assets/js/app.js',
   '/assets/js/admin.js', '/assets/js/restoran.js', '/assets/js/kuryer.js', '/assets/js/kabinet.js',

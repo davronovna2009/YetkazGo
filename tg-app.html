@@ -731,6 +731,10 @@ async function submit(){
        Saytdagi bloklangan raqam bu yerda ham ishlamaydi: ikkalasi ham
        AYNAN bitta tekshiruvdan o'tadi (server/src/blocks.js). */
     if (status === 403 || status === 429){ showBlocked(errText, status === 403); return; }
+    /* Guest (ro'yxatdan o'tmagan) 2-marta buyurtma bermoqchi — mini ilovada
+       to'liq ro'yxatdan o'tish oynasi yo'q, shuning uchun saytga yo'naltiramiz
+       (server/src/orders-core.js: guestOrderStatus, kod: REGISTER_REQUIRED/REGISTER_LOGIN). */
+    if (status === 428){ showRegisterGate(errText, (data && data.code) === 'REGISTER_LOGIN'); return; }
     try { mb.setText('✅ Buyurtmani tasdiqlash'); mb.enable(); } catch(e){}
     alertMsg(errText);
     return;
@@ -764,6 +768,30 @@ function showBlocked(msg, hard){
         ${hard ? 'Blokni administrator ochadi.' : 'Cheklov tugagach qayta urinib ko\'ring.'}
       </p>
     </div>`;
+}
+
+/* Guest sifatida allaqachon 1 marta buyurtma berilgan — 2-marta uchun saytda
+   ro'yxatdan o'tish (yoki bor akkauntga kirish) so'raladi. Mini ilova ichida
+   to'liq forma yo'q, shuning uchun saytni tashqi brauzerda ochamiz. */
+function showRegisterGate(msg, hasAccount){
+  try { tg.MainButton.hide(); tg.BackButton.hide(); } catch(e){}
+  const link = String(location.origin || '') + '/';
+  document.body.innerHTML = html`
+    <div class="nope" style="text-align:center;padding:40px 22px">
+      <div style="font-size:64px">🔒</div>
+      <h2 style="margin:14px 0 8px;color:#C8102E">Ro'yxatdan o'tish kerak</h2>
+      <p style="color:#6B6B6B;font-size:14px;line-height:1.55">${msg}</p>
+      <a href="${link}" target="_blank" rel="noopener"
+         style="display:inline-block;margin-top:18px;padding:12px 22px;border-radius:12px;
+                background:linear-gradient(135deg,#C8102E,#E8A33D);color:#fff;font-weight:800;
+                text-decoration:none;font-size:14px">
+        ${hasAccount ? '🔐 Saytda kirish' : '📝 Saytda ro’yxatdan o’tish'}
+      </a>
+    </div>`;
+  const a = document.querySelector('.nope a');
+  if (a) a.addEventListener('click', (e) => {
+    try { if (tg && tg.openLink) { e.preventDefault(); tg.openLink(link); } } catch(err){}
+  });
 }
 
 /* "Tasdiqlandi — kuting" ekrani, so'ng ilova o'zi yopiladi */

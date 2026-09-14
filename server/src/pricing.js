@@ -76,10 +76,11 @@ function normalizeItems(rawItems) {
   return want;
 }
 
-/* Buyurtmani narxlaydi. Muvaffaqiyatда:
-     { rest, item, emoji, amount, lines: [{id,name,emoji,qty,price,pct,eff,sum,note}] }
-   Xatoда — PriceError (status + o'zbekcha xabar). */
-export function priceOrder(rawItems) {
+/* Buyurtma qatorlarini narxlaydi — MINIMAL SUMMA tekshiruvisiz (guruh
+   buyurtmasida har A'ZONING o'z ulushi minimal summadan kichik bo'lishi
+   mumkin, faqat GURUH JAMI tekshiriladi — routes/groups.js shuni qiladi).
+   Muvaffaqiyatда: { rest, item, emoji, amount, lines: [...] }. Xatoda — PriceError. */
+export function priceOrderLines(rawItems) {
   const want = normalizeItems(rawItems);
 
   /* `photo` ham olinadi — buyurtma tarkibi panellarда RASM bilan ko'rinsin
@@ -153,14 +154,19 @@ export function priceOrder(rawItems) {
     throw new PriceError(409, `«${rest}» hozir yopiq. Ish vaqti: ${restHoursText(r)}. Shu vaqtda buyurtma bering.`);
   }
 
-  const minOrder = minOrderAmount();
-  if (amount < minOrder) {
-    throw new PriceError(400, 'Minimal buyurtma ' + minOrder.toLocaleString('ru-RU') + ' so`m');
-  }
-
   /* Yorliq — sayt (app.js) formatida: "Lag'mon +2 ta". Sayt buyurtmani shu
      matn bo'yicha topadi, shuning uchun format AYNAN bir xil bo'lishi shart. */
   const item = lines.length > 1 ? `${lines[0].name} +${lines.length - 1} ta` : lines[0].name;
 
   return { rest, item, emoji: lines[0].emoji, amount, lines };
+}
+
+/* Oddiy (bitta mijoz) buyurtma — priceOrderLines + MINIMAL SUMMA tekshiruvi. */
+export function priceOrder(rawItems) {
+  const priced = priceOrderLines(rawItems);
+  const minOrder = minOrderAmount();
+  if (priced.amount < minOrder) {
+    throw new PriceError(400, 'Minimal buyurtma ' + minOrder.toLocaleString('ru-RU') + ' so`m');
+  }
+  return priced;
 }

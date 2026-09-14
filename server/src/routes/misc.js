@@ -8,6 +8,7 @@ import { getOverrides } from './dishes.js';
 import { liveRatings } from '../ratings.js';
 import { publicSettings, setSetting, KEYS } from '../settings.js';
 import { toImageUrl } from './upload.js';
+import { detectHabit } from '../habit.js';
 
 const router = Router();
 
@@ -134,12 +135,17 @@ router.get('/bootstrap', (_req, res) => {
   const announcements = db.prepare('SELECT * FROM announcements ORDER BY id DESC LIMIT 20').all().map(a => ({
     id: a.id, rest: a.rest, text: a.text, emoji: a.emoji, tag: a.tag, dish: a.dish, img: a.img || '',
   }));
+  /* Bonuslar — kabinet "Bonuslar" bo'limi va reklama banner shu yerdan oladi */
+  const bonuses = db.prepare('SELECT * FROM bonuses WHERE active = 1 ORDER BY id DESC').all().map(b => ({
+    id: b.id, scope: b.scope, rest: b.rest || '', title: b.title, descr: b.descr || '',
+    image: b.image || '', type: b.type, target: b.target || 0, rewardText: b.reward_text || '',
+  }));
   /* Reytinglar BIR MARTA hisoblanadi va restoran/taomlarga tarqatiladi */
   const live = liveRatings();
   const restaurants = db.prepare('SELECT * FROM restaurants WHERE active = 1 ORDER BY id').all()
     .map((r) => restRow(r, live));
   _bootCache = {
-    reviews, overrides: getOverrides(live), announcements, restaurants,
+    reviews, overrides: getOverrides(live), announcements, restaurants, bonuses,
     /* Taom va kuryer reytinglari — sayt yulduzchalarni SHU YERDAN oladi */
     ratings: { dishes: live.dishes, couriers: live.couriers },
     /* Sayt egasining raqami (miqdor cheklovi xabarida ko'rsatiladi) */
@@ -151,6 +157,18 @@ router.get('/bootstrap', (_req, res) => {
 
 /* GET /api/settings — ommaviy (sayt egasi raqami). PATCH — faqat admin. */
 router.get('/settings', (_req, res) => res.json(publicSettings()));
+
+/* GET /api/habit?phone=... — "AI maslahat": shu telefon HOZIR (Toshkent
+   vaqti bo'yicha) odatiy buyurtma vaqtida bo'lsa va hali bugun olmagan
+   bo'lsa — taklif qilinadigan taomni qaytaradi (server/src/habit.js).
+   Ochiq endpoint — sayt hali login talab qilmaydi (mehmon ham tekshiriladi). */
+router.get('/habit', (req, res) => {
+  const phone = String(req.query.phone || '');
+  if (!phone) return res.json({ dish: null });
+  let dish = null;
+  try { dish = detectHabit(phone); } catch (e) { dish = null; }
+  res.json({ dish });
+});
 
 const BOOL01 = (v) => (v === true || v === 1 || v === '1' || v === 'true' || v === 'on' ? '1' : '0');
 router.patch('/settings', requireRole('admin'), (req, res) => {
