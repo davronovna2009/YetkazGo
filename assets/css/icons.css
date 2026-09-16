@@ -1,0 +1,31 @@
+/* Yetkaz.uz — umumiy ikon uslubi (emoji o'rniga, assets/icons.svg spritedan) */
+.yz-i{
+  display:inline-block;
+  width:1em;height:1em;
+  vertical-align:-0.14em;
+  flex:none;
+  fill:none;
+  stroke:currentColor;
+  color:currentColor;
+}
+.yz-i.yz-i-fill{fill:currentColor;stroke:none;}
+
+/* Tez-tez ishlatiladigan rang belgilari */
+.yz-i-red{color:#e74c3c;}
+.yz-i-green{color:#27ae60;}
+.yz-i-blue{color:#2f80ed;}
+.yz-i-amber{color:#f5a623;}
+.yz-i-gray{color:#8a94a6;}
+.yz-i-white{color:#fff;}
+.yz-i-brand{color:var(--brand,#ff5722);}
+
+/* Katta hajm variantlari */
+.yz-i-lg{width:1.4em;height:1.4em;}
+.yz-i-xl{width:2em;height:2em;}
+.yz-i-xxl{width:3em;height:3em;}
+
+/* Tugma/label ichida ikon+matn moslamasi */
+.yz-ic{display:inline-flex;align-items:center;gap:.4em;}
+
+/* Taom/restoran katta ikon (avvalgi emoji o'rnida) — oq rang, soyasi ota elementdan (.food-emoji filter) */
+.food-emoji .yz-i{color:#fff;stroke-width:1.5;}

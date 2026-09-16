@@ -14,6 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/admin.css" />
   <link rel="stylesheet" href="assets/css/kabinet-cards.css" />
+  <link rel="stylesheet" href="assets/css/icons.css" />
 </head>
 <body>
   <div class="sb-overlay" id="sbOverlay"></div>
@@ -32,34 +33,33 @@
 
   <div class="app" id="app">
     <aside class="sidebar" id="sidebar">
-      <div class="sb-logo"><span style="font-size:26px">👤</span> <span id="sbName">Foydalanuvchi</span></div>
+      <div class="sb-logo"><svg class="yz-i" style="width:26px;height:26px"><use href="assets/icons.svg#user"/></svg> <span id="sbName">Foydalanuvchi</span></div>
       <nav class="sb-nav">
-        <a class="sb-link" href="index.html"><span class="ic">🏠</span><span class="ic-label">Asosiy sahifa</span></a>
-        <a class="sb-link active" data-view="rests"><span class="ic">🏪</span><span class="ic-label">Restoranlar</span></a>
-        <a class="sb-link" data-view="group"><span class="ic">👥</span><span class="ic-label">Guruh yaratish</span></a>
-        <a class="sb-link" data-view="bonus"><span class="ic">🎁</span><span class="ic-label">Bonuslar</span></a>
-        <a class="sb-link" data-view="events"><span class="ic">🎉</span><span class="ic-label">Tadbirlar</span></a>
-        <a class="sb-link" data-view="review"><span class="ic">⭐</span><span class="ic-label">Izoh qoldirish</span></a>
-        <a class="sb-link" data-view="help"><span class="ic">❓</span><span class="ic-label">Qanday buyurtma berish</span></a>
-        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span><span class="ic-label">Sozlamalar</span></a>
-        <a class="sb-link" data-view="profil"><span class="ic">🧾</span><span class="ic-label">Mening kabinetim</span></a>
+        <a class="sb-link active" data-view="rests"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#home"/></svg></span><span class="ic-label">Asosiy sahifa</span></a>
+        <a class="sb-link" data-view="group"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#users"/></svg></span><span class="ic-label">Guruh yaratish</span></a>
+        <a class="sb-link" data-view="bonus"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#gift"/></svg></span><span class="ic-label">Bonuslar</span></a>
+        <a class="sb-link" data-view="events"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#party"/></svg></span><span class="ic-label">Tadbirlar</span></a>
+        <a class="sb-link" data-view="review"><span class="ic"><svg class="yz-i yz-i-fill yz-i-amber"><use href="assets/icons.svg#star"/></svg></span><span class="ic-label">Izoh qoldirish</span></a>
+        <a class="sb-link" data-view="help"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#help-circle"/></svg></span><span class="ic-label">Qanday buyurtma berish</span></a>
+        <a class="sb-link" data-view="settings"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#settings"/></svg></span><span class="ic-label">Sozlamalar</span></a>
+        <a class="sb-link" data-view="profil"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#receipt"/></svg></span><span class="ic-label">Mening kabinetim</span></a>
       </nav>
-      <div class="sb-foot"><div>yetkaz.uz</div><button id="logoutBtn">← Chiqish</button></div>
+      <div class="sb-foot"><div>yetkaz.uz</div><button id="logoutBtn"><svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg> Chiqish</button></div>
     </aside>
 
     <div class="main">
       <div class="topbar">
-        <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menyu"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></button>
         <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
         <h2 id="tbTitle">Mening kabinetim</h2>
-        <div class="tb-right"><button id="kabTopCart" style="background:#C8102E;color:#fff;border:none;border-radius:999px;padding:8px 15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px">🛒 <span data-kt="savat">Savat</span> <span id="kabTopCartCount" style="background:#fff;color:#C8102E;border-radius:999px;min-width:19px;text-align:center;font-size:12px;padding:1px 5px;font-weight:800">0</span></button></div>
+        <div class="tb-right"><button id="kabTopCart" style="background:#C8102E;color:#fff;border:none;border-radius:999px;padding:8px 15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px"><svg class="yz-i yz-i-white"><use href="assets/icons.svg#cart"/></svg> <span data-kt="savat">Savat</span> <span id="kabTopCartCount" style="background:#fff;color:#C8102E;border-radius:999px;min-width:19px;text-align:center;font-size:12px;padding:1px 5px;font-weight:800">0</span></button></div>
       </div>
       <div class="content">
 
         <!-- RESTORANLAR (birinchi ochiladigan bo'lim) -->
         <section class="view show" id="view-rests">
           <div class="krest-search" style="margin-bottom:12px">
-            <input id="kRestSearch" data-kt-ph="qidirish" placeholder="🔍 Restoran qidirish..." class="krest-search-input" />
+            <input id="kRestSearch" data-kt-ph="qidirish" placeholder="Restoran qidirish..." class="krest-search-input" />
           </div>
           <div class="grid rest-grid" id="kRestGrid"></div>
         </section>
@@ -70,7 +70,7 @@
           <!-- Aksiya banner -->
           <div id="kabPromoBand" class="kab-promo-band" style="display:none;cursor:pointer;margin-bottom:12px">
             <div class="kab-promo-inner" id="kabPromoInner"></div>
-            <button class="kab-promo-close" id="kabPromoClose">✕</button>
+            <button class="kab-promo-close" id="kabPromoClose"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
           </div>
           <div class="kchips" id="kFilters"></div>
           <div class="grid dishes-grid" id="kMenu"></div>
@@ -81,18 +81,18 @@
         <section class="view" id="view-group">
           <!-- Hali guruhga kirmagan holat -->
           <div class="panel" id="groupIntro">
-            <div class="panel-head"><h3>👥 Guruh yaratish</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#users"/></svg> Guruh yaratish</h3></div>
             <div class="panel-body">
               <p style="color:var(--grey);font-size:13.5px;margin-bottom:14px">Do'stlaringiz bilan birga bitta yetkazishga buyurtma bering — har kim o'z ulushini o'zi to'laydi.</p>
               <div class="set-field"><label>Yangi guruh — restoran tanlang</label>
                 <select id="grpNewRest"></select>
               </div>
-              <button class="set-save" id="grpCreateBtn" style="width:100%;margin-bottom:18px">➕ Guruh yaratish</button>
+              <button class="set-save" id="grpCreateBtn" style="width:100%;margin-bottom:18px"><svg class="yz-i"><use href="assets/icons.svg#plus"/></svg> Guruh yaratish</button>
               <div style="border-top:1px solid var(--line);padding-top:16px">
                 <div class="set-field"><label>Kodingiz bormi? Kiriting</label>
                   <input id="grpJoinCode" placeholder="Masalan: A3F9K2" style="text-transform:uppercase" />
                 </div>
-                <button class="set-save" id="grpJoinBtn" style="width:100%;background:#f1eef0;color:#555">🔑 Kodga qo'shilish</button>
+                <button class="set-save" id="grpJoinBtn" style="width:100%;background:#f1eef0;color:#555"><svg class="yz-i"><use href="assets/icons.svg#key"/></svg> Kodga qo'shilish</button>
               </div>
               <div id="grpMsg" style="margin-top:10px;font-size:13px"></div>
             </div>
@@ -101,33 +101,33 @@
           <!-- Faol guruh -->
           <div id="groupActive" style="display:none">
             <div class="panel" style="margin-bottom:14px">
-              <div class="panel-head"><h3 id="grpTitle">👥 Guruh</h3><span class="panel-badge" id="grpCodeBadge"></span></div>
+              <div class="panel-head"><h3 id="grpTitle"><svg class="yz-i"><use href="assets/icons.svg#users"/></svg> Guruh</h3><span class="panel-badge" id="grpCodeBadge"></span></div>
               <div class="panel-body">
                 <p style="font-size:13px;color:var(--grey)">Kodni do'stlaringizga yuboring — ular "Kodga qo'shilish" orqali kiradi.</p>
                 <div class="set-field"><label>Yetkazish manzili</label><input id="grpAddr" placeholder="To'liq manzil" /></div>
-                <button class="set-save" id="grpSaveAddr" style="width:auto;padding:9px 16px;margin-bottom:10px">💾 Manzilni saqlash</button>
+                <button class="set-save" id="grpSaveAddr" style="width:auto;padding:9px 16px;margin-bottom:10px"><svg class="yz-i"><use href="assets/icons.svg#save"/></svg> Manzilni saqlash</button>
                 <div class="set-field"><label>Mening to'lov turim</label>
-                  <select id="grpMyPay"><option value="cash">💵 Naqd</option><option value="card">💳 Karta</option></select>
+                  <select id="grpMyPay"><option value="cash">Naqd</option><option value="card">Karta</option></select>
                 </div>
               </div>
             </div>
             <div class="panel" style="margin-bottom:14px">
-              <div class="panel-head"><h3>🛒 Guruh savati</h3></div>
+              <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#cart"/></svg> Guruh savati</h3></div>
               <div class="panel-body" id="grpCart"><p style="color:var(--grey);font-size:13px">Hali hech kim taom qo'shmagan.</p></div>
               <div class="panel-body" style="padding-top:0">
-                <button class="set-save" id="grpConfirmBtn" style="width:100%;background:#16a34a">✅ Buyurtmani yakunlash</button>
+                <button class="set-save" id="grpConfirmBtn" style="width:100%;background:#16a34a"><svg class="yz-i yz-i-white"><use href="assets/icons.svg#check-circle"/></svg> Buyurtmani yakunlash</button>
                 <div id="grpConfirmMsg" style="margin-top:8px;font-size:13px"></div>
               </div>
             </div>
             <div class="panel">
-              <div class="panel-head"><h3>🍽️ Taomlar</h3></div>
+              <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> Taomlar</h3></div>
               <div class="panel-body"><div class="grid dishes-grid" id="grpDishGrid"></div></div>
             </div>
           </div>
 
           <!-- Yakunlangan -->
           <div id="groupDone" class="panel" style="display:none">
-            <div class="panel-head"><h3>✅ Guruh buyurtmasi yakunlandi</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i yz-i-green"><use href="assets/icons.svg#check-circle"/></svg> Guruh buyurtmasi yakunlandi</h3></div>
             <div class="panel-body" id="grpDoneBody"></div>
           </div>
         </section>
@@ -135,7 +135,7 @@
         <!-- BONUSLAR -->
         <section class="view" id="view-bonus">
           <div class="panel">
-            <div class="panel-head"><h3>🎁 Bonuslar</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#gift"/></svg> Bonuslar</h3></div>
             <div class="panel-body" id="bonusListKab" style="padding:16px">
               <p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>
             </div>
@@ -145,7 +145,7 @@
         <!-- TADBIRLAR -->
         <section class="view" id="view-events">
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🎉 Tadbir uchun oldindan buyurtma</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#party"/></svg> Tadbir uchun oldindan buyurtma</h3></div>
             <div class="panel-body">
               <div class="set-field"><label>Restoran</label>
                 <select id="evRest"></select>
@@ -162,7 +162,7 @@
               <div class="set-field"><label>Necha kun oldin buyurtma berilishi kerak</label>
                 <input id="evAdvance" type="number" min="1" value="1" />
               </div>
-              <button class="set-save" id="evSubmit">📅 Yuborish</button>
+              <button class="set-save" id="evSubmit"><svg class="yz-i"><use href="assets/icons.svg#send"/></svg> Yuborish</button>
               <div id="evMsg" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>
@@ -214,7 +214,7 @@
                 <div class="step-u"><div class="n">3</div><div><h4 data-kt="hs3_t">Buyurtma bering</h4><p data-kt="hs3_d">To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).</p></div></div>
                 <div class="step-u"><div class="n">4</div><div><h4 data-kt="hs4_t">Kuzating</h4><p data-kt="hs4_d">Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.</p></div></div>
               </div>
-              <div class="video-ph"><div class="pl">▶️</div><p style="margin-top:8px" data-kt="video_soon">Video qo'llanma tez orada qo'shiladi</p></div>
+              <div class="video-ph"><div class="pl"><svg class="yz-i yz-i-xl"><use href="assets/icons.svg#play"/></svg></div><p style="margin-top:8px" data-kt="video_soon">Video qo'llanma tez orada qo'shiladi</p></div>
             </div>
           </div>
         </section>
@@ -222,7 +222,7 @@
         <!-- SOZLAMALAR -->
         <section class="view" id="view-settings">
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3 data-kt="set_profile">👤 Profil ma'lumotlari</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#user"/></svg> <span data-kt="set_profile">Profil ma'lumotlari</span></h3></div>
             <div class="panel-body" style="max-width:560px">
               <div class="set-field"><label data-kt="f_ism">Ism</label><input id="stName" data-kt-ph="ph_ism" placeholder="Ism familiya" /></div>
               <div class="set-field"><label data-kt="f_tel">Telefon</label><input id="stPhone" type="tel" placeholder="+998 XX XXX XX XX" /></div>
@@ -230,25 +230,25 @@
               <div class="set-field"><label data-kt="f_tuman">Tuman</label><input id="stRegion" data-kt-ph="ph_tuman" placeholder="Masalan: Xatirchi tumani" /></div>
               <div class="set-field"><label data-kt="f_mahalla">Mahalla</label><input id="stMahalla" data-kt-ph="ph_mahalla" placeholder="Mahalla nomi" /></div>
               <div class="set-field"><label data-kt="f_kocha">Ko'cha</label><input id="stStreet" data-kt-ph="ph_kocha" placeholder="Ko'cha, uy, kvartira" /></div>
-              <button type="button" id="stGeoBtn" style="width:100%;margin-bottom:12px;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer">📍 Joylashuvni yoqing</button>
+              <button type="button" id="stGeoBtn" style="width:100%;margin-bottom:12px;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer"><svg class="yz-i"><use href="assets/icons.svg#map-pin"/></svg> Joylashuvni yoqing</button>
               <div id="stGeoMsg" style="margin-bottom:10px;font-size:12.5px;color:var(--grey)"></div>
-              <button class="set-save" id="stSaveProfile" data-kt="saqlash">💾 Saqlash</button>
+              <button class="set-save" id="stSaveProfile"><svg class="yz-i"><use href="assets/icons.svg#save"/></svg> <span data-kt="saqlash">Saqlash</span></button>
               <div id="stMsg" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3 data-kt="set_login">🔒 Login va parol</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#lock"/></svg> <span data-kt="set_login">Login va parol</span></h3></div>
             <div class="panel-body" style="max-width:560px">
               <div class="set-field"><label data-kt="login_l">Login</label><input id="stLogin" readonly style="opacity:.7;cursor:not-allowed" /></div>
               <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.6">
-                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa murojaat qiling.
+                <svg class="yz-i"><use href="assets/icons.svg#lock"/></svg> <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa murojaat qiling.
                 <div id="kabLoginSupport" style="margin-top:8px"></div>
               </div>
               <div id="stMsg2" style="margin-top:10px;font-size:13px"></div>
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3 data-kt="set_lang">🌐 Til</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#globe"/></svg> <span data-kt="set_lang">Til</span></h3></div>
             <div class="panel-body">
               <div style="display:flex;gap:8px">
                 <button id="stLatin" class="set-save" style="flex:0 0 auto;background:#f1eef0;color:#555">Lotin</button>
@@ -258,7 +258,7 @@
             </div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3 data-kt="set_notif">🔔 Bildirishnomalar</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#bell"/></svg> <span data-kt="set_notif">Bildirishnomalar</span></h3></div>
             <div class="panel-body">
               <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px">
                 <input type="checkbox" id="stSound" style="width:18px;height:18px" /> <span data-kt="notif_sound">Buyurtma holati o'zgarsa ovozli bildirishnoma</span>
@@ -293,8 +293,8 @@
   <div class="kab-cart-bd" id="kabCartBd"></div>
   <div class="kab-cart-drawer" id="kabCartDrawer">
     <div class="kab-dr-head">
-      <h3 data-kt="savat_head">🛒 Savatingiz</h3>
-      <button class="kab-dr-close" id="kabDrClose">✕</button>
+      <h3><svg class="yz-i"><use href="assets/icons.svg#cart"/></svg> <span data-kt="savat_head">Savatingiz</span></h3>
+      <button class="kab-dr-close" id="kabDrClose"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
     </div>
     <div class="kab-dr-body" id="kabCartBody"></div>
     <div class="kab-dr-foot" id="kabCartFoot"></div>
@@ -303,13 +303,13 @@
   <!-- PROMO MODAL -->
   <div class="kpmod-backdrop" id="kpmodBackdrop"></div>
   <div class="kpmod" id="kpmodModal">
-    <button class="kpmod-close" id="kpmodClose">✕</button>
+    <button class="kpmod-close" id="kpmodClose"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
     <div id="kpmodContent"></div>
   </div>
 
   <div class="kmodal-backdrop" id="koBackdrop"></div>
   <div class="kmodal" id="koModal">
-    <button class="kmodal-close" id="koClose">✕</button>
+    <button class="kmodal-close" id="koClose"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
     <div id="koContent"></div>
   </div>
 
@@ -321,21 +321,21 @@
       <img src="assets/logo.png" alt="Yetkaz" />
     </a>
     <button class="kab-bar-item" id="kbbMenu">
-      <span class="kbb-icon" id="kbbMenuIcon">☰</span>
+      <span class="kbb-icon" id="kbbMenuIcon"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></span>
       <span class="kbb-label" data-kt="menyu">Menyu</span>
     </button>
     <button class="kab-bar-cart" id="kbbCart">
-      <span class="kbb-cart-icon">🛒</span>
+      <span class="kbb-cart-icon"><svg class="yz-i"><use href="assets/icons.svg#cart"/></svg></span>
       <span class="kbb-cart-label" data-kt="savat">Savat</span>
       <span class="kbb-cart-badge" id="kabCartBadge">0</span>
       <span class="kbb-cart-pulse" id="kabCartPulse"></span>
     </button>
     <button class="kab-bar-item" id="kbbProfil">
-      <span class="kbb-icon">🧾</span>
+      <span class="kbb-icon"><svg class="yz-i"><use href="assets/icons.svg#receipt"/></svg></span>
       <span class="kbb-label" data-kt="profil_short">Profil</span>
     </button>
     <button class="kab-bar-item" id="kbbExit">
-      <span class="kbb-icon">↩</span>
+      <span class="kbb-icon"><svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg></span>
       <span class="kbb-label" data-kt="chiqish_short">Chiqish</span>
     </button>
   </nav>
@@ -344,15 +344,14 @@
   <div class="kab-nav-backdrop" id="kabNavBackdrop"></div>
   <nav class="kab-nav-sheet" id="kabNavSheet">
     <div class="kns-handle"></div>
-    <a class="kns-link" href="index.html">🏠 <span data-kt="asosiy">Asosiy sahifa</span></a>
-    <a class="kns-link" data-view="rests">🏪 <span data-kt="rests">Restoranlar</span></a>
-    <a class="kns-link" data-view="group">👥 <span data-kt="guruh">Guruh yaratish</span></a>
-    <a class="kns-link" data-view="bonus">🎁 <span data-kt="bonuslar">Bonuslar</span></a>
-    <a class="kns-link" data-view="events">🎉 <span data-kt="tadbirlar">Tadbirlar</span></a>
-    <a class="kns-link" data-view="review">⭐ <span data-kt="review">Izoh qoldirish</span></a>
-    <a class="kns-link" data-view="help">❓ <span data-kt="yordam">Yordam</span></a>
-    <a class="kns-link" data-view="settings">⚙️ <span data-kt="settings">Sozlamalar</span></a>
-    <a class="kns-link" data-view="profil">🧾 <span data-kt="profil">Mening kabinetim</span></a>
+    <a class="kns-link" data-view="rests"><svg class="yz-i"><use href="assets/icons.svg#home"/></svg> <span data-kt="asosiy">Asosiy sahifa</span></a>
+    <a class="kns-link" data-view="group"><svg class="yz-i"><use href="assets/icons.svg#users"/></svg> <span data-kt="guruh">Guruh yaratish</span></a>
+    <a class="kns-link" data-view="bonus"><svg class="yz-i"><use href="assets/icons.svg#gift"/></svg> <span data-kt="bonuslar">Bonuslar</span></a>
+    <a class="kns-link" data-view="events"><svg class="yz-i"><use href="assets/icons.svg#party"/></svg> <span data-kt="tadbirlar">Tadbirlar</span></a>
+    <a class="kns-link" data-view="review"><svg class="yz-i yz-i-fill yz-i-amber"><use href="assets/icons.svg#star"/></svg> <span data-kt="review">Izoh qoldirish</span></a>
+    <a class="kns-link" data-view="help"><svg class="yz-i"><use href="assets/icons.svg#help-circle"/></svg> <span data-kt="yordam">Yordam</span></a>
+    <a class="kns-link" data-view="settings"><svg class="yz-i"><use href="assets/icons.svg#settings"/></svg> <span data-kt="settings">Sozlamalar</span></a>
+    <a class="kns-link" data-view="profil"><svg class="yz-i"><use href="assets/icons.svg#receipt"/></svg> <span data-kt="profil">Mening kabinetim</span></a>
     <div class="kns-divider"></div>
     <div class="kns-lang">
       <span class="kns-lang-label">Til / Язык</span>
@@ -381,8 +380,8 @@
     var toggle  = document.getElementById('menuToggle');
     var sidebar = document.getElementById('sidebar');
     var overlay = document.getElementById('sbOverlay');
-    function sdOpen(){ if(sidebar) sidebar.classList.add('open'); if(overlay) overlay.classList.add('open'); document.body.style.overflow='hidden'; if(toggle) toggle.textContent='✕'; }
-    function sdClose(){ if(sidebar) sidebar.classList.remove('open'); if(overlay) overlay.classList.remove('open'); document.body.style.overflow=''; if(toggle) toggle.textContent='☰'; }
+    function sdOpen(){ if(sidebar) sidebar.classList.add('open'); if(overlay) overlay.classList.add('open'); document.body.style.overflow='hidden'; if(toggle) toggle.innerHTML='<svg class="yz-i"><use href="assets/icons.svg#x"/></svg>'; }
+    function sdClose(){ if(sidebar) sidebar.classList.remove('open'); if(overlay) overlay.classList.remove('open'); document.body.style.overflow=''; if(toggle) toggle.innerHTML='<svg class="yz-i"><use href="assets/icons.svg#menu"/></svg>'; }
     toggle && toggle.addEventListener('click', function(){ sidebar && sidebar.classList.contains('open') ? sdClose() : sdOpen(); });
     overlay && overlay.addEventListener('click', sdClose);
     document.querySelectorAll('.sb-link').forEach(function(l){ l.addEventListener('click', function(){ if(window.innerWidth<=900) sdClose(); }); });
@@ -403,14 +402,14 @@
     function openNav(){
       if(navSheet) navSheet.classList.add('open');
       if(navBackdrop) navBackdrop.classList.add('open');
-      if(kbbMenuIcon) kbbMenuIcon.textContent = '✕';
+      if(kbbMenuIcon) kbbMenuIcon.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#x"/></svg>';
       document.body.style.overflow = 'hidden';
       navOpen = true;
     }
     function closeNav(){
       if(navSheet) navSheet.classList.remove('open');
       if(navBackdrop) navBackdrop.classList.remove('open');
-      if(kbbMenuIcon) kbbMenuIcon.textContent = '☰';
+      if(kbbMenuIcon) kbbMenuIcon.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#menu"/></svg>';
       document.body.style.overflow = '';
       navOpen = false;
     }

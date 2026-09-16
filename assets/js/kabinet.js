@@ -6,6 +6,15 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  const ic = (name, cls) => '<svg class="yz-i'+(cls?' '+cls:'')+'"><use href="assets/icons.svg#'+name+'"/></svg>';
+  /* Taom emojisi o'rniga — kw (tone) kategoriyasiga mos ikon (assets/js/data.js
+     dagi tone-* kategoriyalar bilan bir xil kalitlar). Asl `emoji` maydoni
+     (DB/Telegram uchun) o'zgarmaydi — faqat DISPLAY shu ikonga almashadi. */
+  const KW_ICON={burger:'food-burger',pizza:'food-pizza',shawarma:'food-shawarma',rice:'food-rice',noodles:'food-noodles',fries:'food-fries',hotdog:'food-hotdog',chicken:'food-chicken',cola:'food-drink',cake:'food-cake',salad:'food-salad',icecream:'food-icecream',dessert:'food-dessert',dumpling:'food-dumpling',kebab:'food-kebab',samosa:'food-samosa',milkshake:'food-milkshake',tea:'food-tea',donut:'food-donut'};
+  const foodIcon = (kw, cls) => ic(KW_ICON[kw]||'food-generic', cls);
+  /* Yulduzcha reyting — ★/☆ belgilar o'rniga ikon qatori */
+  const starsHtml = (rating, max) => { max=max||5; const r=Math.max(0,Math.min(max,rating|0)); let s=""; for(let i=0;i<max;i++) s+= i<r ? ic("star","yz-i-fill yz-i-amber") : ic("star-outline","yz-i-amber"); return s; };
   /* Nom joriy tilga (lotin/kirill) TO'LIQ mos bo'lsin — nameCyr bo'sh bo'lsa
      ham avtomatik harflanadi (YZ_TRANSLIT), aralash alifbo qolmaydi. */
   const nm = o => { try{
@@ -15,7 +24,7 @@
   /* Geolokatsiya — manzilni qurilma joylashuvidan to'ldiradi */
   function detectLocation(inputEl, btn){
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni qo'llamaydi","error"); return; }
-    const orig=btn?btn.innerHTML:""; if(btn){ btn.disabled=true; btn.innerHTML="📍 Aniqlanmoqda..."; }
+    const orig=btn?btn.innerHTML:""; if(btn){ btn.disabled=true; btn.innerHTML=ic('map-pin')+" Aniqlanmoqda..."; }
     const done=()=>{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } };
     navigator.geolocation.getCurrentPosition(async (pos)=>{
       const lat=pos.coords.latitude, lng=pos.coords.longitude; let addr="";
@@ -23,7 +32,7 @@
       if(!addr) addr=`(${lat.toFixed(5)}, ${lng.toFixed(5)})`;
       /* Inputga YOZMAYMIZ — foydalanuvchi yozgani turadi. Joylashuv faqat xotirada. */
       USER.geo = { lat:lat, lng:lng, addr:addr };
-      done(); toast("Joylashuv aniqlandi 📍 (manzil maydoni o'zgarmaydi)","success");
+      done(); toast("Joylashuv aniqlandi (manzil maydoni o'zgarmaydi)","success");
     }, (err)=>{ done(); toast(err&&err.code===1?"Joylashuvga ruxsat berilmadi":"Joylashuvni aniqlab bo'lmadi","error"); },
     { enableHighAccuracy:true, timeout:10000, maximumAge:60000 });
   }
@@ -187,12 +196,12 @@
     try{ if(localStorage.getItem(key)) return; }catch(e){}
     var c=$("#koContent"); if(!c) return;
     c.innerHTML=`<div style="text-align:center;padding:6px 4px">
-      <div style="font-size:44px">📋</div>
+      <div style="font-size:44px;color:var(--brand,#ff5722)">${ic('clipboard','yz-i-xxl')}</div>
       <h2 style="margin:10px 0 4px">Ma'lumotlaringizni saqlab qo'ying</h2>
-      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Ism va manzilingizni bir marta saqlab qo'ysangiz, keyingi buyurtmalarda hammasi tayyor turadi — sizga oson bo'ladi 😊</p>
+      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Ism va manzilingizni bir marta saqlab qo'ysangiz, keyingi buyurtmalarda hammasi tayyor turadi — sizga oson bo'ladi</p>
       <div style="display:flex;gap:10px">
         <button id="obLater" style="flex:1;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer">Keyinroq</button>
-        <button id="obSave" class="set-save" style="flex:1">💾 Saqlash</button>
+        <button id="obSave" class="set-save" style="flex:1">${ic('save')} Saqlash</button>
       </div>
     </div>`;
     $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
@@ -205,25 +214,25 @@
   /* ===== BONUSLAR: admin/restoran belgilagan, mijoz shu yerда ko'radi =====
      Referral (do'st taklif qilish) turdagi bonusda — o'zining ulashish
      linki (index.html?ref=<login>) va nusxalash tugmasi ko'rsatiladi. */
-  const BON_TYPE_LABEL_K={order_count:"📦 Buyurtmalar soni",referral:"🤝 Do'st taklif qilish",custom:"ℹ️ Ma'lumot"};
+  const BON_TYPE_LABEL_K={order_count:ic('package')+" Buyurtmalar soni",referral:ic('handshake')+" Do'st taklif qilish",custom:ic('help-circle')+" Ma'lumot"};
   function refLink(){ try{ return location.origin+"/?ref="+encodeURIComponent(USER.login||""); }catch(e){ return ""; } }
   function renderBonusesKab(){
     const host=$("#bonusListKab"); if(!host) return;
     const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
     if(!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px;text-align:center;padding:20px 0">Hozircha bonus yo\'q. Tez orada qo\'shiladi!</p>'; return; }
     host.innerHTML=list.map(function(b){
-      const who=b.scope==="restoran" ? ('🏪 '+esc(b.rest)) : '🌐 Barcha restoranlar';
+      const who=b.scope==="restoran" ? (ic('store')+' '+esc(b.rest)) : ic('globe')+' Barcha restoranlar';
       const shareBtn = b.type==="referral"
-        ? '<button class="set-save" data-bonshare style="margin-top:8px;width:100%;background:#f1eef0;color:#555">🔗 Ulashish havolamni nusxalash</button>'
+        ? '<button class="set-save" data-bonshare style="margin-top:8px;width:100%;background:#f1eef0;color:#555">'+ic('link')+' Ulashish havolamni nusxalash</button>'
         : '';
       return '<div class="panel" style="margin-bottom:12px">'+
         '<div style="display:flex;gap:12px;align-items:flex-start;padding:14px">'+
-          (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none">':'<span style="font-size:32px;flex:none">🎁</span>')+
+          (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:54px;height:54px;border-radius:12px;object-fit:cover;flex:none">':'<span style="flex:none;color:var(--brand,#ff5722)">'+ic('gift','yz-i-xl')+'</span>')+
           '<div style="flex:1;min-width:0">'+
             '<div style="font-weight:800;font-size:15px">'+esc(b.title)+'</div>'+
             '<div style="color:var(--grey);font-size:12px;margin-top:2px">'+who+' · '+(BON_TYPE_LABEL_K[b.type]||b.type)+(b.target?' · maqsad: '+b.target:'')+'</div>'+
             (b.descr?'<p style="font-size:13.5px;margin-top:6px;color:#444">'+esc(b.descr)+'</p>':'')+
-            (b.rewardText?'<div style="color:#16a34a;font-size:13px;font-weight:800;margin-top:6px">🏆 '+esc(b.rewardText)+'</div>':'')+
+            (b.rewardText?'<div style="color:#16a34a;font-size:13px;font-weight:800;margin-top:6px">'+ic('trophy')+' '+esc(b.rewardText)+'</div>':'')+
             shareBtn+
           '</div>'+
         '</div></div>';
@@ -231,7 +240,7 @@
     host.querySelectorAll('[data-bonshare]').forEach(function(btn){
       btn.addEventListener("click",async function(){
         const link=refLink();
-        try{ await navigator.clipboard.writeText(link); toast("Havola nusxalandi 🔗","success"); }
+        try{ await navigator.clipboard.writeText(link); toast("Havola nusxalandi","success"); }
         catch(e){ toast(link); }
       });
     });
@@ -239,7 +248,7 @@
 
   /* ===== TADBIRLAR: mijoz oldindan yuboradi, admin/restoran ko'radi va
      chegirma belgilaydi (routes/events.js). ===== */
-  const EV_STATUS_LABEL={pending:"⏳ Kutilmoqda",discounted:"✅ Chegirma belgilandi"};
+  const EV_STATUS_LABEL={pending:ic('clock')+" Kutilmoqda",discounted:ic('check-circle','yz-i-green')+" Chegirma belgilandi"};
   function fillEventRestSelect(){
     const sel=$("#evRest"); if(!sel) return;
     const rests=restListK();
@@ -254,8 +263,8 @@
       return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
           '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+EV_STATUS_LABEL[e.status]+'</span></div>'+
-        '<div style="font-size:12.5px;color:var(--grey);margin-top:2px">🏪 '+esc(trTxt(e.rest))+' · 📅 '+esc(e.eventDate)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
-        (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:2px">🏷 '+e.discountPct+'% chegirma belgilandi</div>':'')+
+        '<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('store')+' '+esc(trTxt(e.rest))+' · '+ic('calendar')+' '+esc(e.eventDate)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
+        (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:2px">'+ic('tag')+' '+e.discountPct+'% chegirma belgilandi</div>':'')+
         '</div>';
     }).join("");
   }
@@ -272,7 +281,7 @@
     const r=(typeof STORE!=="undefined"&&STORE.addEvent)? await STORE.addEvent({rest:rest,name:name,event_date:date,headcount:headcount,advance_days:advance}) : {error:"Tizim tayyor emas"};
     if(btn) btn.disabled=false;
     if(r&&r.error){ setMsg(r.error, false); return; }
-    setMsg("✓ Yuborildi", true); toast("Tadbir yuborildi ✓","success");
+    setMsg("Yuborildi", true); toast("Tadbir yuborildi","success");
     if($("#evName")) $("#evName").value=""; if($("#evDate")) $("#evDate").value=""; if($("#evHeadcount")) $("#evHeadcount").value="";
     renderEventsKab();
     refreshMyEventsCache();
@@ -344,13 +353,13 @@
     const r=await STORE.joinGroup(code);
     if(r&&r.error){ if(msg){msg.style.color="#C8102E";msg.textContent=r.error;} return; }
     ACTIVE_GROUP=r; try{ localStorage.setItem(GROUP_ID_KEY,String(r.id)); }catch(e){}
-    toast("Guruhga qo'shildingiz ✓","success");
+    toast("Guruhga qo'shildingiz","success");
     renderGroupView();
   }
 
   function renderActiveGroup(){
     const g=ACTIVE_GROUP; if(!g) return;
-    const titleEl=$("#grpTitle"); if(titleEl) titleEl.textContent="👥 "+esc(trTxt(g.rest))+" — guruh";
+    const titleEl=$("#grpTitle"); if(titleEl) titleEl.innerHTML=ic('users')+" "+esc(trTxt(g.rest))+" — guruh";
     const codeEl=$("#grpCodeBadge"); if(codeEl) codeEl.textContent="Kod: "+g.code;
     const addrEl=$("#grpAddr");
     if(addrEl && document.activeElement!==addrEl) addrEl.value=g.addr||"";
@@ -370,11 +379,11 @@
           const rows=byMember[name].map(it=>{
             const mine=it.accountId===USER.id;
             return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line)">
-              <span style="font-size:13.5px">${it.emoji} ${esc(it.dishName)} ×${it.qty}${it.note?' <span style="color:var(--grey);font-size:12px">💬 '+esc(it.note)+'</span>':''}</span>
-              ${mine?`<button data-grpitemdel="${it.id}" style="background:none;border:none;color:#C8102E;cursor:pointer;font-size:15px;flex:none">✕</button>`:''}
+              <span style="font-size:13.5px">${esc(it.dishName)} ×${it.qty}${it.note?' <span style="color:var(--grey);font-size:12px">'+ic('message')+' '+esc(it.note)+'</span>':''}</span>
+              ${mine?`<button data-grpitemdel="${it.id}" style="background:none;border:none;color:#C8102E;cursor:pointer;font-size:15px;flex:none">${ic('x')}</button>`:''}
             </div>`;
           }).join("");
-          return `<div style="margin-bottom:10px"><b style="font-size:13.5px">👤 ${esc(name)}</b>${rows}</div>`;
+          return `<div style="margin-bottom:10px"><b style="font-size:13.5px">${ic('user')} ${esc(name)}</b>${rows}</div>`;
         }).join("");
         cartHost.querySelectorAll("[data-grpitemdel]").forEach(b=>b.addEventListener("click",async()=>{
           b.disabled=true;
@@ -392,7 +401,7 @@
       const dishes=kcatalog().filter(d=>d.rest===g.rest);
       dishGrid.innerHTML=dishes.map(d=>`
         <div class="card">
-          <div class="card-img tone-${esc(d.kw||"")}"><span class="food-emoji">${d.emoji}</span>
+          <div class="card-img tone-${esc(d.kw||"")}"><span class="food-emoji">${foodIcon(d.kw)}</span>
             ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">`:""}
           </div>
           <div class="card-body">
@@ -416,10 +425,10 @@
   function renderGroupDone(){
     const g=ACTIVE_GROUP, body=$("#grpDoneBody"); if(!body) return;
     body.innerHTML=`<div style="text-align:center;padding:10px 4px">
-      <div style="font-size:48px">✅</div>
+      <div style="font-size:48px;color:#16a34a">${ic('check-circle','yz-i-xxl')}</div>
       <p style="font-weight:700;margin:8px 0">Buyurtma raqami: #${g.orderId}</p>
       <p style="color:var(--grey);font-size:13.5px">Guruh a'zolari va ularning ulushi buyurtma tarkibida saqlandi. Yetkazilishini "Mening kabinetim" bo'limidan kuzatishingiz mumkin.</p>
-      <button class="set-save" id="grpNewOne" style="margin-top:14px">➕ Yangi guruh boshlash</button>
+      <button class="set-save" id="grpNewOne" style="margin-top:14px">${ic('plus')} Yangi guruh boshlash</button>
     </div>`;
     const nb=$("#grpNewOne"); if(nb) nb.addEventListener("click",()=>{
       ACTIVE_GROUP=null; try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){}
@@ -433,7 +442,7 @@
     if(!addr){ toast("Manzilni kiriting"); return; }
     const r=await STORE.setGroupAddr(g.id,addr);
     if(r&&r.error){ toast(r.error); return; }
-    ACTIVE_GROUP=r; toast("Manzil saqlandi ✓","success");
+    ACTIVE_GROUP=r; toast("Manzil saqlandi","success");
   }
   async function changeGroupPay(){
     const g=ACTIVE_GROUP; if(!g) return;
@@ -450,7 +459,7 @@
     if(r&&r.error){ if(msg){msg.style.color="#C8102E";msg.textContent=r.error;} return; }
     ACTIVE_GROUP=r.group;
     try{ localStorage.removeItem(GROUP_ID_KEY); }catch(e){}
-    toast("Guruh buyurtmasi yakunlandi ✅","success");
+    toast("Guruh buyurtmasi yakunlandi","success");
     renderGroupView();
   }
 
@@ -474,9 +483,9 @@
     const c=$("#koContent"); if(!c) return;
     const dishName=esc(dish.name);
     c.innerHTML=`<div style="text-align:center;padding:6px 4px">
-      <div style="font-size:44px">${esc(dish.emoji||'🍽️')}</div>
+      <div style="font-size:44px;color:var(--brand,#ff5722)">${foodIcon(dish.kw,'yz-i-xxl')}</div>
       <h2 style="margin:10px 0 4px">Bugun ham ${dishName} buyurasizmi?</h2>
-      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Siz odatda shu payt <b>${esc(dish.rest)}</b>dan <b>${dishName}</b> buyurtma qilasiz 😊</p>
+      <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:18px">Siz odatda shu payt <b>${esc(dish.rest)}</b>dan <b>${dishName}</b> buyurtma qilasiz</p>
       <div style="display:flex;gap:10px">
         <button id="habitNo" style="flex:1;background:#f1eef0;color:#555;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer">Yo'q, rahmat</button>
         <button id="habitYes" class="set-save" style="flex:1">Ha, xohlayman</button>
@@ -488,7 +497,7 @@
     const no=$("#habitNo"); if(no) no.addEventListener("click",dismiss);
     const yes=$("#habitYes"); if(yes) yes.addEventListener("click",()=>{
       const d=kcatalog().find(x=>x.rest===dish.rest && x.name===dish.name);
-      if(d){ addToCart(d.id); toast("Savatga qo'shildi 🛒","success"); }
+      if(d){ addToCart(d.id); toast("Savatga qo'shildi","success"); }
       dismiss();
     });
   }
@@ -534,7 +543,7 @@
   function nav(view){
     $$(".sb-link").forEach(l=>l.classList.toggle("active",l.dataset.view===view));
     $$(".view").forEach(v=>v.classList.toggle("show",v.id==="view-"+view));
-    const t={profil:"Mening kabinetim",rests:"Restoranlar",group:"Guruh yaratish",bonus:"Bonuslar",events:"Tadbirlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish",settings:"Sozlamalar"};
+    const t={profil:"Mening kabinetim",rests:"Asosiy sahifa",group:"Guruh yaratish",bonus:"Bonuslar",events:"Tadbirlar",review:"Izoh qoldirish",help:"Qanday buyurtma berish",settings:"Sozlamalar"};
     $("#tbTitle").textContent=t[view]||""; $("#sidebar").classList.remove("open"); window.scrollTo({top:0});
     if(view==="review") renderReviewForm();
     if(view==="settings") renderSettings();
@@ -551,7 +560,7 @@
     el=document.createElement("div"); el.id="kabCancelModal";
     el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:380px;width:100%;padding:24px;text-align:center\">"+
-      "<div style=\"font-size:42px\">🛑</div><h3 style=\"margin:8px 0\">Buyurtmani bekor qilish</h3>"+
+      "<div style=\"font-size:42px;color:#C8102E\">"+ic('stop-circle','yz-i-xxl')+"</div><h3 style=\"margin:8px 0\">Buyurtmani bekor qilish</h3>"+
       "<p style=\"color:var(--grey);font-size:14px;margin-bottom:16px\">Ushbu buyurtmani rostdan bekor qilmoqchimisiz?</p>"+
       "<div style=\"display:flex;gap:10px\"><button id=\"kcNo\" class=\"btn btn-outline\" style=\"flex:1\">Yo'q</button><button id=\"kcYes\" class=\"btn btn-primary\" style=\"flex:1;background:#C8102E\">Ha, bekor qilish</button></div></div>";
     document.body.appendChild(el);
@@ -615,18 +624,18 @@
     const doneOrders=USER.orders.filter(o=>o.status==="done");
     const spent=doneOrders.reduce((s,o)=>s+(Number(o.amount)||0),0);
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">🧾</div><b>${USER.orders.length}</b><span>Buyurtmalar</span></div>
-      <div class="scard c2"><div class="si">⭐</div><b>${USER.reviews.length}</b><span>Izohlarim</span></div>
-      <div class="scard c3"><div class="si">💳</div><b>${money(spent)}</b><span>Jami sarflagan (so'm)</span></div>`;
+      <div class="scard c1"><div class="si">${ic('receipt')}</div><b>${USER.orders.length}</b><span>Buyurtmalar</span></div>
+      <div class="scard c2"><div class="si">${ic('star','yz-i-fill yz-i-amber')}</div><b>${USER.reviews.length}</b><span>Izohlarim</span></div>
+      <div class="scard c3"><div class="si">${ic('card')}</div><b>${money(spent)}</b><span>Jami sarflagan (so'm)</span></div>`;
     $("#orderTbody").innerHTML=USER.orders.map(o=>{
       /* 'review' — admin tekshiruvidagi katta buyurtma; undan ham voz kechish mumkin */
       const cancellable=(o.status==="review"||o.status==="new"||o.status==="accepted"||o.status==="ready");
       const last = cancellable
-        ? `<button class="kab-cancel" data-oid="${o.id}" style="background:#fdecec;color:#C8102E;border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">✕ Bekor</button>`
+        ? `<button class="kab-cancel" data-oid="${o.id}" style="background:#fdecec;color:#C8102E;border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">${ic('x')} Bekor</button>`
         : (o.status==="cancelled" ? ('<span class="pill warn">Bekor qilingan</span>'+(o.reason?'<div style="font-size:11px;color:#C8102E;margin-top:3px">'+esc(o.reason)+'</div>':''))
           : (o.reviewed?'<span class="pill ok">Izoh berilgan</span>':'<span class="pill warn">Izoh kutmoqda</span>'));
       return `<tr>
-        <td><div class="tname"><span class="av">${o.emoji}</span>${esc(o.dish)}</div></td>
+        <td><div class="tname"><span class="av">${orderDishIcon(o.emoji)}</span>${esc(o.dish)}</div></td>
         <td>${esc(o.rest)}</td>
         <td>${esc(o.date)}</td>
         <td class="money">${money(o.amount)}</td>
@@ -636,7 +645,7 @@
     $$("#orderTbody .kab-cancel").forEach(b=>b.addEventListener("click",()=>kabCancelOrder(b.dataset.oid)));
     $("#myReviews").innerHTML=USER.reviews.length?USER.reviews.map(r=>`
       <div class="panel" style="margin-bottom:10px"><div class="panel-body">
-        <div style="display:flex;justify-content:space-between"><b>${esc(r.dish)}</b><span class="star">${"★".repeat(Math.max(0,Math.min(5,r.rating|0)))}${"☆".repeat(5-Math.max(0,Math.min(5,r.rating|0)))}</span></div>
+        <div style="display:flex;justify-content:space-between"><b>${esc(r.dish)}</b><span class="star">${starsHtml(r.rating)}</span></div>
         <p style="color:var(--ink);font-size:14px;margin-top:6px">${esc(r.text)}</p>
         <div style="color:var(--grey);font-size:12px;margin-top:6px">${r.date}${r.flagged?' · <span style="color:var(--red)">restoranga signal yuborilgan</span>':''}</div>
       </div></div>`).join(""):'<p style="color:var(--grey)">Hali izoh yo\'q.</p>';
@@ -645,14 +654,14 @@
   function renderReviewForm(){
     const un=USER.orders.filter(o=>!o.reviewed);
     const sel=$("#revOrder");
-    sel.innerHTML=un.length?un.map(o=>`<option value="${o.id}">${o.emoji} ${o.dish} — ${o.rest} (${o.date})</option>`).join("")
+    sel.innerHTML=un.length?un.map(o=>`<option value="${o.id}">${o.dish} — ${o.rest} (${o.date})</option>`).join("")
       :'<option value="">Barcha buyurtmalarga izoh berilgan</option>';
     selRating=0; renderStars();
     $("#revText").value=""; $("#revReasonWrap").style.display="none"; $("#revPhotoWrap").style.display="none";
     if($("#revReason")) $("#revReason").value="";
   }
   function renderStars(){
-    $("#revStars").innerHTML=[1,2,3,4,5].map(n=>`<span class="star-pick" data-n="${n}">${n<=selRating?"★":"☆"}</span>`).join("");
+    $("#revStars").innerHTML=[1,2,3,4,5].map(n=>`<span class="star-pick" data-n="${n}">${n<=selRating?ic("star","yz-i-fill yz-i-amber"):ic("star-outline","yz-i-amber")}</span>`).join("");
     $$("#revStars .star-pick").forEach(s=>s.addEventListener("click",()=>{ result("",""); selRating=+s.dataset.n; renderStars();
       $("#revReasonWrap").style.display = selRating<=3 ? "block":"none";
       if(selRating>3){ $("#revPhotoWrap").style.display="none"; } }));
@@ -662,7 +671,7 @@
   function addReview(o,rating,text,flagged,note){
     USER.reviews.unshift({dish:o.dish,rating,text,date:new Date().toLocaleDateString("ru-RU"),flagged});
     o.reviewed=true; o.rating=rating; markReviewed(o.id);
-    try{ if(typeof STORE!=="undefined") STORE.addReview({name:USER.name,ava:"👤",rating:rating,dish:o.dish,text:text||"",flagged:!!flagged}); }catch(e){}
+    try{ if(typeof STORE!=="undefined") STORE.addReview({name:USER.name,ava:"",rating:rating,dish:o.dish,text:text||"",flagged:!!flagged}); }catch(e){}
   }
   function finishReview(){ renderProfil(); renderReviewForm(); }
 
@@ -671,7 +680,7 @@
     if(!o){ result("Izoh qoldirish uchun buyurtma yo'q.","err"); return; }
     if(!selRating){ result("Avval bahoni tanlang (yulduzcha bosing).","err"); return; }
     const text=$("#revText").value.trim();
-    if(selRating>=4){ addReview(o,selRating,text||"Yaxshi",false,""); result("Rahmat! Izohingiz joylandi. ⭐","ok"); finishReview(); return; }
+    if(selRating>=4){ addReview(o,selRating,text||"Yaxshi",false,""); result("Rahmat! Izohingiz joylandi.","ok"); finishReview(); return; }
     const reason=$("#revReason").value;
     if(!reason){ result("Past baho uchun sababni tanlang.","err"); return; }
     if(reason==="late"){
@@ -703,15 +712,15 @@
   function renderFilters(){
     const box=$("#kFilters"); if(!box) return;
     /* Taom kategoriyalari + Restoranlar chip */
-    const cats=[...DISH_CATS, "🏪 Restoranlar"];
+    const cats=[...DISH_CATS, "Restoranlar"];
     box.innerHTML=cats.map(c=>{
-      const isRest=c==="🏪 Restoranlar";
+      const isRest=c==="Restoranlar";
       const active=isRest ? (activeRest&&activeCat==="Hammasi") : (c===activeCat&&!activeRest);
       return `<button class="kchip${active?" on":""}" data-c="${c}">${c}</button>`;
     }).join("");
     $$("#kFilters .kchip").forEach(b=>b.addEventListener("click",()=>{
       const c=b.dataset.c;
-      if(c==="🏪 Restoranlar"){
+      if(c==="Restoranlar"){
         /* Restoranlar ko'rinishi */
         const sb=document.querySelector('.sb-link[data-view="rests"]');
         if(sb) sb.click(); else { const el=document.getElementById("view-rests"); if(el){ $$(".view").forEach(v=>v.classList.remove("show")); el.classList.add("show"); renderKabRests(); } }
@@ -753,6 +762,13 @@
     for(const r of K_CAT_RULES){ if(emo&&r.emo.includes(emo)) return r.cat; if(r.kw.some(k=>hay.includes(k))) return r.cat; }
     return d.cat||"Fastfood";
   }
+  /* Buyurtma tarixida faqat `emoji` saqlangan (kw yo'q) — shu emojidan
+     kategoriyani taxmin qilib, mos ikon ko'rsatamiz. */
+  const CAT_ICON_K={Ichimlik:"food-drink",Shirinlik:"food-cake",Milliy:"food-rice",Fastfood:"food-burger"};
+  function orderDishIcon(emoji,cls){
+    for(const r of K_CAT_RULES){ if(emoji&&r.emo.includes(emoji)) return ic(CAT_ICON_K[r.cat],cls); }
+    return ic("utensils",cls);
+  }
   /* ===== ISH VAQTI =====
      Manba — assets/js/hours.js (Asia/Tashkent). Bosh sayt (app.js), Telegram
      mini ilova va server AYNAN shu qoidaga tayanadi. Yopiq restorandan taom
@@ -760,7 +776,7 @@
      server ham rad etadi (server/src/pricing.js). */
   function kIsOpen(rest){ try{ return YZ_TIME.isRestOpenByName(rest); }catch(e){ return true; } }
   function kHours(rest){ try{ return YZ_TIME.restHoursByName(rest); }catch(e){ return "09:00–23:00"; } }
-  function kClosedMsg(rest){ return "🔴 "+rest+" hozir yopiq · ish vaqti "+kHours(rest); }
+  function kClosedMsg(rest){ return rest+" hozir yopiq · ish vaqti "+kHours(rest); }
 
   /* Taom kartasidagi tugma — saytdagi bilan bir xil ustuvorlik VA bir xil
      klasslar (.add-btn/.card-qty/.qty-btn — index.html: assets/js/app.js
@@ -774,7 +790,7 @@
              `<button class="qty-btn qty-plus${shut?" qty-closed":""}" data-id="${d.id}" data-m="1">+</button></div>`;
     }
     if(!kIsOpen(d.rest)){
-      return `<button class="add-btn add-closed kshut-add" data-shut="${esc(d.rest)}" title="${esc(kClosedMsg(d.rest))}">⏱</button>`;
+      return `<button class="add-btn add-closed kshut-add" data-shut="${esc(d.rest)}" title="${esc(kClosedMsg(d.rest))}">${ic('clock')}</button>`;
     }
     return `<button class="add-btn" data-id="${d.id}">+</button>`;
   }
@@ -795,14 +811,14 @@
     $("#koContent").innerHTML=`
       <div style="margin:-20px -20px 0;height:200px;background:linear-gradient(135deg,#FCEEDF,#F7E2E5);
         display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;border-radius:16px 16px 0 0">
-        <span style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));position:relative;z-index:1">${d.emoji}</span>
+        <span style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2));position:relative;z-index:1;color:var(--brand,#ff5722)">${foodIcon(d.kw)}</span>
         <img src="${d.photo}" alt="${esc(nm(d))}" data-onerr="remove"
           style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;border-radius:16px 16px 0 0" />
         ${d.badge?`<span style="position:absolute;top:10px;left:12px;z-index:3;background:var(--gold);color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px">${d.badge}</span>`:''}
       </div>
       <div style="padding:16px 0 0">
         <h2 style="font-size:19px;margin-bottom:4px">${esc(nm(d))}</h2>
-        <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${esc(trTxt(d.rest))}</div>
+        <div style="color:var(--grey);font-size:13px;margin-bottom:10px">${ic('store')} ${esc(trTxt(d.rest))}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           ${priceStr}<span style="font-size:14px;color:var(--grey)"> so'm</span>
         </div>
@@ -864,8 +880,8 @@
      (styles.css dan ko'chirilgan) orqali bosh saytdagidek chiqadi. Chegirma
      yorlig'i endi CSS o'zi chizadi ([data-discounted="true"]::after), shuning
      uchun alohida badge span kerak emas. */
-  function kDishStar(d){ const r=Number(d&&d.rating)||0; return r>0?("⭐ "+r):"🆕 yangi"; }
-  function kDishSold(d){ const s=Math.max(0,Number(d&&d.sold)||0); return s?(" · 🛒 "+s):""; }
+  function kDishStar(d){ const r=Number(d&&d.rating)||0; return r>0?(ic("star","yz-i-fill yz-i-amber")+" "+r):(ic("flame","yz-i-brand")+" yangi"); }
+  function kDishSold(d){ const s=Math.max(0,Number(d&&d.sold)||0); return s?(" · "+ic("cart")+" "+s):""; }
   /* Yurakcha (like) SVG — rangi CSS orqali boshqariladi: yoqtirilmagan holatда
      bo'z chiziq, yoqtirilганда SAYT rangi (var(--red)) bilan to'ladi — boshqa
      (masalan pushti/kult qizil) rang EMAS, aynan sayt bosh rangi. */
@@ -880,7 +896,7 @@
     const liked=isLiked(d);
     const weightHtml=d.weight?`<span class="card-weight">${esc(d.weight)}</span>`:"";
     return `<div class="card" data-id="${d.id}" data-discounted="${disc}">
-        <div class="card-img tone-${esc(d.kw||"")}" data-id="${d.id}"><span class="food-emoji">${d.emoji}</span>
+        <div class="card-img tone-${esc(d.kw||"")}" data-id="${d.id}"><span class="food-emoji">${foodIcon(d.kw)}</span>
           ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:''}
           <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
           <button class="card-like${liked?' liked':''}" data-rest="${esc(d.rest)}" data-name="${esc(d.name)}" aria-label="Yoqtirish" title="Yoqtirish">${HEART_SVG}</button>
@@ -947,14 +963,14 @@
     var bonuses=[];
     try{
       bonuses=((typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[]).map(function(b){
-        return { kind:"bonus", text:b.title, tag:"BONUS", emoji:"🎁", img:b.image||"", rest:b.scope==="restoran"?b.rest:"", rewardText:b.rewardText||"" };
+        return { kind:"bonus", text:b.title, tag:"BONUS", icon:"gift", img:b.image||"", rest:b.scope==="restoran"?b.rest:"", rewardText:b.rewardText||"" };
       });
     }catch(e){}
     /* Tadbirlar — FAQAT o'zining chegirma belgilangan tadbirlari (maxfiy, shaxsiy) */
     var events=[];
     try{
       events=(KAB_MY_EVENTS||[]).filter(function(e){ return e.discountPct>0; }).map(function(e){
-        return { kind:"event", text:e.name+" — "+e.discountPct+"% chegirma", tag:"TADBIR", emoji:"🎉", rest:e.rest };
+        return { kind:"event", text:e.name+" — "+e.discountPct+"% chegirma", tag:"TADBIR", icon:"party", rest:e.rest };
       });
     }catch(e){}
     return anns.concat(bonuses).concat(events);
@@ -973,15 +989,16 @@
       return;
     }
     band.style.display="flex";
-    var slides=list.length?list:[{kind:"ann",tag:"AKSIYA",text:"Bugungi chegirмали taomlarни ko'ring!",emoji:"🔥"}];
+    var slides=list.length?list:[{kind:"ann",tag:"AKSIYA",text:"Bugungi chegirmali taomlarni ko'ring!",icon:"flame"}];
     _kabPromoSlides=slides;
     function paint(){
       var p=slides[_kabPromoIdx%slides.length]||slides[0];
+      var tagIcon = p.icon ? ic(p.icon) : (p.emoji ? esc(p.emoji) : ic("megaphone"));
       inner.innerHTML=
-        '<span class="kpb-tag">'+esc(p.emoji||"🔥")+" "+esc(p.tag||"AKSIYA")+'</span>'+
-        (p.rest?'<span class="kpb-rest">🏪 '+esc(p.rest)+'</span>':'')+
+        '<span class="kpb-tag">'+tagIcon+" "+esc(p.tag||"AKSIYA")+'</span>'+
+        (p.rest?'<span class="kpb-rest">'+ic('store')+' '+esc(p.rest)+'</span>':'')+
         '<span class="kpb-text">'+esc(p.text||"Aksiyalar")+'</span>'+
-        '<span style="margin-left:auto;font-weight:800;white-space:nowrap">Batafsil →</span>';
+        '<span style="margin-left:auto;font-weight:800;white-space:nowrap">Batafsil '+ic('chevron-right')+'</span>';
     }
     paint();
     if(_kabPromoTimer){ clearInterval(_kabPromoTimer); _kabPromoTimer=null; }
@@ -1016,7 +1033,7 @@
       const c=$("#koContent");
       if(c){
         c.innerHTML=`<div style="text-align:center;padding:10px 4px">
-          <div style="font-size:42px">🏪</div>
+          <div style="font-size:42px">${ic('store','yz-i-xxl')}</div>
           <h2 style="margin:8px 0;font-size:19px">${esc(trTxt(d.rest))} ga o'tamizmi?</h2>
           <p style="color:var(--grey);font-size:14px;line-height:1.5;margin-bottom:16px">Bitta buyurtmada faqat bitta restoran bo'ladi. Savatingizda <b>${esc(trTxt(cart[0].rest))}</b> taomlari bor. <b>${esc(trTxt(d.rest))}</b> ga o'tsangiz — savat yangilanadi va shu restoran taomlari ko'rinadi.</p>
           <div style="display:flex;gap:10px">
@@ -1026,16 +1043,16 @@
         $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
         const no=$("#kSwitchNo"); if(no) no.addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
         const yes=$("#kSwitchYes"); if(yes) yes.addEventListener("click",()=>{
-          cart=[{id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1}];
+          cart=[{id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,price:(d.eff||d.price),rest:d.rest,qty:1}];
           renderCart(); $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open");
           filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){}
-          toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
+          toast(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi");
         });
       }
       return;
     }
-    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,price:(d.eff||d.price),rest:d.rest,qty:1});
-    renderCart(); updateKMenuQty(); toast(d.emoji+" "+(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi"));
+    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,price:(d.eff||d.price),rest:d.rest,qty:1});
+    renderCart(); updateKMenuQty(); toast(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi");
   }
   function changeQty(id,m){
     const i=cart.find(x=>x.id===id); if(!i) return;
@@ -1073,14 +1090,14 @@
       if(!cart.length){
         const kt=typeof KT==="function"?KT:function(k){return k;};
         body.innerHTML=`<div style="text-align:center;padding:40px 16px;color:var(--grey)">
-          <div style="font-size:48px;margin-bottom:10px">🛒</div>
+          <div style="font-size:48px;margin-bottom:10px">${ic('cart','yz-i-xxl')}</div>
           <p style="font-weight:600;font-size:15px">${kt('savat_bosh')||"Savatingiz bo'sh"}</p>
           <p style="font-size:13px;margin-top:4px">${kt('savat_bosh_hint')||"Quyidagi taomlardan tanlang"}</p>
         </div>`;
       } else {
         body.innerHTML=cart.map(i=>`
           <div class="kab-dr-row">
-            <span class="kab-dr-emoji">${i.emoji}</span>
+            <span class="kab-dr-emoji">${foodIcon(i.kw)}</span>
             <div class="kab-dr-info">
               <div class="kab-dr-name">${esc(nm(i))}</div>
               <div class="kab-dr-rest">${esc(trTxt(i.rest))}</div>
@@ -1092,7 +1109,7 @@
               <button class="kab-dq-btn" data-id="${i.id}" data-m="1">+</button>
             </div>
             <div class="ci-note">
-              <label class="ci-note-lbl" for="kabNote_${i.id}">💬 Shu taomga izoh</label>
+              <label class="ci-note-lbl" for="kabNote_${i.id}">${ic('message')} Shu taomga izoh</label>
               <input id="kabNote_${i.id}" class="ci-note-inp kab-note" type="text" maxlength="200"
                      data-id="${i.id}" placeholder="Masalan: sous bilan yuboring" value="${esc(i.note||"")}">
             </div>
@@ -1124,14 +1141,14 @@
         <div class="kab-dr-total">
           <span>${kt2('jami')||'Jami'}</span><b style="color:var(--red)">${money(total)} so'm</b>
         </div>
-        ${cOpen?``:`<div class="yz-closed-bar" style="margin:0 0 8px"><span style="font-size:18px">🔴</span><span><b>${esc(cRest)}</b> hozir yopiq. Ish vaqti: <b>${esc(kHours(cRest))}</b></span></div>`}
+        ${cOpen?``:`<div class="yz-closed-bar" style="margin:0 0 8px"><span style="font-size:18px;color:#C8102E">${ic('dot','yz-i-fill')}</span><span><b>${esc(cRest)}</b> hozir yopiq. Ish vaqti: <b>${esc(kHours(cRest))}</b></span></div>`}
         <div class="kab-dr-note ${total<minOrd?'warn':'ok'}">
           ${total<minOrd
-            ? (kt2('minimal_warn',{min:money(minOrd),n:money(minOrd-total)})||`⚠️ Minimal ${money(minOrd)} so'm (yana ${money(minOrd-total)} so'm)`)
-            : (koDeliveryFee()>0 ? `✅ Yetkazish: ${money(koDeliveryFee())} so'm` : (kt2('minimal_ok')||"✅ Yetkazish bepul 🛵"))}
+            ? (ic('alert-triangle')+' '+(kt2('minimal_warn',{min:money(minOrd),n:money(minOrd-total)})||`Minimal ${money(minOrd)} so'm (yana ${money(minOrd-total)} so'm)`))
+            : (koDeliveryFee()>0 ? `${ic('check-circle','yz-i-green')} Yetkazish: ${money(koDeliveryFee())} so'm` : (ic('check-circle','yz-i-green')+' '+(kt2('minimal_ok')||"Yetkazish bepul")+' '+ic('scooter')))}
         </div>
         <button class="kab-order-main" id="kabOrderBtn" ${blocked?"disabled":""}>
-          ${cOpen ? (kt2('buyurtma_berish')||'Buyurtma berish') : '⏱ Restoran yopiq'}
+          ${cOpen ? (kt2('buyurtma_berish')||'Buyurtma berish') : (ic('clock')+' Restoran yopiq')}
         </button>`;
       const ob=document.getElementById("kabOrderBtn");
       if(ob) ob.addEventListener("click",()=>{ closeKabCartDrawer(); placeOrder(); });
@@ -1142,9 +1159,9 @@
   let koPay="card", koTimers=[];
   function placeOrder(){
     const total=cartTotal();
-    if(!cart.length){ toast("🛒 Savat bo'sh"); return; }
+    if(!cart.length){ toast("Savat bo'sh"); return; }
     const minOrd=koMinOrder();
-    if(total<minOrd){ toast("⚠️ Minimal buyurtma "+money(minOrd)+" so'm (yana "+money(minOrd-total)+" so'm)","warn"); return; }
+    if(total<minOrd){ toast("Minimal buyurtma "+money(minOrd)+" so'm (yana "+money(minOrd-total)+" so'm)","warn"); return; }
     /* Savat to'lgandan keyin restoran yopilishi mumkin — oxirgi tekshiruv */
     const rest=cart[0] && cart[0].rest;
     if(rest && !kIsOpen(rest)){ toast(kClosedMsg(rest)); renderCart(); return; }
@@ -1158,16 +1175,17 @@
   function koDeliveryFee(){ try{ const v=Number((STORE.settings()||{}).deliveryFee); return v>0?v:0; }catch(e){ return 0; } }
   /* Buyurtма `pay` qiymati -> ko'rsatiladigan yorliq (naqd/karta/custom) */
   function payLabelOf(id){
-    if(id==="card"||id==="karta") return "💳 Karta";
-    if(id==="cash"||id==="naqd") return "💵 Naqd";
+    if(id==="card"||id==="karta") return "Karta";
+    if(id==="cash"||id==="naqd") return "Naqd";
     try{ if(typeof STORE!=="undefined" && STORE.payMethods){ var m=STORE.payMethods().find(function(x){return x.id===id;}); if(m) return m.label; } }catch(e){}
-    return "💳 "+String(id||"");
+    return String(id||"");
   }
   /* Admin RUXSAT bergan to'lov turlari (STORE.payMethods). Karta o'chirilса — ko'rinmaydi. */
   function koPayOptionsHtml(){
-    var list=[{id:"card",label:"💳 Karta"},{id:"cash",label:"💵 Naqd"}];
+    var list=[{id:"card",label:"Karta"},{id:"cash",label:"Naqd"}];
     try{ if(typeof STORE!=="undefined" && STORE.payMethods) list=STORE.payMethods(); }catch(e){}
-    return list.map(function(m,i){ return '<div class="ko-pay'+(i===0?' on':'')+'" data-pay="'+esc(m.id)+'" data-note="'+esc(m.note||"")+'">'+esc(m.label)+'</div>'; }).join("");
+    var payIcon=function(id){ return (id==="card"||id==="karta") ? ic("card") : (id==="cash"||id==="naqd") ? ic("cash") : ic("wallet"); };
+    return list.map(function(m,i){ return '<div class="ko-pay'+(i===0?' on':'')+'" data-pay="'+esc(m.id)+'" data-note="'+esc(m.note||"")+'">'+payIcon(m.id)+' '+esc(m.label)+'</div>'; }).join("");
   }
   function openCheckout(total){
     koPay="card";
@@ -1184,7 +1202,7 @@
     USER.geo=null;
     $("#koContent").innerHTML=`
       <div class="ko-wave-head">
-        <h2>${kt3('buyurtma_title')||'📋 Buyurtma'}</h2>
+        <h2>${ic('receipt')} ${kt3('buyurtma_title')||'Buyurtma'}</h2>
         <p class="ko-sub">${kt3('buyurtma_sub')||"Ma'lumotlarni to'ldiring"}</p>
         <svg class="ko-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,14 C240,42 480,2 720,18 C960,34 1200,44 1440,20 L1440,40 L0,40 Z" fill="#fff"/></svg>
       </div>
@@ -1202,7 +1220,7 @@
         <label>${kt3('manzil')||'Yetkazish manzili'}</label>
         <input id="koAddr" placeholder="Ko'cha, uy, kvartira..." value="${savedAddr}" autocomplete="street-address" />
         <div class="ko-err" id="koAddrErr" style="display:none;color:var(--red);font-size:12px;margin-top:3px">Manzilni to'ldiring</div>
-        <button type="button" id="koGeoBtn" class="btn btn-outline" style="width:100%;margin-top:8px;font-size:14px;padding:9px">📍 Joylashuvimni aniqlash</button>
+        <button type="button" id="koGeoBtn" class="btn btn-outline" style="width:100%;margin-top:8px;font-size:14px;padding:9px">${ic('map-pin')} Joylashuvimni aniqlash</button>
       </div>
       <div class="set-field" style="margin-bottom:14px">
         <label>${kt3('tolov')||"To'lov usuli"}</label>
@@ -1214,7 +1232,7 @@
         <div class="ko-row"><span>Yetkazish</span><span>${fee>0?money(fee)+" so'm":'<b style="color:var(--green)">Bepul</b>'}</span></div>
         <div class="ko-row tot"><span>Jami</span><span>${money(total+fee)} so'm</span></div>
       </div>
-      <button class="set-save" id="koConfirm" style="width:100%;margin-top:4px">${kt3('tasdiq')||'✅ Buyurtmani tasdiqlash'}</button>`;
+      <button class="set-save" id="koConfirm" style="width:100%;margin-top:4px">${ic('check-circle')} ${kt3('tasdiq')||'Buyurtmani tasdiqlash'}</button>`;
     /* Boshlang'ich tanlov — birinchi mavjud usul */
     var firstPay=document.querySelector("#koContent .ko-pay.on");
     koPay=firstPay?firstPay.dataset.pay:"cash";
@@ -1239,7 +1257,7 @@
     if(!phoneOk){ if($("#koPhoneErr")) $("#koPhoneErr").style.display="block"; return; }
     if($("#koPhoneErr")) $("#koPhoneErr").style.display="none";
     if(addr.length<4){ if($("#koAddrErr")) $("#koAddrErr").style.display="block"; return; }
-    if(!cart.length){ toast("🛒 Savat bo'sh"); return; }
+    if(!cart.length){ toast("Savat bo'sh"); return; }
     /* Forma to'ldirilayotganda ish vaqti tugagan bo'lishi mumkin */
     if(!kIsOpen(cart[0].rest)){
       toast(kClosedMsg(cart[0].rest));
@@ -1267,7 +1285,7 @@
        buyurtma IKKI marta ko'rinib qolmaydi va "Jami sarflagan" ikkilanmaydi. */
     USER.orders.unshift({id:orderLocalId, _local:true, dish:itemLabel, emoji:first.emoji, rest:first.rest,
       date:new Date().toLocaleDateString("ru-RU"), amount:total, addr:addr, pay:koPay, deliveredIn:eta, promised:eta+3, reviewed:false, status:"new"});
-    const addrFull = addr + (USER.geo ? " · 📍GPS: " + USER.geo.lat.toFixed(5) + "," + USER.geo.lng.toFixed(5) : "");
+    const addrFull = addr + (USER.geo ? " · GPS: " + USER.geo.lat.toFixed(5) + "," + USER.geo.lng.toFixed(5) : "");
     let created=null;
     /* Summani SERVER hisoblaydi — biz faqat nima/nechta olayotganimizni aytamiz.
        Quyidagi rest/item/amount local ko'rinish uchun; server ularni e'tiborsiz
@@ -1313,19 +1331,19 @@
   /* REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s yangilaydi).
      Bekor qilinса — bekor ko'rsatadi; "arrived" bo'lса mijoz "Qabul qildim" bosadi -> backendga done. */
   function startTrack(addr,created,emoji,label){
-    emoji=emoji||"🛵"; label=label||"Buyurtma";
+    emoji=emoji||""; label=label||"Buyurtma";
     const kt4=typeof KT==="function"?KT:function(k){return k;};
-    const steps=[kt4('st_accepted')||"Qabul qilindi",kt4('st_cooking')||"Tayyorlanmoqda",kt4('st_ready')||"Tayyor",kt4('st_ontheway')||"Yo'lda",kt4('st_arrived')||"Yetib keldi"], ic=["📥","👨‍🍳","✅","🛵","🎉"];
+    const steps=[kt4('st_accepted')||"Qabul qilindi",kt4('st_cooking')||"Tayyorlanmoqda",kt4('st_ready')||"Tayyor",kt4('st_ontheway')||"Yo'lda",kt4('st_arrived')||"Yetib keldi"], stepIcons=["inbox","flame","check-circle","scooter","party"];
     $("#koContent").innerHTML=`
       <div class="ko-track" style="text-align:center">
-        <div style="font-size:48px;margin-bottom:6px">${emoji}</div>
+        <div style="font-size:48px;margin-bottom:6px;color:var(--brand,#ff5722)">${ic('package','yz-i-xxl')}</div>
         <h2 style="font-size:19px;margin-bottom:4px">${kt4('qabul')||'Buyurtma qabul qilindi!'}</h2>
-        <p class="ko-sub">📍 ${addr} · ${esc(payLabelOf(koPay))}</p>
+        <p class="ko-sub">${ic('map-pin')} ${addr} · ${esc(payLabelOf(koPay))}</p>
         <p style="font-size:13px;color:var(--grey);background:#f0f9f4;border-radius:10px;padding:10px;margin:10px 0">
-          🛵 Buyurtmangiz real vaqtда kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
+          ${ic('scooter')} Buyurtmangiz real vaqtда kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
         </p>
         <div class="ko-status" id="koStatus" style="font-weight:800;margin:6px 0">${steps[0]}</div>
-        <div class="ko-steps">${steps.map((s,i)=>`<div class="ko-step"><div class="dot">${ic[i]}</div><span>${s}</span></div>`).join("")}</div>
+        <div class="ko-steps">${steps.map((s,i)=>`<div class="ko-step"><div class="dot">${ic(stepIcons[i])}</div><span>${s}</span></div>`).join("")}</div>
         <div id="koTrackAction"></div>
         <button class="set-save" id="koDone" style="width:100%;margin-top:12px;background:#eee;color:#333">${kt4('ok_btn')||'Tushunarli, yopish'}</button>
       </div>`;
@@ -1348,13 +1366,13 @@
       /* Tekshiruvda turgan buyurtma — mijoz nima kutayotganini bilsin.
          Oyna FAQAT BIR MARTA (birinchi aniqlanganda) chiqadi. */
       if(s==="review"){
-        const st=$("#koStatus"); if(st){ st.textContent="🔎 Administrator tekshiruvida"; st.style.color="#c2410c"; }
+        const st=$("#koStatus"); if(st){ st.textContent="Administrator tekshiruvida"; st.style.color="#c2410c"; }
         if(!reviewShown){ reviewShown=true; showKabReview(); }
       }
       const act=$("#koTrackAction");
       if(s==="arrived" && act && !act.dataset.on){
         act.dataset.on="1";
-        act.innerHTML='<button class="set-save" id="koGotIt" style="width:100%;background:#16a34a">✅ '+((kt4('yetib_keldi')||'Qabul qildim').replace(' 🎉',''))+'</button>';
+        act.innerHTML='<button class="set-save" id="koGotIt" style="width:100%;background:#16a34a">'+ic('check-circle')+' '+(kt4('yetib_keldi')||'Qabul qildim')+'</button>';
         const gi=$("#koGotIt");
         if(gi) gi.addEventListener("click",async ()=>{
           if(!(o&&o.id&&STORE.confirmReceived)) return;
@@ -1376,7 +1394,7 @@
   function showKabCancelled(reason,emoji){
     let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
     ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
-    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">❌</div><div class="arrived-title">Buyurtma bekor qilindi</div>'+(reason?'<div class="arrived-msg">Sabab: '+esc(reason)+'</div>':'<div class="arrived-msg">Buyurtmangiz bekor qilindi.</div>')+'<button class="btn btn-primary" id="kabCancOk">Tushunarli</button></div>';
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji" style="color:#C8102E">'+ic('x-circle','yz-i-xxl')+'</div><div class="arrived-title">Buyurtma bekor qilindi</div>'+(reason?'<div class="arrived-msg">Sabab: '+esc(reason)+'</div>':'<div class="arrived-msg">Buyurtmangiz bekor qilindi.</div>')+'<button class="btn btn-primary" id="kabCancOk">Tushunarli</button></div>';
     document.body.appendChild(ov);
     const close=()=>{ ov.remove(); };
     ov.querySelector("#kabCancOk").addEventListener("click",close);
@@ -1388,7 +1406,7 @@
   function showKabReview(){
     let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
     ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
-    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">🔎</div>'+
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">'+ic('search','yz-i-xxl')+'</div>'+
       '<div class="arrived-title">Buyurtmangiz tekshirilmoqda</div>'+
       '<div class="arrived-msg">Siz belgilangan miqdordan ko\'proq buyurtma qildingiz. Shu sababli buyurtmangiz avval administrator tomonidan ko\'rib chiqiladi, so\'ngra restoranga topshiriladi.</div>'+
       '<button class="btn btn-primary" id="kabRevOk">Tushunarli</button></div>';
@@ -1403,7 +1421,7 @@
     const blocked=!!res.blocked;
     let ov=document.getElementById("kabArrivedOverlay"); if(ov) ov.remove();
     ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
-    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji">'+(blocked?"⛔":"⚠️")+'</div>'+
+    ov.innerHTML='<div class="arrived-card"><div class="arrived-emoji" style="color:#C8102E">'+(blocked?ic('ban','yz-i-xxl'):ic('alert-triangle','yz-i-xxl'))+'</div>'+
       '<div class="arrived-title" style="color:#C8102E">'+(blocked?"Raqamingiz bloklandi":"Ogohlantirish!")+'</div>'+
       '<div class="arrived-msg">'+esc(res.warn||"")+'</div>'+
       '<button class="btn btn-primary" id="kabWarnOk">Tushundim</button></div>';
@@ -1419,8 +1437,8 @@
     ov=document.createElement("div"); ov.id="kabArrivedOverlay"; ov.className="arrived-overlay";
     const kt5=typeof KT==="function"?KT:function(k){return k;};
     ov.innerHTML=`<div class="arrived-card">
-      <div class="arrived-emoji">${emoji}</div>
-      <div class="arrived-title">${kt5('yetib_keldi')||'Yetib keldi! 🎉'}</div>
+      <div class="arrived-emoji" style="color:#16a34a">${ic('check-circle','yz-i-xxl')}</div>
+      <div class="arrived-title">${kt5('yetib_keldi')||'Yetib keldi!'}</div>
       <div class="arrived-name">${label}</div>
       <div class="arrived-msg">Buyurtmangiz eshigingizda.<br>Ovqatingiz mazali bo'lsin!</div>
       <button class="btn btn-primary" id="kabArrivedOk">${kt5('rahmat')||'Rahmat!'}</button>
@@ -1446,11 +1464,11 @@
     const ov=document.createElement("div");
     ov.id="kabConfirmOverlay"; ov.className="arrived-overlay";
     ov.innerHTML='<div class="arrived-card">'+
-      '<div class="arrived-emoji">'+(be.emoji||"🛵")+'</div>'+
-      '<div class="arrived-title">Yetib keldi! 🎉</div>'+
+      '<div class="arrived-emoji" style="color:#16a34a">'+ic('check-circle','yz-i-xxl')+'</div>'+
+      '<div class="arrived-title">Yetib keldi!</div>'+
       '<div class="arrived-name">'+esc(be.item||"Buyurtma")+'</div>'+
       '<div class="arrived-msg">Buyurtmangizni qabul qildingizmi?<br>Tasdiqlansangiz kuryer ishini yakunlaydi.</div>'+
-      '<button class="btn btn-primary" id="kabPcYes">✅ Ha, qabul qildim</button>'+
+      '<button class="btn btn-primary" id="kabPcYes">'+ic('check-circle')+' Ha, qabul qildim</button>'+
       '<button class="btn btn-outline" id="kabPcLater" style="margin-top:8px">Keyinroq</button>'+
       '</div>';
     document.body.appendChild(ov);
@@ -1459,7 +1477,7 @@
     ov.querySelector("#kabPcYes").addEventListener("click",async ()=>{
       const b=ov.querySelector("#kabPcYes"); b.disabled=true; b.textContent="Tasdiqlanmoqda…";
       try{ await STORE.confirmReceived(be.id); close(); toast("Rahmat! Buyurtma tasdiqlandi","success"); }
-      catch(e){ b.disabled=false; b.textContent="✅ Ha, qabul qildim"; toast("Tasdiqlab bo'lmadi. Qayta urinib ko'ring.","error"); }
+      catch(e){ b.disabled=false; b.innerHTML=ic('check-circle')+' Ha, qabul qildim'; toast("Tasdiqlab bo'lmadi. Qayta urinib ko'ring.","error"); }
     });
   }
 
@@ -1514,23 +1532,23 @@
       const dishCount=kcatalog().filter(d=>d.rest===r.name).length;
       return `<div class="rest-card" data-discounted="${disc}" data-rest="${esc(r.name)}">
         <div class="rest-img tone-${esc(r.kw||'burger')}" style="position:relative">
-          <span class="food-emoji">${r.emoji||"🏪"}</span>
+          <span class="food-emoji">${foodIcon(r.kw||'burger')}</span>
           ${photo?`<img class="rest-photo-bg" src="${photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${photo}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:""}
-          <span class="rest-openbadge ${open?'is-open':'is-closed'}">${open?'🟢 Ochiq':'🔴 Yopiq'}</span>
+          <span class="rest-openbadge ${open?'is-open':'is-closed'}">${open?ic('dot','yz-i-fill yz-i-green')+' Ochiq':ic('dot','yz-i-fill yz-i-red')+' Yopiq'}</span>
           <button class="card-like${liked?' liked':''}" data-rest="${esc(r.name)}" data-name="" aria-label="Yoqtirish" title="Yoqtirish">${HEART_SVG}</button>
         </div>
         <div class="rest-body">
           <h3>${esc(nm(r))}</h3>
           <div class="rest-meta">
-            <span class="star">★ ${r.rating}</span>
-            <span>⏱ ${r.eta} ${typeof KT==="function"?KT('daq'):'daq'}</span>
-            <span>📍 ${esc(trTxt(r.dist||""))}</span>
+            <span class="star">${ic('star','yz-i-fill yz-i-amber')} ${r.rating}</span>
+            <span>${ic('clock')} ${r.eta} ${typeof KT==="function"?KT('daq'):'daq'}</span>
+            <span>${ic('map-pin')} ${esc(trTxt(r.dist||""))}</span>
           </div>
           <div class="rest-info2">
-            <span>🍽️ ${dishCount} ta taom</span>
-            ${hrs?`<span>🕒 ${esc(hrs)}</span>`:""}
+            <span>${ic('utensils')} ${dishCount} ta taom</span>
+            ${hrs?`<span>${ic('clock')} ${esc(hrs)}</span>`:""}
           </div>
-          ${r.addr?`<div class="rest-addr">📍 ${esc(trTxt(r.addr))}</div>`:""}
+          ${r.addr?`<div class="rest-addr">${ic('map-pin')} ${esc(trTxt(r.addr))}</div>`:""}
           ${r.descr?`<div class="rest-descr">${esc(trTxt(String(r.descr).slice(0,90)))}</div>`:""}
         </div>
       </div>`;
@@ -1581,11 +1599,11 @@
       const open=kIsOpen(rname);
       const closedBar = open ? `` :
         `<div class="yz-closed-bar" style="flex-basis:100%;width:100%;margin-top:8px;margin-bottom:0">`+
-        `<span style="font-size:19px">🔴</span><span><b>${esc(rname)}</b> hozir yopiq — buyurtma qabul qilinmaydi.<br>`+
+        `<span style="font-size:19px;color:#C8102E">${ic('dot','yz-i-fill')}</span><span><b>${esc(rname)}</b> hozir yopiq — buyurtma qabul qilinmaydi.<br>`+
         `Ish vaqti: <b>${esc(kHours(rname))}</b>. Shu vaqtda qayta kiring.</span></div>`;
-      box.innerHTML=`<button class="kchip on" id="kRestFilterChip">🏪 ${esc(rname)} <span style="margin-left:4px;opacity:.7">✕</span></button>`+
+      box.innerHTML=`<button class="kchip on" id="kRestFilterChip">${ic('store')} ${esc(rname)} <span style="margin-left:4px;opacity:.7">${ic('x')}</span></button>`+
         closedBar+
-        (isPref?`<div style="flex-basis:100%;width:100%;margin-top:8px;font-size:13px;color:#16a34a;background:#eafaf0;border:1px solid #bdebd0;border-radius:10px;padding:8px 12px">⭐ Siz shu restorandan buyurtma bergansiz — taomlar shu yerdan tavsiya qilinmoqda. Boshqa restoran uchun ✕ bosing.</div>`:``);
+        (isPref?`<div style="flex-basis:100%;width:100%;margin-top:8px;font-size:13px;color:#16a34a;background:#eafaf0;border:1px solid #bdebd0;border-radius:10px;padding:8px 12px">${ic('star','yz-i-fill yz-i-amber')} Siz shu restorandan buyurtma bergansiz — taomlar shu yerdan tavsiya qilinmoqda. Boshqa restoran uchun ${ic('x')} bosing.</div>`:``);
       const chip=box.querySelector("#kRestFilterChip");
       /* "Taomlar" alohida tab emas — filtr olib tashlansa Restoranlar ro'yxatiga qaytamiz */
       if(chip) chip.addEventListener("click",()=>{ activeRest=null; nav("rests"); });
@@ -1647,15 +1665,15 @@
     const content=document.getElementById("kpmodContent");
     if(!modal||!content) return;
     content.innerHTML=`
-      <h2 style="margin-bottom:4px">🔥 Aksiyalar</h2>
+      <h2 style="margin-bottom:4px">${ic('flame','yz-i-brand')} Aksiyalar</h2>
       <p style="color:var(--grey);font-size:13px;margin-bottom:14px">Bugungi maxsus takliflar</p>
       ${discDishes.length?`
-      <div class="kpm-sec-title">🏷️ Chegirmali taomlar</div>
+      <div class="kpm-sec-title">${ic('tag')} Chegirmali taomlar</div>
       <div class="kpm-dishes">
         ${discDishes.map(d=>`
           <div class="kpm-dish" data-id="${d.id}" style="cursor:pointer">
             <div class="kpm-dish-img tone-${d.kw||'burger'}">
-              <span style="font-size:28px">${d.emoji}</span>
+              <span style="font-size:28px;color:#fff">${foodIcon(d.kw)}</span>
             </div>
             <div class="kpm-dish-info">
               <div class="kpm-dish-name">${esc(nm(d))}</div>
@@ -1670,42 +1688,42 @@
           </div>`).join("")}
       </div>`:""}
       ${bonusList.length?`
-      <div class="kpm-sec-title" style="margin-top:${discDishes.length?16:0}px">🎁 Bonuslar</div>
+      <div class="kpm-sec-title" style="margin-top:${discDishes.length?16:0}px">${ic('gift')} Bonuslar</div>
       <div class="kpm-anns">
         ${bonusList.map(b=>`
           <div class="kpm-ann" data-bonus="1" style="cursor:pointer">
-            <span class="kpm-ann-emoji">🎁</span>
+            <span class="kpm-ann-emoji">${ic('gift')}</span>
             <div class="kpm-ann-body">
               <div class="kpm-ann-rest">${b.scope==='restoran'?esc(trTxt(b.rest)):"Yetkaz.uz"}</div>
               <div class="kpm-ann-text">${esc(b.title)}${b.rewardText?" — "+esc(b.rewardText):""}</div>
-              <div class="kpm-ann-action">Bonuslar bo'limiga o'tish →</div>
+              <div class="kpm-ann-action">Bonuslar bo'limiga o'tish ${ic('chevron-right')}</div>
             </div>
             <span class="kpm-tag">BONUS</span>
           </div>`).join("")}
       </div>`:""}
       ${myDiscEvents.length?`
-      <div class="kpm-sec-title" style="margin-top:16px">🎉 Tadbirlaringiz chegirmasi</div>
+      <div class="kpm-sec-title" style="margin-top:16px">${ic('party')} Tadbirlaringiz chegirmasi</div>
       <div class="kpm-anns">
         ${myDiscEvents.map(e=>`
           <div class="kpm-ann" data-event="1" style="cursor:pointer">
-            <span class="kpm-ann-emoji">🎉</span>
+            <span class="kpm-ann-emoji">${ic('party')}</span>
             <div class="kpm-ann-body">
               <div class="kpm-ann-rest">${esc(trTxt(e.rest))}</div>
               <div class="kpm-ann-text">${esc(e.name)} — ${e.discountPct}% chegirma</div>
-              <div class="kpm-ann-action">Tadbirlar bo'limiga o'tish →</div>
+              <div class="kpm-ann-action">Tadbirlar bo'limiga o'tish ${ic('chevron-right')}</div>
             </div>
             <span class="kpm-tag">TADBIR</span>
           </div>`).join("")}
       </div>`:""}
-      <div class="kpm-sec-title" style="margin-top:16px">📢 E'lonlar</div>
+      <div class="kpm-sec-title" style="margin-top:16px">${ic('megaphone')} E'lonlar</div>
       <div class="kpm-anns">
         ${promos.map(p=>`
           <div class="kpm-ann" data-rest="${p.rest}" style="cursor:pointer">
-            <span class="kpm-ann-emoji">${p.emoji||"📢"}</span>
+            <span class="kpm-ann-emoji">${p.emoji?esc(p.emoji):ic('megaphone')}</span>
             <div class="kpm-ann-body">
               <div class="kpm-ann-rest">${p.rest}</div>
               <div class="kpm-ann-text">${p.text}</div>
-              <div class="kpm-ann-action">Restoraniga o'tish →</div>
+              <div class="kpm-ann-action">Restoraniga o'tish ${ic('chevron-right')}</div>
             </div>
             ${p.tag?`<span class="kpm-tag">${p.tag}</span>`:""}
           </div>`).join("")}
@@ -1721,7 +1739,7 @@
       btn.addEventListener("click",(e)=>{
         e.stopPropagation();
         addToCart(+btn.dataset.id);
-        btn.textContent="✓"; btn.style.background="var(--green)";
+        btn.innerHTML=ic('check'); btn.style.background="var(--green)";
       });
     });
     /* E'lon bosilganda restoranga (yoki bonus/tadbir bo'lsa — o'sha bo'limga) o'tish */
@@ -1796,7 +1814,7 @@
           USER.name=name; USER.phone=phone; USER.address=addr;
           try{ localStorage.setItem("yz_user_addr", addr); localStorage.setItem("yz_user_name", name); if(phone) localStorage.setItem("yz_user_phone", phone); }catch(e){}
           var sn=document.getElementById("sbName"); if(sn) sn.textContent=name;
-          if(msg){msg.style.color="#16a34a";msg.textContent="✓ Saqlandi";} toast("Profil saqlandi ✓","success");
+          if(msg){msg.style.color="#16a34a";msg.textContent="Saqlandi";} toast("Profil saqlandi","success");
         }
         else if(msg){ msg.style.color="#C8102E"; msg.textContent=(r&&r.error)||"Xatolik"; }
       });
@@ -1807,9 +1825,9 @@
       if(stGeoBtn) stGeoBtn.addEventListener("click", async function(){
         var geoMsg=document.getElementById("stGeoMsg");
         if(!navigator.geolocation){ if(geoMsg) geoMsg.textContent="Brauzeringiz joylashuvni qo'llamaydi"; return; }
-        stGeoBtn.disabled=true; var orig=stGeoBtn.textContent; stGeoBtn.textContent="📍 Aniqlanmoqda...";
+        stGeoBtn.disabled=true; var orig=stGeoBtn.innerHTML; stGeoBtn.innerHTML=ic('map-pin')+" Aniqlanmoqda...";
         navigator.geolocation.getCurrentPosition(async function(pos){
-          stGeoBtn.disabled=false; stGeoBtn.textContent=orig;
+          stGeoBtn.disabled=false; stGeoBtn.innerHTML=orig;
           var lat=pos.coords.latitude, lng=pos.coords.longitude, addrTxt="";
           try{
             var r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+lat+"&lon="+lng+"&accept-language=uz",{headers:{"Accept":"application/json"}});
@@ -1817,10 +1835,10 @@
           }catch(e){}
           USER.geo={lat:lat,lng:lng,addr:addrTxt};
           if(addrTxt){ var st=document.getElementById("stStreet"); if(st && !st.value) st.value=addrTxt; }
-          if(geoMsg) geoMsg.textContent="✓ Joylashuv aniqlandi — endi \"Saqlash\"ni bosing";
-          toast("Joylashuv aniqlandi 📍","success");
+          if(geoMsg) geoMsg.textContent="Joylashuv aniqlandi — endi \"Saqlash\"ni bosing";
+          toast("Joylashuv aniqlandi","success");
         }, function(err){
-          stGeoBtn.disabled=false; stGeoBtn.textContent=orig;
+          stGeoBtn.disabled=false; stGeoBtn.innerHTML=orig;
           if(geoMsg) geoMsg.textContent = err&&err.code===1 ? "Joylashuvga ruxsat berilmadi" : "Joylashuvni aniqlab bo'lmadi";
         }, { enableHighAccuracy:true, timeout:10000, maximumAge:60000 });
       });

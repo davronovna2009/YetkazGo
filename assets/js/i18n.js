@@ -264,38 +264,38 @@ const I18N = (function(){
       review:"Izoh qoldirish", help:"Qanday buyurtma berish",
       hammasi:"Hammasi", fastfood:"Fastfood", milliy:"Milliy",
       ichimlik:"Ichimlik", shirinlik:"Shirinlik",
-      restoranlar_chip:"🏪 Restoranlar",
-      savat_bosh:"🛒 Savatingiz bo'sh",
+      restoranlar_chip:"Restoranlar",
+      savat_bosh:"Savatingiz bo'sh",
       savat_bosh_hint:"Quyidagi taomlardan tanlang",
-      jami:"Jami", yetkazish:"Yetkazish", bepul:"🛵 Bepul",
-      minimal_warn:"⚠️ Minimal {min} so'm (yana {n} so'm)",
-      minimal_ok:"✅ Yetkazish bepul 🛵",
+      jami:"Jami", yetkazish:"Yetkazish", bepul:"Bepul",
+      minimal_warn:"Minimal {min} so'm (yana {n} so'm)",
+      minimal_ok:"Yetkazish bepul",
       buyurtma_berish:"Buyurtma berish",
       savatga_qoshildi:"Savatga qo'shildi",
-      buyurtma_title:"📋 Buyurtma",
+      buyurtma_title:"Buyurtma",
       buyurtma_sub:"Ma'lumotlarni to'ldiring",
       ism:"Ismingiz", tel:"Telefon raqam",
       manzil:"Yetkazish manzili", tolov:"To'lov usuli",
-      karta:"💳 Karta", naqd:"💵 Naqd",
-      taomlar_count:"ta", tasdiq:"✅ Buyurtmani tasdiqlash",
+      karta:"Karta", naqd:"Naqd",
+      taomlar_count:"ta", tasdiq:"Buyurtmani tasdiqlash",
       qabul:"Buyurtma qabul qilindi!",
       ok_btn:"Tushunarli, yopish",
-      yetib_keldi:"Yetib keldi! 🎉",
+      yetib_keldi:"Yetib keldi!",
       mazali:"Buyurtmangiz eshigingizda.\nOvqatingiz mazali bo'lsin!",
       rahmat:"Rahmat!",
-      aksiyalar:"🔥 Aksiyalar", bugungi:"Bugungi maxsus takliflar",
-      chegirmali:"🏷️ Chegirmali taomlar", elonlar:"📢 E'lonlar",
-      restoranga:"Restoraniga o'tish →",
+      aksiyalar:"Aksiyalar", bugungi:"Bugungi maxsus takliflar",
+      chegirmali:"Chegirmali taomlar", elonlar:"E'lonlar",
+      restoranga:"Restoraniga o'tish",
       buyurtmalar_tarixi:"Buyurtmalar tarixi",
       izohlarim:"Mening izohlarim",
       izoh_qoldirish_btn:"Izohni yuborish",
-      onl:"● Online", chiqish:"← Chiqish",
-      qidirish:"🔍 Restoran qidirish...",
-      daq:"daq", yulduz:"★",
+      onl:"Online", chiqish:"Chiqish",
+      qidirish:"Restoran qidirish...",
+      daq:"daq",
       /* --- kabinet.html statik matnlari --- */
       settings:"Sozlamalar", yordam:"Yordam", savat:"Savat",
       menyu:"Menyu", profil_short:"Profil", chiqish_short:"Chiqish",
-      savat_head:"🛒 Savatingiz",
+      savat_head:"Savatingiz",
       login_sub_kab:"Foydalanuvchi uchun shaxsiy kabinet",
       login_l:"Login", parol_l:"Parol", kirish_btn:"Kirish",
       ph_userlogin:"Foydalanuvchi logini",
@@ -314,14 +314,14 @@ const I18N = (function(){
       hs3_t:"Buyurtma bering", hs3_d:"To'lov usulini tanlang (minimal 20 000 so'm, yetkazish bepul).",
       hs4_t:"Kuzating", hs4_d:"Timer va status orqali buyurtmani kuzating — yetib kelganda yashil bo'ladi.",
       video_soon:"Video qo'llanma tez orada qo'shiladi",
-      set_profile:"👤 Profil ma'lumotlari",
+      set_profile:"Profil ma'lumotlari",
       f_ism:"Ism", ph_ism:"Ism familiya", f_tel:"Telefon",
       f_email:"Email (ixtiyoriy)", f_addr:"Standart yetkazish manzili",
       ph_addr:"Buyurtma berishda avtomatik to'ladi",
-      saqlash:"💾 Saqlash", set_login:"🔒 Login va parol",
+      saqlash:"Saqlash", set_login:"Login va parol",
       f_newpass:"Yangi parol (bo'sh = o'zgarmaydi)",
-      set_lang:"🌐 Til", set_lang_hint:"Tanlangan til butun sayt uchun saqlanadi.",
-      set_notif:"🔔 Bildirishnomalar",
+      set_lang:"Til", set_lang_hint:"Tanlangan til butun sayt uchun saqlanadi.",
+      set_notif:"Bildirishnomalar",
       notif_sound:"Buyurtma holati o'zgarsa ovozli bildirishnoma",
     },
     cyr:{
@@ -329,38 +329,38 @@ const I18N = (function(){
       review:"Изоҳ қолдириш", help:"Қандай буюртма бериш",
       hammasi:"Ҳаммаси", fastfood:"Фастфуд", milliy:"Миллий",
       ichimlik:"Ичимлик", shirinlik:"Ширинлик",
-      restoranlar_chip:"🏪 Ресторанлар",
-      savat_bosh:"🛒 Саватингиз бўш",
+      restoranlar_chip:"Ресторанлар",
+      savat_bosh:"Саватингиз бўш",
       savat_bosh_hint:"Қуйидаги таомлардан танланг",
-      jami:"Жами", yetkazish:"Етказиш", bepul:"🛵 Бепул",
-      minimal_warn:"⚠️ Минимал {min} сўм (яна {n} сўм)",
-      minimal_ok:"✅ Етказиш бепул 🛵",
+      jami:"Жами", yetkazish:"Етказиш", bepul:"Бепул",
+      minimal_warn:"Минимал {min} сўм (яна {n} сўм)",
+      minimal_ok:"Етказиш бепул",
       buyurtma_berish:"Буюртма бериш",
       savatga_qoshildi:"Саватга қўшилди",
-      buyurtma_title:"📋 Буюртма",
+      buyurtma_title:"Буюртма",
       buyurtma_sub:"Маълумотларни тўлдиринг",
       ism:"Исмингиз", tel:"Телефон рақами",
       manzil:"Етказиш манзили", tolov:"Тўлов усули",
-      karta:"💳 Карта", naqd:"💵 Нақд",
-      taomlar_count:"та", tasdiq:"✅ Буюртмани тасдиқлаш",
+      karta:"Карта", naqd:"Нақд",
+      taomlar_count:"та", tasdiq:"Буюртмани тасдиқлаш",
       qabul:"Буюртма қабул қилинди!",
       ok_btn:"Тушунарли, ёпиш",
-      yetib_keldi:"Етиб келди! 🎉",
+      yetib_keldi:"Етиб келди!",
       mazali:"Буюртмангиз эшигингизда.\nОвқатингиз мазали бўлсин!",
       rahmat:"Раҳмат!",
-      aksiyalar:"🔥 Акциялар", bugungi:"Бугунги махсус таклифлар",
-      chegirmali:"🏷️ Чегирмали таомлар", elonlar:"📢 Эълонлар",
-      restoranga:"Ресторанига ўтиш →",
+      aksiyalar:"Акциялар", bugungi:"Бугунги махсус таклифлар",
+      chegirmali:"Чегирмали таомлар", elonlar:"Эълонлар",
+      restoranga:"Ресторанига ўтиш",
       buyurtmalar_tarixi:"Буюртмалар тарихи",
       izohlarim:"Менинг изоҳларим",
       izoh_qoldirish_btn:"Изоҳни юбориш",
-      onl:"● Онлайн", chiqish:"← Чиқиш",
-      qidirish:"🔍 Ресторан қидириш...",
-      daq:"дақ", yulduz:"★",
+      onl:"Онлайн", chiqish:"Чиқиш",
+      qidirish:"Ресторан қидириш...",
+      daq:"дақ",
       /* --- kabinet.html статик матнлари --- */
       settings:"Созламалар", yordam:"Ёрдам", savat:"Сават",
       menyu:"Меню", profil_short:"Профил", chiqish_short:"Чиқиш",
-      savat_head:"🛒 Саватингиз",
+      savat_head:"Саватингиз",
       login_sub_kab:"Фойдаланувчи учун шахсий кабинет",
       login_l:"Логин", parol_l:"Парол", kirish_btn:"Кириш",
       ph_userlogin:"Фойдаланувчи логини",
@@ -379,14 +379,14 @@ const I18N = (function(){
       hs3_t:"Буюртма беринг", hs3_d:"Тўлов усулини танланг (минимал 20 000 сўм, етказиш бепул).",
       hs4_t:"Кузатинг", hs4_d:"Таймер ва статус орқали буюртмани кузатинг — етиб келганда яшил бўлади.",
       video_soon:"Видео қўлланма тез орада қўшилади",
-      set_profile:"👤 Профил маълумотлари",
+      set_profile:"Профил маълумотлари",
       f_ism:"Исм", ph_ism:"Исм фамилия", f_tel:"Телефон",
       f_email:"Email (ихтиёрий)", f_addr:"Стандарт етказиш манзили",
       ph_addr:"Буюртма беришда автоматик тўлади",
-      saqlash:"💾 Сақлаш", set_login:"🔒 Логин ва парол",
+      saqlash:"Сақлаш", set_login:"Логин ва парол",
       f_newpass:"Янги парол (бўш = ўзгармайди)",
-      set_lang:"🌐 Тил", set_lang_hint:"Танланган тил бутун сайт учун сақланади.",
-      set_notif:"🔔 Билдиришномалар",
+      set_lang:"Тил", set_lang_hint:"Танланган тил бутун сайт учун сақланади.",
+      set_notif:"Билдиришномалар",
       notif_sound:"Буюртма ҳолати ўзгарса овозли билдиришнома",
     }
   };
@@ -439,9 +439,9 @@ const I18N = (function(){
     const badge=document.querySelector('.tb-badge');
     if(badge && dict.onl) badge.textContent=dict.onl;
 
-    /* Chiqish tugmasi */
-    const logout=document.getElementById('logoutBtn');
-    if(logout && dict.chiqish) logout.textContent=dict.chiqish;
+    /* Chiqish tugmasi (ikon HTML'da statik — faqat matnni almashtiramiz) */
+    const logoutTxt=document.querySelector('#logoutBtn')&&document.getElementById('logoutBtn').lastChild;
+    if(logoutTxt && logoutTxt.nodeType===3 && dict.chiqish) logoutTxt.textContent=' '+dict.chiqish;
 
     /* Chip kategoriyalar */
     const chips=document.querySelectorAll('#kFilters .kchip');
@@ -478,9 +478,9 @@ const I18N = (function(){
       });
     }
 
-    /* Savat drawer */
-    const drHead=document.querySelector('.kab-dr-head h3');
-    if(drHead) drHead.textContent='🛒 '+(lang==='cyr'?'Саватингиз':'Savatingiz');
+    /* Savat drawer (ikon HTML'da statik — faqat matn spanini almashtiramiz) */
+    const drHeadTxt=document.querySelector('.kab-dr-head h3 [data-kt="savat_head"]');
+    if(drHeadTxt) drHeadTxt.textContent=(lang==='cyr'?'Саватингиз':'Savatingiz');
 
     /* Rests qidiruv placeholder */
     const srch=document.getElementById('kRestSearch');
