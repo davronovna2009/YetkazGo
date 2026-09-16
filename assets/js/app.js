@@ -2341,7 +2341,7 @@
     $("#cartBtn").addEventListener("click",openCart);
     $("#cartClose").addEventListener("click",closeCart);
     $("#checkoutBtn").addEventListener("click",checkout);
-    $("#loginBtn").addEventListener("click",openLogin);
+    $("#loginBtn").addEventListener("click",()=>openLogin());
     $("#modalClose").addEventListener("click",closeModal);
     $("#modalBackdrop").addEventListener("click",closeModal);
     $("#heroSearchBtn").addEventListener("click",()=>document.getElementById("dishes").scrollIntoView({behavior:"smooth"}));
