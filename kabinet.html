@@ -114,7 +114,7 @@
             </div>
             <div class="panel" style="margin-bottom:14px">
               <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#cart"/></svg> Guruh savati</h3></div>
-              <div class="panel-body" id="grpCart"><p style="color:var(--grey);font-size:13px">Hali hech kim taom qo'shmagan.</p></div>
+              <div class="panel-body" id="grpCart" style="max-height:340px;overflow-y:auto;-webkit-overflow-scrolling:touch"><p style="color:var(--grey);font-size:13px">Hali hech kim taom qo'shmagan.</p></div>
               <div class="panel-body" style="padding-top:0">
                 <button class="set-save" id="grpConfirmBtn" style="width:100%;background:#16a34a"><svg class="yz-i yz-i-white"><use href="assets/icons.svg#check-circle"/></svg> Buyurtmani yakunlash</button>
                 <div id="grpConfirmMsg" style="margin-top:8px;font-size:13px"></div>
@@ -156,6 +156,9 @@
               </div>
               <div class="set-field"><label>Sana</label>
                 <input id="evDate" type="date" />
+              </div>
+              <div class="set-field"><label>Qaysi taom(lar) kerak</label>
+                <input id="evDish" placeholder="Masalan: Osh 30 kishilik, Shashlik 50 dona" />
               </div>
               <div class="set-field"><label>Necha kishilik</label>
                 <input id="evHeadcount" type="number" min="1" placeholder="Masalan: 25" />

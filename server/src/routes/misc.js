@@ -94,8 +94,12 @@ function courRow(c, live) {
   const fee = c.fee != null ? c.fee : 0;
   const d = courierDone(c.name, fee);
   const sp = courierSpeed(c.name);
+  /* Kuryerning shaxsiy profil rasmi (Sozlamalar'да o'rnatadi) — accounts
+     jadvalида, chunki couriers jadvali faqat ish ma'lumotlarini saqlaydi. */
+  let avatar = '';
+  try { const acc = db.prepare('SELECT avatar FROM accounts WHERE login = ?').get(c.login); avatar = (acc && acc.avatar) || ''; } catch (e) {}
   return {
-    id: c.id, name: c.name, emoji: c.emoji, rest: c.rest, login: c.login,
+    id: c.id, name: c.name, emoji: c.emoji, avatar, rest: c.rest, login: c.login,
     /* deliveries — REAL yetkazilgan buyurtmalar soni (jadvaldagi qo'l bilan
        kiritilgan son emas). earned — o'sha buyurtmalar uchun to'langan haq. */
     phone: c.phone, deliveries: d.n, earned: d.earned,
@@ -659,11 +663,12 @@ router.post('/pay/:token/:orderId', (req, res) => {
                   hamma joyda bir xil ko'rinadi. */
 const digits = (s) => String(s || '').replace(/\D/g, '');
 router.get('/users', requireRole('admin'), (_req, res) => {
-  const accs = db.prepare("SELECT id, login, name, phone, email, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
+  const accs = db.prepare("SELECT id, login, name, phone, email, avatar, created_at FROM accounts WHERE role = 'user' ORDER BY id DESC").all();
   const knownPhones = new Set(accs.map((u) => digits(u.phone)).filter(Boolean));
 
   const registered = accs.map((u) => ({
     id: u.id, type: 'registered', login: u.login, name: u.name, phone: u.phone || '', email: u.email || '',
+    avatar: u.avatar || '',
     joined: (u.created_at || '').slice(0, 10),
   }));
 

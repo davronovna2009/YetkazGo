@@ -766,6 +766,7 @@
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
           '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+ic('calendar')+' '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
         '<div style="font-size:13px;margin-top:4px">'+ic('user')+' '+esc(e.user)+' · '+ic('phone')+' '+esc(e.phone)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
+        (e.dish?'<div style="font-size:13px;font-weight:700;color:var(--ink);margin-top:4px;background:#faf7f8;border-radius:8px;padding:6px 9px">'+ic('utensils')+' '+esc(e.dish)+'</div>':'')+
         (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('map-pin')+' '+esc(e.addr)+'</div>':'')+
         '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
           '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+

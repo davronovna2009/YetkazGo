@@ -14,6 +14,8 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  const ic=(name,cls)=>'<svg class="yz-i'+(cls?' '+cls:'')+'"><use href="assets/icons.svg#'+name+'"/></svg>';
   /* ---- Kirish tekshiruvlari — soxta/chala ma'lumotni rad etadi ---- */
   const vName=s=>{ s=String(s||"").trim(); return s.length>=2 && /[A-Za-zА-Яа-яЎўҚқҒғҲҳ]/.test(s); };
   const vLogin=s=>/^[A-Za-z0-9_]{3,}$/.test(String(s||"").trim());
@@ -554,7 +556,7 @@
     var all=allComments();
     var pos=all.filter(isPositive).length, neg=all.length-pos;
     var seg=function(k,label,n,col){ return '<button class="ctab" data-ctab="'+k+'" style="border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;background:'+(cmtFilter===k?(col||'var(--red,#C8102E)'):'#f1eef0')+';color:'+(cmtFilter===k?'#fff':'#777')+'">'+label+' <span style="opacity:.85">'+n+'</span></button>'; };
-    host.innerHTML=seg("all","Hammasi",all.length)+seg("positive","😊 Ijobiy",pos,"#16a34a")+seg("negative","😞 Salbiy",neg,"#C8102E");
+    host.innerHTML=seg("all","Hammasi",all.length)+seg("positive",ic('thumbs-up')+" Ijobiy",pos,"#16a34a")+seg("negative",ic('alert-triangle')+" Salbiy",neg,"#C8102E");
     host.querySelectorAll(".ctab").forEach(function(b){ b.addEventListener("click",function(){ cmtFilter=b.dataset.ctab; renderComments(); }); });
   }
   function renderComments(){
@@ -571,24 +573,26 @@
       const rr=Math.max(0,Math.min(5,r.rating|0));
       /* Kuryer reytinglari saytda ko'rinmaydi — bu yerда ajratib ko'rsatamiz */
       const isCour=/^🛵\s*Kuryer:/.test(String(r.dish||""));
+      const isPhoto=r.ava&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(r.ava);
+      const ava=isPhoto?'<img src="'+esc(r.ava)+'" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:-4px">':ic('user');
       return '<div style="padding:14px 0;border-bottom:1px solid var(--line)" data-cmt="'+esc(String(r.id||""))+'">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">'+
-          '<b>'+(r.ava||"👤")+' '+esc(r.name)+'</b>'+
+          '<b>'+ava+' '+esc(r.name)+'</b>'+
           '<span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span>'+
         '</div>'+
         '<div style="color:var(--grey);font-size:12px;margin-top:2px">'+
-          (isCour?'🛵 ':'🍽️ ')+esc(r.dish||"—")+(r.rest?' · 🏪 '+esc(r.rest):"")+(r.date?' · '+esc(r.date):"")+
+          (isCour?ic('scooter'):ic('utensils'))+' '+esc(r.dish||"—")+(r.rest?' · '+ic('store')+' '+esc(r.rest):"")+(r.date?' · '+esc(r.date):"")+
           (r.flagged?' <span class="pill red">signal</span>':"")+
         '</div>'+
         '<div style="font-size:14px;margin-top:6px">'+esc(r.text||"—")+'</div>'+
         (r.reply
           ? '<div style="background:#ecfdf3;border-left:3px solid #16a34a;border-radius:8px;padding:8px 11px;margin-top:8px;font-size:13px">'+
-              '<b style="color:#15803d">↩ Yetkaz javobi:</b> '+esc(r.reply)+'</div>'
+              '<b style="color:#15803d">'+ic('send')+' Yetkaz javobi:</b> '+esc(r.reply)+'</div>'
           : "")+
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">'+
-          '<button class="add-action-btn" data-reply="'+esc(String(r.id||""))+'" style="background:#2563eb">'+(r.reply?"✏️ Javobni tahrirlash":"↩ Javob yozish")+'</button>'+
-          (r.reply?'<button class="add-action-btn" data-unreply="'+esc(String(r.id||""))+'" style="background:#9ca3af">Javobni olib tashlash</button>':"")+
-          '<button class="add-action-btn" data-delcmt="'+esc(String(r.id||""))+'" style="background:#C8102E">🗑 O\'chirish</button>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">'+
+          '<button class="cmt-mini-btn" data-reply="'+esc(String(r.id||""))+'" style="background:#eff6ff;color:#2563eb">'+ic('edit')+' '+(r.reply?"Javobni tahrirlash":"Javob yozish")+'</button>'+
+          (r.reply?'<button class="cmt-mini-btn" data-unreply="'+esc(String(r.id||""))+'" style="background:#f1eef0;color:#666">Javobni olib tashlash</button>':"")+
+          '<button class="cmt-mini-btn" data-delcmt="'+esc(String(r.id||""))+'" style="background:#fdecea;color:#C8102E">'+ic('trash')+' O\'chirish</button>'+
         '</div></div>';
     }).join("");
 
@@ -609,12 +613,12 @@
     $$("#cmtList [data-delcmt]").forEach(function(b){
       b.addEventListener("click",function(){
         confirmModal({
-          icon:"🗑", title:"Izohni o'chirish",
+          icon:ic('trash'), title:"Izohni o'chirish",
           desc:"Bu izoh saytdan butunlay o'chiriladi. Buni ortga qaytarib bo'lmaydi.",
           confirmLabel:"Ha, o'chirish",
           onConfirm:async function(){
             const res=await STORE.deleteReview(b.dataset.delcmt);
-            if(res && res.error) toast(res.error); else toast("Izoh o'chirildi ✓");
+            if(res && res.error) toast(res.error); else toast("Izoh o'chirildi");
             renderComments(); renderAdminReviews();
           }
         });
@@ -627,7 +631,7 @@
     el=document.createElement("div"); el.id="cmtReplyModal";
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px;max-height:90vh;overflow:auto">'+
-      '<h3 style="margin:0 0 6px">↩ Izohga javob</h3>'+
+      '<h3 style="margin:0 0 6px">'+ic('send')+' Izohga javob</h3>'+
       '<p style="color:var(--grey);font-size:13px;margin:0 0 10px">Javobingiz saytda izoh ostida <b>«Yetkaz javobi»</b> bo\'lib ko\'rinadi.</p>'+
       '<div style="background:#faf7f8;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px">'+
         '<b>'+(r.ava||"👤")+' '+esc(r.name)+'</b><div style="margin-top:4px">'+esc(r.text||"—")+'</div></div>'+
@@ -1334,8 +1338,8 @@
   function restOpenBadge(r){
     const be=beRest(r); if(!be) return "";
     return restOpenNow(r)
-      ? ` <span class="yz-openbadge is-open" title="Ish vaqti: ${esc(restHours(r))}">🟢 Ochiq</span>`
-      : ` <span class="yz-openbadge is-closed" title="Ish vaqti: ${esc(restHours(r))}">🔴 Yopiq</span>`;
+      ? ` <span class="yz-openbadge is-open" title="Ish vaqti: ${esc(restHours(r))}">${ic('dot','yz-i-fill yz-i-green')} Ochiq</span>`
+      : ` <span class="yz-openbadge is-closed" title="Ish vaqti: ${esc(restHours(r))}">${ic('dot','yz-i-fill yz-i-red')} Yopiq</span>`;
   }
 
   function renderRests(){
@@ -1344,8 +1348,8 @@
       tb.innerHTML=RESTS.map(r=>{
         const pend=getPending(r.id,"rest");
         return `<tr data-id="${r.id}">
-          <td><div class="tname"><span class="av">${r.emoji}</span>${r.name}${restOpenBadge(r)}</div>
-              <div style="color:var(--grey);font-size:11.5px;margin-top:2px">🕒 ${esc(restHours(r))}</div></td>
+          <td><div class="tname">${r.photo?`<img class="av" src="${esc(r.photo)}" alt="" style="object-fit:cover">`:`<span class="av">${ic('store')}</span>`}${r.name}${restOpenBadge(r)}</div>
+              <div style="color:var(--grey);font-size:11.5px;margin-top:2px">${ic('clock')} ${esc(restHours(r))}</div></td>
           <td><span class="star">${starTxt(r.rating)}</span></td>
           <td>${money(r.orders)}</td>
           <td class="money">${money(r.rev)}</td>
@@ -1364,10 +1368,10 @@
         const pend=getPending(r.id,"rest");
         return `<div class="mcard" data-id="${r.id}">
           <div class="mcard-top">
-            <span class="mcard-icon">${r.emoji}</span>
-            <div class="mcard-info"><div class="mcard-name">${r.name}${restOpenBadge(r)}</div><div class="mcard-sub">🕒 ${esc(restHours(r))}${r.addr?" · "+esc(r.addr):""}</div></div>
+            <span class="mcard-icon">${ic('store')}${r.photo?`<img src="${esc(r.photo)}" alt="">`:""}</span>
+            <div class="mcard-info"><div class="mcard-name">${r.name}${restOpenBadge(r)}</div><div class="mcard-sub">${ic('clock')} ${esc(restHours(r))}${r.addr?" · "+esc(r.addr):""}</div></div>
             ${pend
-              ? `<span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`
+              ? `<span class="pill warn" style="font-size:10px">${ic('clock')} ${formatCountdown(pend.deleteAt-Date.now())}</span>`
               : `<span class="pill ${r.status==="ok"?"ok":"warn"}">${r.status==="ok"?"Faol":"Nazorat"}</span>`}
           </div>
           <div class="mcard-stats">
@@ -1392,8 +1396,8 @@
   }
   function courLeaveBadge(c){
     const be=beCourier(c);
-    if(be && be.onLeave) return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef3c7;color:#b45309">🚪 Ishdan javobda</span>`;
-    if(be && be.leaveStatus==='pending') return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef9c3;color:#a16207">⏳ Javob so'rovi</span>`;
+    if(be && be.onLeave) return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef3c7;color:#b45309">${ic('log-out')} Ishdan javobda</span>`;
+    if(be && be.leaveStatus==='pending') return ` <span class="pill warn" title="${esc(be.leaveReason||'')}" style="font-size:10px;background:#fef9c3;color:#a16207">${ic('clock')} Javob so'rovi</span>`;
     return "";
   }
   function courHours(c){ const be=beCourier(c); if(!be) return "—"; return YZ_TIME.courHours(be); }
@@ -1404,15 +1408,15 @@
     const be=beCourier(c); if(!be) return "";
     if(be.onLeave) return "";                      // "Ishdan javobda" nishoni allaqachon chiqadi
     return courOnShift(c)
-      ? ` <span class="yz-openbadge is-open">🟢 Ishda</span>`
-      : ` <span class="yz-openbadge is-closed">🌙 Ish vaqti emas</span>`;
+      ? ` <span class="yz-openbadge is-open">${ic('dot','yz-i-fill yz-i-green')} Ishda</span>`
+      : ` <span class="yz-openbadge is-closed">${ic('moon')} Ish vaqti emas</span>`;
   }
   function renderCouriers(){
     const tb=$("#courTbody"); if(tb){
       tb.innerHTML=COURIERS.map(c=>{
         const pend=getPending(c.id,"courier");
         return `<tr data-id="${c.id}">
-          <td><div class="tname"><span class="av">${c.emoji}</span>${c.name}${courLeaveBadge(c)}${courShiftBadge(c)}</div></td>
+          <td><div class="tname">${c.avatar?`<img class="av" src="${esc(c.avatar)}" alt="" style="object-fit:cover">`:`<span class="av">${ic('scooter')}</span>`}${c.name}${courLeaveBadge(c)}${courShiftBadge(c)}</div></td>
           <td>${c.rest}</td>
           <td>${money(c.deliveries)} ta</td>
           <!-- Kuryerga HAQIQATDA to'langan haqlar yig'indisi (saytning xarajati) -->
@@ -1429,10 +1433,10 @@
         const pend=getPending(c.id,"courier");
         return `<div class="mcard" data-id="${c.id}">
           <div class="mcard-top">
-            <span class="mcard-icon">${c.emoji}</span>
+            <span class="mcard-icon">${ic('scooter')}${c.avatar?`<img src="${esc(c.avatar)}" alt="">`:""}</span>
             <div class="mcard-info"><div class="mcard-name">${c.name}${courLeaveBadge(c)}</div><div class="mcard-sub">${c.rest}</div></div>
             ${pend
-              ? `<span class="pill warn" style="font-size:10px">⏳ ${formatCountdown(pend.deleteAt-Date.now())}</span>`
+              ? `<span class="pill warn" style="font-size:10px">${ic('clock')} ${formatCountdown(pend.deleteAt-Date.now())}</span>`
               : `<span class="star">${starTxt(c.rating)}</span>`}
           </div>
           <div class="mcard-stats">
@@ -1465,7 +1469,7 @@
         const cnt={}; mine.forEach(o=>{ if(o.rest) cnt[o.rest]=(cnt[o.rest]||0)+1; });
         const fav=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
         const last=mine[0] ? (YZ_TIME.fmtDate(mine[0].created_at)||u.joined||"—") : (u.joined||"—");
-        return { id:100000+(u.id||0), backendId:u.id, login:u.login||"", name:u.name, emoji:"👤",
+        return { id:100000+(u.id||0), backendId:u.id, login:u.login||"", name:u.name, emoji:"👤", avatar:u.avatar||"",
           phone:u.phone||"", email:u.email||"",
           orders:mine.length, done:done.length,
           cancelled:mine.filter(o=>o.status==="cancelled").length,
@@ -1517,7 +1521,7 @@
     const tb=$("#userTbody"); if(tb){
       tb.innerHTML=rows.length?rows.map(u=>`
         <tr data-id="${u.id}">
-          <td><div class="tname"><span class="av">${u.emoji}</span>${esc(u.name)}${u.reg?' <span class="pill ok" style="font-size:10px">ro\'yxatda</span>':' <span class="pill warn" style="font-size:10px">mehmon</span>'}</div></td>
+          <td><div class="tname">${u.avatar?`<img class="av" src="${esc(u.avatar)}" alt="" style="object-fit:cover">`:`<span class="av">${ic(u.guest?'eye':'user')}</span>`}${esc(u.name)}${u.reg?' <span class="pill ok" style="font-size:10px">ro\'yxatda</span>':' <span class="pill warn" style="font-size:10px">mehmon</span>'}</div></td>
           <td>${money(u.orders)}</td><td class="money">${money(u.spent)}</td>
           <td>${guestMode?esc(u.phone):esc(u.fav)}</td><td>${guestMode?esc(u.fav):u.reviews}</td><td>${esc(u.last)}</td>
         </tr>`).join(""):`<tr><td colspan="6" style="color:var(--grey);padding:20px">${guestMode?"Ro'yxatdan o'tmay buyurtma bergan mijoz yo'q.":"Ro'yxatdan o'tgan foydalanuvchi yo'q."}</td></tr>`;
@@ -1527,7 +1531,7 @@
       mc.innerHTML=rows.length?rows.map(u=>`
         <div class="mcard" data-id="${u.id}">
           <div class="mcard-top">
-            <span class="mcard-icon">${u.emoji}</span>
+            <span class="mcard-icon">${ic(u.guest?'eye':'user')}${u.avatar?`<img src="${esc(u.avatar)}" alt="">`:""}</span>
             <div class="mcard-info"><div class="mcard-name">${esc(u.name)}${u.guest?' <span class="pill warn" style="font-size:9px">mehmon</span>':''}</div><div class="mcard-sub">${esc(u.phone)}</div></div>
             <span class="pill ${u.guest?'warn':'ok'}">${u.orders} buyurtma</span>
           </div>
@@ -2592,13 +2596,14 @@
     host.innerHTML=list.map(function(e){
       return '<div style="padding:12px 0;border-bottom:1px solid var(--line)">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">📅 '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
-        '<div style="font-size:13px;margin-top:4px">👤 '+esc(e.user)+' · 📞 '+esc(e.phone)+' · 🏪 '+esc(e.rest)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
-        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">📍 '+esc(e.addr)+'</div>':'')+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+ic('calendar')+' '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
+        '<div style="font-size:13px;margin-top:4px">'+ic('user')+' '+esc(e.user)+' · '+ic('phone')+' '+esc(e.phone)+' · '+ic('store')+' '+esc(e.rest)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
+        (e.dish?'<div style="font-size:13px;font-weight:700;color:var(--ink);margin-top:4px;background:#faf7f8;border-radius:8px;padding:6px 9px">'+ic('utensils')+' '+esc(e.dish)+'</div>':'')+
+        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('map-pin')+' '+esc(e.addr)+'</div>':'')+
         '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
           '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
-          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">🏷 Chegirma belgilash</button>'+
-          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">✓ '+e.discountPct+'% belgilangan</span>':'')+
+          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">'+ic('tag')+' Chegirma belgilash</button>'+
+          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">'+ic('check')+' '+e.discountPct+'% belgilangan</span>':'')+
         '</div></div>';
     }).join("");
     host.querySelectorAll('[data-evsave]').forEach(function(b){ b.addEventListener('click',async function(){

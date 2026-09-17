@@ -10,7 +10,7 @@ const router = Router();
 function rowToEvent(r) {
   return {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, addr: r.addr || '',
-    eventDate: r.event_date, name: r.name, headcount: r.headcount || 0,
+    eventDate: r.event_date, name: r.name, dish: r.dish || '', headcount: r.headcount || 0,
     advanceDays: r.advance_days || 0, discountPct: r.discount_pct || 0,
     status: r.status, createdAt: r.created_at,
   };
@@ -28,12 +28,12 @@ router.post('/', requireRole('user'), (req, res) => {
 
   const acc = db.prepare('SELECT * FROM accounts WHERE id = ?').get(req.user.id);
   const info = db.prepare(
-    `INSERT INTO events (account_id, user, phone, rest, addr, event_date, name, headcount, advance_days)
-     VALUES (?,?,?,?,?,?,?,?,?)`
+    `INSERT INTO events (account_id, user, phone, rest, addr, event_date, name, dish, headcount, advance_days)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`
   ).run(
     req.user.id, (acc && acc.name) || req.user.name, (acc && acc.phone) || '', rest,
     String(b.addr || (acc && (acc.addr_region ? `${acc.addr_region}, ${acc.addr_mahalla} mahallasi, ${acc.addr_street}` : '')) || ''),
-    eventDate, name, Math.max(0, Number(b.headcount) || 0), Math.max(1, Number(b.advance_days) || 1)
+    eventDate, name, String(b.dish || '').trim().slice(0, 200), Math.max(0, Number(b.headcount) || 0), Math.max(1, Number(b.advance_days) || 1)
   );
   res.status(201).json(rowToEvent(db.prepare('SELECT * FROM events WHERE id = ?').get(info.lastInsertRowid)));
 });

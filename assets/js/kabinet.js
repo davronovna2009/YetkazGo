@@ -143,6 +143,7 @@
     var pr=preferredRest(); if(pr) activeRest=pr;
     $("#loginWrap").style.display="none"; $("#app").classList.add("show");
     $("#sbName").textContent=USER.name; renderAll();
+    try{ updateBonusBadge(); }catch(e){}
     /* Birinchi marta kirgan (yoki hali manzil saqlamagan) foydalanuvchiga
        bir martalik taklif: "Ma'lumotlaringizni saqlab qo'ying". */
     try{ maybeShowOnboarding(acc); }catch(e){}
@@ -183,6 +184,8 @@
         try{ refreshOpenState(true); }catch(e){}
         /* Aksiya/e'lon o'zgarsa — banner ham yangilansin */
         try{ renderKabPromoBand(); }catch(e){}
+        /* Yangi bonus qo'shilsa — sidebar'da nishon chiqsin */
+        try{ updateBonusBadge(); }catch(e){}
       }); }
     /* Kirganда tasdiqlanmagan buyurtma bo'lsa — darrov so'raymiz */
     if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(function(){ try{ askPendingConfirmKab(); }catch(e){} }).catch(function(){});
@@ -220,6 +223,29 @@
      linki (index.html?ref=<login>) va nusxalash tugmasi ko'rsatiladi. */
   const BON_TYPE_LABEL_K={order_count:ic('package')+" Buyurtmalar soni",referral:ic('handshake')+" Do'st taklif qilish",custom:ic('help-circle')+" Ma'lumot"};
   function refLink(){ try{ return location.origin+"/?ref="+encodeURIComponent(USER.login||""); }catch(e){ return ""; } }
+  /* "Yangi bonus" belgisi — Bonuslar bo'limini ochib ko'rgach avtomatik
+     yo'qoladi (localStorage'да "ko'rilgan" id'lar saqlanadi). */
+  function seenBonusIds(){ try{ return new Set(JSON.parse(localStorage.getItem("yz_kab_seen_bonuses")||"[]")); }catch(e){ return new Set(); } }
+  function updateBonusBadge(){
+    try{
+      const seen=seenBonusIds();
+      const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+      const hasNew=list.some(b=>b&&b.id!=null&&!seen.has(String(b.id)));
+      $$('.sb-link[data-view="bonus"]').forEach(link=>{
+        const icEl=link.querySelector(".ic"); if(!icEl) return;
+        let dot=icEl.querySelector(".yz-newdot");
+        if(hasNew){ if(!dot){ dot=document.createElement("span"); dot.className="yz-newdot"; icEl.appendChild(dot); } }
+        else if(dot){ dot.remove(); }
+      });
+    }catch(e){}
+  }
+  function markBonusesSeen(){
+    try{
+      const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
+      localStorage.setItem("yz_kab_seen_bonuses", JSON.stringify(list.map(b=>String(b.id))));
+    }catch(e){}
+    updateBonusBadge();
+  }
   function renderBonusesKab(){
     const host=$("#bonusListKab"); if(!host) return;
     const list=(typeof STORE!=="undefined"&&STORE.bonuses)?STORE.bonuses():[];
@@ -268,6 +294,7 @@
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
           '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+EV_STATUS_LABEL[e.status]+'</span></div>'+
         '<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('store')+' '+esc(trTxt(e.rest))+' · '+ic('calendar')+' '+esc(e.eventDate)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
+        (e.dish?'<div style="font-size:12.5px;color:var(--ink);margin-top:2px">'+ic('utensils')+' '+esc(e.dish)+'</div>':'')+
         (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:2px">'+ic('tag')+' '+e.discountPct+'% chegirma belgilandi</div>':'')+
         '</div>';
     }).join("");
@@ -275,18 +302,20 @@
   async function submitEvent(){
     const rest=$("#evRest")?$("#evRest").value:"", name=$("#evName")?$("#evName").value.trim():"";
     const date=$("#evDate")?$("#evDate").value:"", headcount=$("#evHeadcount")?Number($("#evHeadcount").value)||0:0;
+    const dish=$("#evDish")?$("#evDish").value.trim():"";
     const advance=$("#evAdvance")?Number($("#evAdvance").value)||1:1;
     const msg=$("#evMsg");
     const setMsg=(t,ok)=>{ if(msg){ msg.style.color=ok?"#16a34a":"#C8102E"; msg.textContent=t; } };
     if(!rest) return setMsg("Restoranni tanlang", false);
     if(!name) return setMsg("Tadbir nomini kiriting", false);
     if(!date) return setMsg("Sanani tanlang", false);
+    if(!dish) return setMsg("Qaysi taom kerakligini yozing", false);
     const btn=$("#evSubmit"); if(btn) btn.disabled=true;
-    const r=(typeof STORE!=="undefined"&&STORE.addEvent)? await STORE.addEvent({rest:rest,name:name,event_date:date,headcount:headcount,advance_days:advance}) : {error:"Tizim tayyor emas"};
+    const r=(typeof STORE!=="undefined"&&STORE.addEvent)? await STORE.addEvent({rest:rest,name:name,event_date:date,dish:dish,headcount:headcount,advance_days:advance}) : {error:"Tizim tayyor emas"};
     if(btn) btn.disabled=false;
     if(r&&r.error){ setMsg(r.error, false); return; }
     setMsg("Yuborildi", true); toast("Tadbir yuborildi","success");
-    if($("#evName")) $("#evName").value=""; if($("#evDate")) $("#evDate").value=""; if($("#evHeadcount")) $("#evHeadcount").value="";
+    if($("#evName")) $("#evName").value=""; if($("#evDate")) $("#evDate").value=""; if($("#evHeadcount")) $("#evHeadcount").value=""; if($("#evDish")) $("#evDish").value="";
     renderEventsKab();
     refreshMyEventsCache();
   }
@@ -377,6 +406,9 @@
     const cartHost=$("#grpCart");
     const names=Object.keys(byMember);
     if(cartHost){
+      /* 4s'da bir avtomatik yangilanadi (real vaqt) — scroll pastga tushirilgan
+         bo'lsa, har yangilanishда tepaga otilib ketmasin. */
+      const _scrollTop=cartHost.scrollTop;
       if(!names.length){ cartHost.innerHTML='<p style="color:var(--grey);font-size:13px">Hali hech kim taom qo\'shmagan.</p>'; }
       else {
         cartHost.innerHTML=names.map(name=>{
@@ -395,6 +427,7 @@
           if(r&&!r.error){ ACTIVE_GROUP=r; renderActiveGroup(); }
         }));
       }
+      cartHost.scrollTop=_scrollTop;
     }
 
     /* Guruh restoranining taomlari — oddiy "+" bilan qo'shiladi (guruh
@@ -553,7 +586,7 @@
     if(view==="settings") renderSettings();
     if(view==="help") fillSupportContact();
     if(view==="rests")  renderKabRests();
-    if(view==="bonus")  renderBonusesKab();
+    if(view==="bonus"){ renderBonusesKab(); markBonusesSeen(); }
     if(view==="events") renderEventsKab();
     if(view==="group")  renderGroupView();
     else try{ stopGroupPoll(); }catch(e){}   // boshqa bo'limga o'tsa — fonda so'rov yubormaymiz
