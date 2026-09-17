@@ -23,6 +23,8 @@
 
   var esc = (root.YZ_SAFE && root.YZ_SAFE.esc) || function (s) { return String(s == null ? '' : s); };
   var money = function (n) { return Math.round(Number(n) || 0).toLocaleString('ru-RU'); };
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  var ic = function (name, cls) { return '<svg class="yz-i' + (cls ? ' ' + cls : '') + '"><use href="assets/icons.svg#' + name + '"/></svg>'; };
 
   /* Haqiqiy rasmmi (emoji/bo'sh matn emas)? */
   function isPhoto(p) { return !!p && /^\/(?:uploads|img)\/|^data:|^https?:/.test(String(p)); }
@@ -74,7 +76,7 @@
     var n = notes(order);
     if (!n.length) return '';
     return '<span class="yz-note-flag" title="' + esc(n.map(function (x) { return x.name + ': ' + x.note; }).join(' · ')) + '">'
-      + '💬 ' + n.length + ' ta izoh</span>';
+      + ic('message') + ' ' + n.length + ' ta izoh</span>';
   }
 
   /* Buyurtma modali uchun KATTA, o'tkazib yuborib bo'lmaydigan blok.
@@ -90,7 +92,7 @@
         + '</div>';
     }).join('');
     return '<div class="yz-note-box">'
-      + '<h4>💬 ' + esc(o.title || 'Mijoz izohi — shuni bajaring') + '</h4>'
+      + '<h4>' + ic('message') + ' ' + esc(o.title || 'Mijoz izohi — shuni bajaring') + '</h4>'
       + rows + '</div>';
   }
 
@@ -102,16 +104,16 @@
     if (!Array.isArray(bd) || !bd.length) return '';
     var o = opts || {};
     var rows = bd.map(function (m, i) {
-      var payLabel = m.pay === 'card' ? '💳 Karta' : '💵 Naqd';
+      var payLabel = (m.pay === 'card' ? ic('card') + ' Karta' : ic('cash') + ' Naqd');
       var paidBadge = m.paid
-        ? '<span class="yz-gb-paid">✓ Olindi</span>'
+        ? '<span class="yz-gb-paid">' + ic('check') + ' Olindi</span>'
         : (o.onPaidClick ? '<button class="yz-gb-btn" data-gbidx="' + i + '">Olindi deb belgilash</button>' : '<span class="yz-gb-pending">Kutilmoqda</span>');
       return '<div class="yz-gb-row">'
-        + '<span class="yz-gb-name">👤 ' + esc(m.name) + '</span>'
+        + '<span class="yz-gb-name">' + ic('user') + ' ' + esc(m.name) + '</span>'
         + '<span class="yz-gb-amount">' + money(m.amount) + " so'm · " + payLabel + '</span>'
         + paidBadge + '</div>';
     }).join('');
-    return '<div class="yz-gb-box"><h4>👥 Guruh — har kimning ulushi</h4>' + rows + '</div>';
+    return '<div class="yz-gb-box"><h4>' + ic('users') + ' Guruh — har kimning ulushi</h4>' + rows + '</div>';
   }
 
   /* Bitta taom belgisi (rasm bo'lsa rasm, bo'lmasa emoji) */
@@ -121,11 +123,11 @@
     var box = 'width:' + px + 'px;height:' + px + 'px;border-radius:9px;flex:none;object-fit:cover;background:#f3eef0';
     if (p) {
       return '<img src="' + esc(p) + '" alt="" style="' + box + '"'
-           + ' data-onerr="emoji" data-emoji="' + esc((line && line.emoji) || '🍽️') + '"'
-           + ' data-emoji-class="yz-it-emoji">';
+           + ' data-onerr="icon" data-icon="food-generic"'
+           + ' data-icon-class="yz-it-emoji">';
     }
-    return '<span style="' + box + ';display:inline-flex;align-items:center;justify-content:center;font-size:' + Math.round(px * 0.6) + 'px">'
-         + esc((line && line.emoji) || '🍽️') + '</span>';
+    return '<span style="' + box + ';display:inline-flex;align-items:center;justify-content:center;color:#c8b9be">'
+         + ic('food-generic', 'yz-i-lg') + '</span>';
   }
 
   /* ---- Jadval qatori uchun: gorizontal rasm lentasi (overflow-x) ----
@@ -150,7 +152,7 @@
     var total = qty(order);
     if (!ls.length) {
       /* Eski buyurtma — tarkib saqlanmagan, faqat yorliq bor */
-      return '<div class="yz-it-box"><div class="yz-it-head"><b>🍽️ Buyurtma tarkibi</b></div>'
+      return '<div class="yz-it-box"><div class="yz-it-head"><b>' + ic('utensils') + ' Buyurtma tarkibi</b></div>'
         + '<div style="padding:10px 12px;color:#9a8d83;font-size:13px">'
         + esc((order && order.item) || '—') + ' <span style="opacity:.7">(bu eski buyurtma — batafsil tarkib saqlanmagan)</span>'
         + '</div></div>';
@@ -163,7 +165,7 @@
         : money(l.eff != null ? l.eff : l.price) + " so'm";
       /* Mijoz tilagi AYNAN shu taom ostida — tayyorlovchi/kuryer adashmasin */
       var note = String(l.note || '').trim()
-        ? '<div class="yz-it-note">💬 <span>' + esc(l.note) + '</span></div>' : '';
+        ? '<div class="yz-it-note">' + ic('message') + ' <span>' + esc(l.note) + '</span></div>' : '';
       return '<div class="yz-it-row">'
         + thumb(l, 42)
         + '<div class="yz-it-info"><div class="yz-it-name">' + esc(l.name) + '</div>'
@@ -174,9 +176,9 @@
     }).join('');
     var n = notes(order).length;
     return '<div class="yz-it-box">'
-      + '<div class="yz-it-head"><b>🍽️ Buyurtma tarkibi</b>'
+      + '<div class="yz-it-head"><b>' + ic('utensils') + ' Buyurtma tarkibi</b>'
       + '<span class="yz-it-count">' + ls.length + ' xil · jami ' + total + ' dona'
-      + (n ? ' · 💬 ' + n + ' ta izoh' : '') + '</span></div>'
+      + (n ? ' · ' + ic('message') + ' ' + n + ' ta izoh' : '') + '</span></div>'
       + '<div class="yz-it-scroll" style="max-height:' + (o.maxHeight || 260) + 'px">' + rows + '</div>'
       + '</div>';
   }

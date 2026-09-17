@@ -381,27 +381,28 @@ const STORE = (function () {
       const s = cache.settings || {};
       const out = [];
       /* *_On maydonlari bo'lmasa (eski server javobi) — ikkalasi ham yoqilgan */
-      if (s.payCardOn == null || s.payCardOn) out.push({ id: "card", label: "💳 Karta", note: "" });
-      if (s.payCashOn == null || s.payCashOn) out.push({ id: "cash", label: "💵 Naqd", note: "" });
+      if (s.payCardOn == null || s.payCardOn) out.push({ id: "card", label: "Karta", note: "" });
+      if (s.payCashOn == null || s.payCashOn) out.push({ id: "cash", label: "Naqd", note: "" });
       if (Array.isArray(s.payExtra)) {
         s.payExtra.forEach(x => { if (x && x.label) out.push({ id: String(x.id || x.label), label: String(x.label), note: String(x.note || "") }); });
       }
       /* Hech biri qolmasa — naqd majburan (buyurtma umuman bo'lmay qolmasin) */
-      return out.length ? out : [{ id: "cash", label: "💵 Naqd", note: "" }];
+      return out.length ? out : [{ id: "cash", label: "Naqd", note: "" }];
     },
     payAllowed(id) {
       return this.payMethods().some(m => m.id === id || (id === "card" && m.id === "card") || (id === "cash" && m.id === "cash"));
     },
-    /* Buyurtma `pay` -> ko'rsatiladigan yorliq (panellar order modalида ishlatadi) */
+    /* Buyurtma `pay` -> ko'rsatiladigan yorliq (matn, ikonsiz — panellar o'zi
+       ikon qo'shadi id bo'yicha: card/cash). */
     payLabel(id) {
-      if (id === "card" || id === "karta") return "💳 Karta";
-      if (id === "cash" || id === "naqd") return "💵 Naqd";
+      if (id === "card" || id === "karta") return "Karta";
+      if (id === "cash" || id === "naqd") return "Naqd";
       const s = cache.settings || {};
       if (Array.isArray(s.payExtra)) {
         const m = s.payExtra.find(x => x && x.id === id);
-        if (m) return "💠 " + m.label;
+        if (m) return m.label;
       }
-      return id ? ("💳 " + id) : "—";
+      return id ? String(id) : "—";
     },
 
     /* ---- BOT/SAYT MANBA STATISTIKASI ---- */
@@ -775,6 +776,7 @@ const STORE = (function () {
       if (d.addrStreet != null) body.addrStreet = d.addrStreet;
       if (d.addrLat != null) body.addrLat = d.addrLat;
       if (d.addrLng != null) body.addrLng = d.addrLng;
+      if (d.avatar != null) body.avatar = d.avatar;
       try {
         const r = await api("/auth/me", { method: "PATCH", body, auth: true });
         if (r && r.token) { setToken(r.token); this.setSession(r.account); return r.account; }

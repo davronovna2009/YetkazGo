@@ -14,7 +14,7 @@
    fayllari saqlanib qolgan lokal muhitda eskisi buzilmasin. */
 import { Router } from 'express';
 import { db } from '../db.js';
-import { requireRole } from '../auth.js';
+import { authRequired } from '../auth.js';
 
 const router = Router();
 
@@ -41,8 +41,10 @@ export function toImageUrl(photo) {
   } catch (e) { return ''; }
 }
 
-/* POST /api/upload  body: { dataUrl: "data:image/png;base64,..." } -> { url } */
-router.post('/', requireRole('restoran', 'admin'), (req, res) => {
+/* POST /api/upload  body: { dataUrl: "data:image/png;base64,..." } -> { url }
+   Har qanday kirgan foydalanuvchi (mijoz profil rasmi, restoran taom/o'z rasmi,
+   kuryer/admin profil rasmi kabi) — role bilan cheklanmagan, faqat autentifikatsiya. */
+router.post('/', authRequired, (req, res) => {
   const dataUrl = String(req.body?.dataUrl || '');
   const m = dataUrl.match(/^data:image\/(png|jpe?g|webp|gif);base64,(.+)$/);
   if (!m) return res.status(400).json({ error: 'Rasm formati noto`g`ri' });

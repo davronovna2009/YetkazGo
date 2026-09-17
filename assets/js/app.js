@@ -7,6 +7,8 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc = YZ_SAFE.esc, html = YZ_SAFE.html, raw = YZ_SAFE.raw;
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  const ic = (name, cls) => '<svg class="yz-i'+(cls?' '+cls:'')+'"><use href="assets/icons.svg#'+name+'"/></svg>';
   /* Minimal buyurtma va yetkazish narxi — ADMIN "Moliyaviy sozlamalar"да
      belgilaydi (server/src/settings.js), bootstrap orqali keladi. 20000/0 —
      faqat sozlamalar hali yuklanmaganда ko'rsatiladigan BOSHLANG'ICH qiymat
@@ -33,12 +35,12 @@
      0 bo'lsa "yangi" ko'rsatamiz (soxta 4.5 emas). */
   function dishStarTxt(d){
     const r = Number(d && d.rating) || 0;
-    return r > 0 ? ("⭐ " + r) : (I18N.current()==="cyr" ? "🆕 янги" : "🆕 yangi");
+    return r > 0 ? (ic('star') + " " + r) : (I18N.current()==="cyr" ? "янги" : "yangi");
   }
   function dishSoldTxt(d){
     const s = Math.max(0, Number(d && d.sold) || 0);
     if(!s) return "";
-    return "🛒 " + s + " " + I18N.t("orders_word");
+    return ic('cart') + " " + s + " " + I18N.t("orders_word");
   }
   /* Restoran yulduzchasi — mijoz baholaridan (baho yo'q -> "yangi") */
   function restStarTxt(r){
@@ -124,7 +126,7 @@
     if(qty===0){
       if(closed){
         /* "+" o'rniga o'chiq (yopiq) tugma — bosilsa faqat xabar, uchmaydi/qo'shilmaydi */
-        pod.innerHTML = `<button class="add-btn add-closed" aria-label="Restoran hozir yopiq" title="Restoran hozir yopiq">⏱</button>`;
+        pod.innerHTML = `<button class="add-btn add-closed" aria-label="Restoran hozir yopiq" title="Restoran hozir yopiq">${ic('clock')}</button>`;
         pod.querySelector(".add-btn").addEventListener("click",(e)=>{e.stopPropagation();toast(d.rest+" "+I18N.t("closed_now"),"error");});
         return;
       }
@@ -141,7 +143,7 @@
           <input class="qty-num qty-num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
                  value="${qty}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;color:inherit;text-align:center">
           <button class="qty-btn qty-plus${closed?' qty-closed':''}" aria-label="Ko'paytirish">+</button>
-          <button class="qty-btn qty-note${hasNote?' has-note':''}" aria-label="${esc(I18N.t("note_label"))}" title="${esc(I18N.t("note_label"))}">💬</button>
+          <button class="qty-btn qty-note${hasNote?' has-note':''}" aria-label="${esc(I18N.t("note_label"))}" title="${esc(I18N.t("note_label"))}">${ic('message')}</button>
         </div>`;
       pod.querySelector(".qty-note").addEventListener("click",(e)=>{e.stopPropagation();openNoteModal(d);});
       pod.querySelector(".qty-minus").addEventListener("click",(e)=>{e.stopPropagation();changeQty(d.id,-1);updateAllCards();});
@@ -172,7 +174,7 @@
       clone.className = "fly-clone";
       const photo = card.querySelector(".card-photo");
       if(photo && photo.getAttribute("src")){ clone.style.backgroundImage = `url("${photo.getAttribute("src")}")`; }
-      else { clone.textContent = d.emoji || "🍽️"; }
+      else { clone.innerHTML = catIcon(d); }
       clone.style.left = s.left+"px"; clone.style.top = s.top+"px";
       clone.style.width = s.width+"px"; clone.style.height = s.height+"px";
       document.body.appendChild(clone);
@@ -201,20 +203,20 @@
     openModal(`
       <div class="dish-modal">
         <div class="dish-modal-img tone-${d.kw}">
-          <span class="food-emoji" style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2))">${d.emoji}</span>
+          <span class="food-emoji" style="font-size:72px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.2))">${catIcon(d)}</span>
           <img src="${d.photo}" alt="${esc(nm(d))}" data-onerr="remove" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;">
           ${d.badge?`<span class="card-badge" style="z-index:3;top:12px;left:12px">${d.badge}</span>`:""}
         </div>
         <div class="dish-modal-body">
           <h2 style="font-size:20px;margin-bottom:4px">${esc(nm(d))}</h2>
-          <div style="color:var(--grey);font-size:13px;margin-bottom:10px">🏪 ${esc(trTxt(d.rest))}</div>
+          <div style="color:var(--grey);font-size:13px;margin-bottom:10px">${ic('store')} ${esc(trTxt(d.rest))}</div>
           <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)"><b style="color:var(--ink)">${dishStarTxt(d)}</b></span>
             ${dishSoldTxt(d)?`<span style="font-size:13px;color:var(--grey)">${dishSoldTxt(d)}</span>`:""}
-            ${d.weight?`<span style="font-size:13px;color:var(--grey)">⚖️ ${esc(trTxt(d.weight))}</span>`:""}
+            ${d.weight?`<span style="font-size:13px;color:var(--grey)">${ic('scale')} ${esc(trTxt(d.weight))}</span>`:""}
           </div>
           ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(trTxt(d.descr))}</p>`:""}
-          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>🥗 ${I18N.t("ingredients_l")}:</b> ${esc(trTxt(d.ingredients))}</div>`:""}
+          ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>${ic('utensils')} ${I18N.t("ingredients_l")}:</b> ${esc(trTxt(d.ingredients))}</div>`:""}
           <div style="display:flex;align-items:center;gap:4px;margin-bottom:18px">
             ${oldPrice}
             <span style="font-size:22px;font-weight:800;color:var(--red)">${price}</span>
@@ -236,7 +238,7 @@
         return;
       }
       if(q===0 && closed){
-        foot.innerHTML=`<button class="btn btn-block" id="dmClosedBtn" style="background:#f3e9ea;color:#9b7b80;cursor:not-allowed">⏱ ${esc(d.rest)} ${I18N.t("closed_now")} · ${esc(restHoursText(d.rest))}</button>`;
+        foot.innerHTML=`<button class="btn btn-block" id="dmClosedBtn" style="background:#f3e9ea;color:#9b7b80;cursor:not-allowed">${ic('clock')} ${esc(d.rest)} ${I18N.t("closed_now")} · ${esc(restHoursText(d.rest))}</button>`;
         foot.querySelector("#dmClosedBtn").addEventListener("click",()=>toast(d.rest+" "+I18N.t("closed_now"),"error"));
         return;
       }
@@ -264,7 +266,7 @@
            aynan shu taom bilan birga boradi. */
         const nb=document.createElement("div");
         nb.className="dm-note";
-        nb.innerHTML=`<label class="ci-note-lbl" for="dmNote">💬 ${I18N.t("note_label")}</label>
+        nb.innerHTML=`<label class="ci-note-lbl" for="dmNote">${ic('message')} ${I18N.t("note_label")}</label>
           <input id="dmNote" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
                  placeholder="${esc(I18N.t("note_ph"))}" value="${esc(noteOf(d.id))}">`;
         foot.appendChild(nb);
@@ -297,10 +299,10 @@
     c.dataset.dishId = d.id;
     if(d.discount>0) c.dataset.discounted = "true";
     const ad = dishAdMatch(d);
-    const promoBadge = ad ? `<span class="card-promo">🔥 ${esc(ad.tag||"AKSIYA")}</span>` : "";
+    const promoBadge = ad ? `<span class="card-promo">${ic('flame')} ${esc(ad.tag||"AKSIYA")}</span>` : "";
     c.innerHTML = `
         <div class="card-img tone-${d.kw}" style="cursor:pointer">
-          <span class="food-emoji">${d.emoji}</span>
+          <span class="food-emoji">${catIcon(d)}</span>
           ${d.photo?`<img class="card-photo-bg" src="${d.photo}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove">`:""}
           <img class="card-photo" src="${d.photo}" alt="${esc(nm(d))}" loading="lazy" data-onerr="remove">
           ${d.badge?`<span class="card-badge">${d.badge}</span>`:""}
@@ -356,6 +358,20 @@
     }
     return "";
   }
+  /* Taom kategoriyasiga mos ikon (emoji o'rniga) — kabinet.js bilan bir xil mantiq */
+  const CAT_ICON_APP={Ichimlik:"food-drink",Shirinlik:"food-cake",Milliy:"food-rice",Fastfood:"food-burger"};
+  function catIcon(d,cls){ return ic(CAT_ICON_APP[dishCat(d)]||'food-generic', cls); }
+  /* E'lon/bonus emoji o'rniga mos ikon (restoran/admin belgilagan qiymat — 📢/🎁/🔥/🏪 kabi) */
+  const PROMO_ICON_MAP={'📢':'megaphone','🎁':'gift','🔥':'flame','🏪':'store','🍽️':'utensils'};
+  function promoIconName(emoji){ return PROMO_ICON_MAP[emoji]||'megaphone'; }
+  function promoIcon(emoji,cls){ return ic(promoIconName(emoji),cls); }
+  /* Izoh muallifining profil rasmi (kabinet "Sozlamalar"да o'rnatiladi) —
+     bo'lmasa umumiy foydalanuvchi ikoni. */
+  function reviewerAva(r){
+    const p=r&&r.ava;
+    const isPhoto=p&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(p);
+    return isPhoto ? '<img src="'+esc(p)+'" alt="" style="width:1.4em;height:1.4em;border-radius:50%;object-fit:cover;vertical-align:-0.3em">' : ic('user');
+  }
   function dishCat(d){
     const valid=(typeof DISH_CATS!=="undefined")?DISH_CATS:["Hammasi","Fastfood","Milliy","Ichimlik","Shirinlik"];
     /* 1) Restoran aniq (Fastfooddan farqli) kategoriya tanlagan bo'lsa */
@@ -381,7 +397,7 @@
         catL.toLowerCase().includes(q) ||
         catC.toLowerCase().includes(q);
     });
-    if(!list.length){ g.innerHTML='<p style="color:var(--grey);grid-column:1/-1;text-align:center;padding:34px 10px">'+I18N.t("nothing_found")+' 🔍</p>'; return; }
+    if(!list.length){ g.innerHTML='<p style="color:var(--grey);grid-column:1/-1;text-align:center;padding:34px 10px">'+I18N.t("nothing_found")+' '+ic('search')+'</p>'; return; }
     /* Faqat "Hammasi" va qidiruvsiz holatda kunlik rotatsiya + tavsiya banneri */
     if(activeCat==="Hammasi" && !q){
       const order=dailyRestOrder();
@@ -391,7 +407,7 @@
       if(featured){
         const banner=document.createElement("div");
         banner.style.cssText="grid-column:1/-1;display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#fff4e6,#ffe9ec);border:1px solid #ffd9c2;border-radius:14px;padding:12px 16px;margin-bottom:6px";
-        banner.innerHTML='<span style="font-size:24px">🔥</span><div><div style="font-weight:800;color:#C8102E;font-size:15px">'+I18N.t("today_rec")+': '+esc(featured)+'</div><div style="font-size:12px;color:#8a7f76">'+I18N.t("rec_sub")+'</div></div>';
+        banner.innerHTML='<span style="font-size:24px">'+ic('flame')+'</span><div><div style="font-weight:800;color:#C8102E;font-size:15px">'+I18N.t("today_rec")+': '+esc(featured)+'</div><div style="font-size:12px;color:#8a7f76">'+I18N.t("rec_sub")+'</div></div>';
         g.appendChild(banner);
       }
     }
@@ -407,15 +423,15 @@
     const be=restBackend(r.name)||{};
     const open=isRestOpen(r.name);
     const rows=[];
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🕒</span><div><div class="rinfo-k">${I18N.t("ri_hours")}</div><div class="rinfo-v">${esc(restHoursText(r.name))} <span class="rinfo-badge ${open?'ok':'off'}">${open?'🟢 '+I18N.t("open_now"):'🔴 '+I18N.t("closed_l")}</span></div></div></div>`);
-    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">📍</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(trTxt(be.addr))}</div></div></div>`);
-    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">🛵</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(trTxt(be.area))}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('clock')}</span><div><div class="rinfo-k">${I18N.t("ri_hours")}</div><div class="rinfo-v">${esc(restHoursText(r.name))} <span class="rinfo-badge ${open?'ok':'off'}">${ic('dot',open?'yz-i-green':'yz-i-red')} ${open?I18N.t("open_now"):I18N.t("closed_l")}</span></div></div></div>`);
+    if(be.addr)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('map-pin')}</span><div><div class="rinfo-k">${I18N.t("ri_addr")}</div><div class="rinfo-v">${esc(trTxt(be.addr))}</div></div></div>`);
+    if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('scooter')}</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(trTxt(be.area))}</div></div></div>`);
     /* Email — HARFLANMAYDI (manzil buzilib qolmasin) */
-    if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">✉️</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">⭐</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ⏱ ${r.eta} ${I18N.t("min_eta")} · 📍 ${esc(trTxt(r.dist||""))}</div></div></div>`);
+    if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('mail')}</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('star')}</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ${ic('clock')} ${r.eta} ${I18N.t("min_eta")} · ${ic('map-pin')} ${esc(trTxt(r.dist||""))}</div></div></div>`);
     const desc = be.descr ? `<p class="rinfo-desc">${esc(trTxt(be.descr))}</p>` : "";
     return `<div class="rinfo-card">
-      <div class="rinfo-title">🏪 ${esc(nm(r))} ${I18N.t("ri_about")}</div>
+      <div class="rinfo-title">${ic('store')} ${esc(nm(r))} ${I18N.t("ri_about")}</div>
       ${desc}
       <div class="rinfo-grid">${rows.join("")}</div>
     </div>`;
@@ -435,22 +451,22 @@
          Endi data-* atributi (safe.js dagi global ishlovchi o'qiydi). */
       return html`<div class="rpromo-item">
         <div class="rpromo-ph">${photo
-          ? html`<img src="${photo}" alt="" data-onerr="emoji" data-emoji="${p.emoji||"📢"}">`
-          : html`<span>${p.emoji||"📢"}</span>`}</div>
+          ? html`<img src="${photo}" alt="" data-onerr="icon" data-icon="${promoIconName(p.emoji)}">`
+          : raw(promoIcon(p.emoji))}</div>
         <div class="rpromo-body">
           <div class="rpromo-text">${trTxt(p.text)}</div>
-          <div class="rpromo-meta">${p.tag?html`<span class="rpromo-tag">${trTxt(p.tag)}</span>`:""}${p.dish?html`<span class="rpromo-why">🍽️ ${trTxt(p.dish)}</span>`:""}</div>
+          <div class="rpromo-meta">${p.tag?html`<span class="rpromo-tag">${trTxt(p.tag)}</span>`:""}${p.dish?html`<span class="rpromo-why">${raw(ic('utensils'))} ${trTxt(p.dish)}</span>`:""}</div>
         </div>
       </div>`;
     });
     const discHtml=disc.map(d=>{
       const photo=realImg(d.photo)?d.photo:"";
       return html`<div class="rpromo-item rpromo-dish" data-dish-id="${d.id}" style="cursor:pointer">
-        <div class="rpromo-ph">${photo?html`<img src="${photo}" alt="" data-onerr="remove">`:html`<span>${d.emoji}</span>`}</div>
+        <div class="rpromo-ph">${photo?html`<img src="${photo}" alt="" data-onerr="remove">`:raw(catIcon(d))}</div>
         <div class="rpromo-body">
           <div class="rpromo-text">${nm(d)}</div>
           <div class="rpromo-meta"><span class="rpromo-old">${fmt(d.price)}</span> <b class="rpromo-new">${fmt(d.eff)} so'm</b> <span class="rpromo-tag">−${d.discount}%</span></div>
-          <div class="rpromo-why">🔥 ${d.discount}% chegirma — hoziroq oling!</div>
+          <div class="rpromo-why">${raw(ic('flame'))} ${d.discount}% chegirma — hoziroq oling!</div>
         </div>
         <button class="rpromo-add" data-add="${d.id}" aria-label="Savatga qo'shish">+</button>
       </div>`;
@@ -458,7 +474,7 @@
     /* Eslatma: annHtml/discHtml — massiv; html`` ularni o'zi qo'shadi
        (.join("") YOZMANG — u qatorga aylantirib, escape'ga tushib qolardi). */
     return html`<div class="rinfo-card rpromo-banner">
-      <div class="rpromo-head">🔥 ${nm(r)} — aksiya va chegirmalar</div>
+      <div class="rpromo-head">${raw(ic('flame'))} ${nm(r)} — aksiya va chegirmalar</div>
       <div class="rpromo-list">${annHtml}${discHtml}</div>
       <svg class="rpromo-wave" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,14 C240,42 480,2 720,18 C960,34 1200,44 1440,20 L1440,40 L0,40 Z" fill="rgba(255,255,255,.28)"/></svg>
     </div>`;
@@ -486,20 +502,20 @@
            va mijoz qaysi restoranda ekanini bilmasdi. -->
       <div class="rtopbar">
         <button class="rtopbar-back" id="rBackTop" aria-label="${I18N.t("back")}">←</button>
-        <span class="rtopbar-emoji">${r.emoji}</span>
+        <span class="rtopbar-emoji">${raw(ic('store'))}</span>
         <span class="rtopbar-name">${nm(r)}</span>
-        <span class="rtopbar-open">${restOpenLabel(r.name)}</span>
+        <span class="rtopbar-open">${raw(restOpenLabel(r.name))}</span>
       </div>
       <div class="rhero tone-${r.kw}">
         ${(function(){const p=restPhoto(r.name);return p?html`<img class="rhero-photo-bg" src="${p}" alt="" aria-hidden="true" data-onerr="remove"><img class="rhero-photo" src="${p}" alt="${nm(r)}" data-onerr="remove">`:"";})()}
         <div class="rhero-overlay"></div>
         <div class="container rhero-inner">
           <button class="rback" id="rBack">← ${I18N.t("back")}</button>
-          <div class="rhero-emoji">${r.emoji}</div>
+          <div class="rhero-emoji">${raw(ic('store'))}</div>
           <h1>${nm(r)}</h1>
           <div class="rhero-meta">
-            <span>${restStarTxt(r)}</span><span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
-            <span>📍 ${r.dist}</span><span class="rhero-open">${restOpenLabel(r.name)}</span>
+            <span>${raw(restStarTxt(r))}</span><span>${raw(ic('clock'))} ${r.eta} ${I18N.t("min_eta")}</span>
+            <span>${raw(ic('map-pin'))} ${r.dist}</span><span class="rhero-open">${raw(restOpenLabel(r.name))}</span>
           </div>
         </div>
       </div>
@@ -513,8 +529,8 @@
       </div>
       <div class="container rrating-section">
         <div class="section-head" style="margin-bottom:10px">
-          <h2>⭐ Restoran reytingi</h2>
-          <p class="modal-sub" style="margin:2px 0 0">${restStarTxt(r)}${r.ratingCount?" · "+r.ratingCount+" ta baho":""}</p>
+          <h2>${raw(ic('star'))} Restoran reytingi</h2>
+          <p class="modal-sub" style="margin:2px 0 0">${raw(restStarTxt(r))}${r.ratingCount?" · "+r.ratingCount+" ta baho":""}</p>
         </div>
         <div class="grid reviews-grid" id="rPageReviews"></div>
       </div>`;
@@ -575,20 +591,20 @@
       const isOpen=isRestOpen(r.name);
       const c=document.createElement("div"); c.className="rest-card";
       c.innerHTML=`
-        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${r.emoji}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:"";})()}
-          <span class="rest-openbadge ${isOpen?'is-open':'is-closed'}" title="${esc(hours)}">${isOpen?'🟢 '+I18N.t("open_l"):'🔴 '+I18N.t("closed_l")}</span></div>
+        <div class="rest-img tone-${r.kw}"><span class="food-emoji">${ic('store')}</span>${(function(){const p=restPhoto(r.name);return p?`<img class="rest-photo-bg" src="${p}" alt="" aria-hidden="true" loading="lazy" data-onerr="remove"><img class="rest-photo" src="${p}" alt="${esc(nm(r))}" loading="lazy" data-onerr="remove">`:"";})()}
+          <span class="rest-openbadge ${isOpen?'is-open':'is-closed'}" title="${esc(hours)}">${ic('dot',isOpen?'yz-i-green':'yz-i-red')} ${isOpen?I18N.t("open_l"):I18N.t("closed_l")}</span></div>
         <div class="rest-body">
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
             <span class="star">${restStarTxt(r)}</span>
-            <span>⏱ ${r.eta} ${I18N.t("min_eta")}</span>
-            <span>📍 ${esc(trTxt(r.dist))}</span>
+            <span>${ic('clock')} ${r.eta} ${I18N.t("min_eta")}</span>
+            <span>${ic('map-pin')} ${esc(trTxt(r.dist))}</span>
           </div>
           <div class="rest-info2">
-            <span>🍽️ ${dishCount} ta taom</span>
-            ${hours?`<span>🕒 ${hours}</span>`:""}
+            <span>${ic('utensils')} ${dishCount} ta taom</span>
+            ${hours?`<span>${ic('clock')} ${hours}</span>`:""}
           </div>
-          ${addr?`<div class="rest-addr">📍 ${esc(trTxt(addr))}</div>`:""}
+          ${addr?`<div class="rest-addr">${ic('map-pin')} ${esc(trTxt(addr))}</div>`:""}
           ${be.descr?`<div class="rest-descr">${esc(trTxt(String(be.descr).slice(0,90)))}</div>`:""}
         </div>`;
       c.querySelector(".rest-img").style.position="relative";
@@ -608,9 +624,9 @@
     try{ if(typeof YZ_SUPPORT!=="undefined") c=YZ_SUPPORT.get(); }catch(e){}
     if(c.hasAny){
       let h="";
-      if(c.phone) h+=`<p><a href="tel:${esc(String(c.phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">📞 ${esc(c.phone)}</a></p>`;
-      if(c.username) h+=`<p><a href="${esc(c.tgUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">✈️ ${esc(c.username)}</a></p>`;
-      if(c.link && c.link!==c.username) h+=`<p><a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;word-break:break-all">🔗 ${esc(c.link)}</a></p>`;
+      if(c.phone) h+=`<p><a href="tel:${esc(String(c.phone).replace(/[^\d+]/g,""))}" style="color:inherit;text-decoration:none">${ic('phone')} ${esc(c.phone)}</a></p>`;
+      if(c.username) h+=`<p><a href="${esc(c.tgUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${ic('send')} ${esc(c.username)}</a></p>`;
+      if(c.link && c.link!==c.username) h+=`<p><a href="${esc(c.link)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;word-break:break-all">${ic('link')} ${esc(c.link)}</a></p>`;
       if(c.note) h+=`<p style="opacity:.8;font-size:13px">${esc(c.note)}</p>`;
       box.innerHTML=h;
     } else {
@@ -643,12 +659,12 @@
       const rest=reviewRest(r), dt=revDate(r);
       const isRest=isRestaurantReview(r);
       const el=document.createElement("div"); el.className="review-card";
-      el.innerHTML=`<div class="rv-head"><span class="rv-ava">${r.ava}</span>
+      el.innerHTML=`<div class="rv-head"><span class="rv-ava">${reviewerAva(r)}</span>
         <div><div class="rv-name">${esc(r.name)}</div><div class="rv-stars">${stars}</div></div>
         ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
         <p class="rv-text">${esc(txt)}</p>
         ${r.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(trTxt(r.reply))}</div>`:""}
-        <div class="rv-dish">${isRest?`🏪 ${esc(trTxt(rest||r.rest||""))}`:`🍽️ ${esc(trTxt(r.dish))}${rest?` · 🏪 ${esc(trTxt(rest))}`:""}`}</div>`;
+        <div class="rv-dish">${isRest?`${ic('store')} ${esc(trTxt(rest||r.rest||""))}`:`${ic('utensils')} ${esc(trTxt(r.dish))}${rest?` · ${ic('store')} ${esc(trTxt(rest))}`:""}`}</div>`;
       g.appendChild(el);
     });
   }
@@ -673,12 +689,12 @@
       const dt=revDate(rv);
       const isRest=isRestaurantReview(rv);
       const el=document.createElement("div"); el.className="review-card";
-      el.innerHTML=`<div class="rv-head"><span class="rv-ava">${rv.ava||"👤"}</span>
+      el.innerHTML=`<div class="rv-head"><span class="rv-ava">${reviewerAva(rv)}</span>
         <div><div class="rv-name">${esc(rv.name)}</div><div class="rv-stars">${stars}</div></div>
         ${dt?`<span class="rv-date">${dt}</span>`:""}</div>
         <p class="rv-text">${esc(txt)}</p>
         ${rv.reply?`<div class="rv-reply"><b>↩ Yetkaz javobi:</b> ${esc(trTxt(rv.reply))}</div>`:""}
-        ${isRest?"":`<div class="rv-dish">🍽️ ${esc(trTxt(rv.dish))}</div>`}`;
+        ${isRest?"":`<div class="rv-dish">${ic('utensils')} ${esc(trTxt(rv.dish))}</div>`}`;
       g.appendChild(el);
     });
   }
@@ -688,7 +704,7 @@
   function detectLocation(inputEl, btn){
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni qo'llamaydi","error"); return; }
     const orig = btn ? btn.innerHTML : "";
-    if(btn){ btn.disabled=true; btn.innerHTML="📍 Aniqlanmoqda..."; }
+    if(btn){ btn.disabled=true; btn.innerHTML=ic('map-pin')+" Aniqlanmoqda..."; }
     const done=()=>{ if(btn){ btn.disabled=false; btn.innerHTML=orig; } };
     navigator.geolocation.getCurrentPosition(async (pos)=>{
       const lat=pos.coords.latitude, lng=pos.coords.longitude;
@@ -700,7 +716,7 @@
       if(!addr) addr=`(${lat.toFixed(5)}, ${lng.toFixed(5)})`;
       /* Inputga YOZMAYMIZ — foydalanuvchi yozgani turadi. Joylashuv faqat xotirada. */
       user.geo = { lat:lat, lng:lng, addr:addr };
-      done(); toast("Joylashuv aniqlandi 📍 (manzil maydoni o'zgarmaydi)","success");
+      done(); toast("Joylashuv aniqlandi (manzil maydoni o'zgarmaydi)","success");
     }, (err)=>{
       done();
       toast(err && err.code===1 ? "Joylashuvga ruxsat berilmadi" : "Joylashuvni aniqlab bo'lmadi","error");
@@ -720,8 +736,8 @@
     try{
       const hrs=restHoursText(restName);
       /* Ish vaqti DOIM ko'rinadi — ochiq/yopiq holati bilan birga */
-      return isRestOpen(restName) ? ("🟢 "+I18N.t("open_l")+" · "+hrs) : ("🔴 "+I18N.t("closed_l")+" · "+hrs);
-    }catch(e){ return "🟢 Ochiq"; }
+      return isRestOpen(restName) ? (ic('dot','yz-i-green')+" "+I18N.t("open_l")+" · "+hrs) : (ic('dot','yz-i-red')+" "+I18N.t("closed_l")+" · "+hrs);
+    }catch(e){ return ic('dot','yz-i-green')+" Ochiq"; }
   }
   function addToCart(d){
     const ex = cart.find(i=>i.id===d.id);
@@ -732,7 +748,7 @@
       const newRest=(typeof RESTAURANTS!=="undefined")?RESTAURANTS.find(x=>x.name===d.rest):null;
       const cnt=(typeof catalog==="function")?catalog().filter(x=>x.rest===d.rest).length:0;
       openModal(`<div style="text-align:center">
-        <div style="font-size:42px">🏪</div>
+        <div style="display:flex;justify-content:center;color:var(--grey)">${ic('store','yz-i-xxl')}</div>
         <h2 style="margin:8px 0">${esc(d.rest)} ga o'tamizmi?</h2>
         <p class="modal-sub">Bitta buyurtmada faqat bitta restoran bo'ladi. Savatingizda <b>${esc(cart[0].rest)}</b> taomlari bor. <b>${esc(d.rest)}</b> ga o'tsangiz — uning barcha taomlarini${cnt?` (${cnt} ta)`:""} ko'rasiz. Savat yangilanadi.</p>
         <div style="display:flex;gap:10px;margin-top:10px">
@@ -765,7 +781,7 @@
      ochmasdan ham izohini yozib qo'yadi. */
   function openNoteModal(d){
     openModal(`<div style="text-align:center">
-        <div style="font-size:40px">💬</div>
+        <div style="display:flex;justify-content:center;color:var(--grey)">${ic('message','yz-i-xxl')}</div>
         <h2 style="margin:6px 0 2px">${esc(nm(d))}</h2>
         <p class="modal-sub" style="margin-bottom:12px">${I18N.t("note_hint")}</p>
       </div>
@@ -815,20 +831,20 @@
   function updateCart(){
     $("#cartCount").textContent = cart.reduce((s,i)=>s+i.qty,0);
     const body=$("#cartItems");
-    if(!cart.length){ body.innerHTML=`<div class="cart-empty"><div style="font-size:46px">🛒</div><p>${I18N.t("empty_cart")}</p><small>${I18N.t("empty_hint")}</small></div>`; }
+    if(!cart.length){ body.innerHTML=`<div class="cart-empty"><div style="display:flex;justify-content:center;color:var(--grey)">${ic('cart','yz-i-xxl')}</div><p>${I18N.t("empty_cart")}</p><small>${I18N.t("empty_hint")}</small></div>`; }
     else{
       body.innerHTML="";
       cart.forEach(i=>{
         const row=document.createElement("div"); row.className="cart-row";
         row.innerHTML=`
-          <div class="ci-img"><span class="food-emoji" style="font-size:24px">${i.emoji}</span>
+          <div class="ci-img"><span class="food-emoji" style="font-size:24px">${catIcon(i)}</span>
             ${i.photo?`<img class="ci-photo-bg" src="${i.photo}" alt="" aria-hidden="true" data-onerr="remove">`:""}
             <img class="ci-photo" src="${i.photo||""}" alt="${esc(nm(i))}" data-onerr="remove"></div>
           <div class="ci-info"><h4>${nm(i)}</h4><span>${fmt(i.price)} ${I18N.t("sum")}</span></div>
           <div class="qty"><button data-m="-1">−</button><input class="qty-num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2"
                  value="${i.qty}" aria-label="Miqdor" style="border:none;background:transparent;width:26px;padding:0;font:inherit;font-weight:700;color:inherit;text-align:center"><button data-m="1">+</button></div>
           <div class="ci-note">
-            <label class="ci-note-lbl" for="note_${i.id}">💬 ${I18N.t("note_label")}</label>
+            <label class="ci-note-lbl" for="note_${i.id}">${ic('message')} ${I18N.t("note_label")}</label>
             <input id="note_${i.id}" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
                    placeholder="${esc(I18N.t("note_ph"))}" value="${esc(i.note||"")}">
           </div>`;
@@ -884,7 +900,7 @@
   function openLogin(resume){
     openModal(`
       <div class="auth-head">
-        <div class="auth-emoji">🔐</div>
+        <div class="auth-emoji">${ic('lock')}</div>
         <h2>Kirish</h2>
         <p>Panelingizga xush kelibsiz</p>
         <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
@@ -916,7 +932,7 @@
     const pf = prefill||{};
     openModal(`
       <div class="auth-head">
-        <div class="auth-emoji">🎉</div>
+        <div class="auth-emoji">${ic('party')}</div>
         <h2>Ro'yxatdan o'tish</h2>
         <p>Yangi foydalanuvchi akkaunti</p>
         <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
@@ -993,7 +1009,7 @@
         <input id="in-phone" type="tel" value="${esc(last.phone)}" placeholder="${I18N.t("ph_phone")}" autocomplete="tel"><div class="err">${I18N.t("err_phone")}</div></div>
       <div class="field" id="f-addr"><label>${I18N.t("lbl_address")}</label>
         <input id="in-addr" value="${esc(last.addr)}" placeholder="${I18N.t("ph_address")}" autocomplete="street-address"><div class="err">${I18N.t("err_address")}</div></div>
-      <button type="button" class="btn btn-outline btn-block" id="geoBtn" style="margin-bottom:10px">📍 Joylashuvimni aniqlash</button>
+      <button type="button" class="btn btn-outline btn-block" id="geoBtn" style="margin-bottom:10px">${ic('map-pin')} Joylashuvimni aniqlash</button>
       <button class="btn btn-primary btn-block" id="authNext">${I18N.t("continue")}</button>`);
     const geoBtn=$("#geoBtn"); if(geoBtn) geoBtn.addEventListener("click",()=>detectLocation($("#in-addr"), geoBtn));
     if(window.YZ_PHONE) YZ_PHONE.attach($("#in-phone"));
@@ -1029,7 +1045,7 @@
   function openGuestGate(hasAccount, name, phone, next){
     openModal(`
       <div class="auth-head">
-        <div class="auth-emoji">🔒</div>
+        <div class="auth-emoji">${ic('lock')}</div>
         <h2>Ro'yxatdan o'ting</h2>
         <p>Birinchi buyurtmangizni mehmon sifatida qabul qildik</p>
         <svg class="auth-wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,18 C90,44 170,2 250,20 C320,35 360,32 400,20 L400,40 L0,40 Z" fill="#fff"/></svg>
@@ -1040,7 +1056,7 @@
           ? "Bu telefon raqami ro'yxatdan o'tgan. Keyingi buyurtmalar uchun hisobingizga kiring."
           : "Keyingi buyurtmalar uchun (bir martalik, tez) ro'yxatdan o'ting — buyurtmalaringiz tarixi ham saqlanadi."}
       </p>
-      <button class="btn btn-primary btn-block" id="gg-main">${hasAccount?"🔐 Kirish":"📝 Ro'yxatdan o'tish"}</button>
+      <button class="btn btn-primary btn-block" id="gg-main">${hasAccount?ic('lock')+" Kirish":ic('edit')+" Ro'yxatdan o'tish"}</button>
       ${hasAccount?"":'<p style="text-align:center;margin-top:14px;font-size:14px;color:var(--grey)">Akkountingiz bormi? <a id="gg-alt" style="color:var(--red);font-weight:700;cursor:pointer">Kirish</a></p>'}
       </div>`);
     $("#gg-main").addEventListener("click",()=> hasAccount ? openLogin(next) : openRegister(next,{name:name,phone:phone}));
@@ -1087,9 +1103,9 @@
   /* Admin RUXSAT bergan to'lov turlari (STORE.payMethods). Karta o'chirilса —
      bu yerда umuman ko'rinmaydi. */
   function payOptionsHtml(){
-    let list=[{id:"card",label:"💳 "+I18N.t("pay_card")},{id:"cash",label:"💵 "+I18N.t("pay_cash")}];
+    let list=[{id:"card",label:I18N.t("pay_card")},{id:"cash",label:I18N.t("pay_cash")}];
     try{ if(typeof STORE!=="undefined" && STORE.payMethods) list=STORE.payMethods(); }catch(e){}
-    return list.map((m,i)=>`<div class="pay-opt${i===0?' on':''}" data-pay="${esc(m.id)}" data-note="${esc(m.note||'')}">${esc(m.label)}</div>`).join("");
+    return list.map((m,i)=>`<div class="pay-opt${i===0?' on':''}" data-pay="${esc(m.id)}" data-note="${esc(m.note||'')}">${ic(m.id==="cash"?"cash":"card")} ${esc(m.label)}</div>`).join("");
   }
 
   /* ============================================================
@@ -1101,11 +1117,12 @@
   /* Buyurtma kuzatuv oynalari (qabul qilindi/yo'lda/yetib keldi) uchun BITTA
      belgi: taom RASMI bo'lsa o'sha, bo'lmasa emoji — hamma joyда bir xil.
      `box` — tashqi konteyner o'lchamiga mos font-size beradi (font-size bo'lsa). */
+  const ORDER_ICON_MAP={'🍽️':'utensils','🥤':'food-drink','🍰':'food-cake'};
   function orderIconHtml(o, fontSize){
-    const emoji = (o && o.emoji) || "🍽️";
+    const icon = ic(ORDER_ICON_MAP[o&&o.emoji]||'food-generic');
     const fs = fontSize ? `font-size:${fontSize}px` : "";
-    if(!(o && o.photo)) return `<span style="${fs}">${emoji}</span>`;
-    return `<span style="${fs}">${emoji}</span><img src="${esc(o.photo)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit" data-onerr="remove">`;
+    if(!(o && o.photo)) return `<span style="${fs}">${icon}</span>`;
+    return `<span style="${fs}">${icon}</span><img src="${esc(o.photo)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit" data-onerr="remove">`;
   }
   /* Kuzatuv oynasida BUYURTMADAGI HAR BIR taomni (rasmi + nomi + dona soni)
      ko'rsatadi — 10 xil taom bo'lsa hammasi ro'yxatда, bittasi emas. */
@@ -1170,9 +1187,9 @@
     /* Xabardagi telefon raqamini ajratib, bosiladigan qilamiz */
     const m=String(message||"").match(/\+?998[\s\d]{9,}/);
     const phone=m?m[0].replace(/\s+/g,""):"";
-    const call=phone?`<a href="tel:${encodeURIComponent(phone)}" class="btn btn-primary btn-block" style="text-decoration:none;margin-bottom:8px">📞 ${esc(m[0].trim())}</a>`:"";
+    const call=phone?`<a href="tel:${encodeURIComponent(phone)}" class="btn btn-primary btn-block" style="text-decoration:none;margin-bottom:8px">${ic('phone')} ${esc(m[0].trim())}</a>`:"";
     openModal(`<div style="text-align:center">
-      <div style="font-size:46px">📞</div>
+      <div style="display:flex;justify-content:center;color:var(--grey)">${ic('phone','yz-i-xxl')}</div>
       <h2 style="margin:8px 0;color:#C8102E">Ko'p miqdordagi buyurtma</h2>
       <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(message||"")}</p>
       ${call}
@@ -1184,7 +1201,7 @@
   /* Cheklov/blok oynasi — mijoz sababini aniq bilishi uchun */
   function showRestrictionModal(message, blocked){
     openModal(`<div style="text-align:center">
-      <div style="font-size:46px">${blocked?"⛔":"⏳"}</div>
+      <div style="display:flex;justify-content:center;color:var(--grey)">${ic(blocked?'ban':'clock','yz-i-xxl')}</div>
       <h2 style="margin:8px 0;color:#C8102E">${blocked?"Raqamingiz bloklangan":"Vaqtincha cheklangansiz"}</h2>
       <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(message||"")}</p>
       <button class="btn btn-primary btn-block" id="rxOk" style="margin-top:10px">Tushundim</button>
@@ -1278,7 +1295,7 @@
           emoji: emoji,
           amount: totalPrice,
           delivery: (typeof deliveryFee==="function"?deliveryFee():0),
-          addr: (user.address || "") + (user.geo ? " · 📍GPS: " + user.geo.lat.toFixed(5) + "," + user.geo.lng.toFixed(5) : ""),
+          addr: (user.address || "") + (user.geo ? " · GPS: " + user.geo.lat.toFixed(5) + "," + user.geo.lng.toFixed(5) : ""),
           pay: window.__lastPay || "card",
           courier: STORE.courierForRest(restName),
           status: "new",
@@ -1298,7 +1315,7 @@
               const owns = modalTrackId() === String(orderId);
               if(!document.getElementById("arrivedOverlay") && (!modalOpen || owns)){
                 openModal(`<div style="text-align:center">
-                  <div style="font-size:42px">🔎</div>
+                  <div style="display:flex;justify-content:center;color:var(--grey)">${ic('search','yz-i-xxl')}</div>
                   <h2 style="margin:8px 0">Buyurtmangiz tekshirilmoqda</h2>
                   <p class="modal-sub" style="margin:2px 0">Siz belgilangan miqdordan ko'proq buyurtma qildingiz. Shu sababli buyurtmangiz avval administrator tomonidan ko'rib chiqiladi, so'ngra restoranga topshiriladi.</p>
                   <button class="btn btn-primary btn-block" id="revOkClose" style="margin-top:12px">Tushunarli</button>
@@ -1344,7 +1361,7 @@
     if(!o || o.done) return;
     if(document.getElementById("arrivedOverlay")) return;   // yetib keldi oynasi ustidan ochilmaydi
     const steps = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
-    const icons = ["📥","👨‍🍳","✅","🛵","🎉"];
+    const icons = ["inbox","flame","check-circle","scooter","party"].map(n=>ic(n));
     const left = Math.max(0, o.arriveAt - Date.now());
     const m = Math.floor(left/60000), s = Math.floor((left%60000)/1000);
     const step = o.step || 0;
@@ -1362,10 +1379,10 @@
           ${steps.map((st,i)=>`<div class="track-step${i===step?" active":""}${i<step?" done-step":""}"><div class="dot">${icons[i]}</div><span>${st}</span></div>`).join("")}
         </div>
         <div style="background:#f0f9f4;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;color:#1c6b3f;text-align:center">
-          🛵 Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
+          ${ic('scooter')} Kuryer yo'lga chiqdi. Ushbu oynani yopsangiz ham buyurtmangiz kuzatiladi.
         </div>
         <div id="tExpiredMsg" style="display:none;background:#fdecea;border-radius:12px;padding:12px;margin:0 0 14px;font-size:13px;color:#a61b1b;text-align:center;font-weight:600">
-          ⏰ Belgilangan vaqt tugadi. Iltimos, kuryer bilan bog'laning.
+          ${ic('clock')} Belgilangan vaqt tugadi. Iltimos, kuryer bilan bog'laning.
         </div>
         <div id="tCourierBox"></div>
         <button class="btn btn-outline btn-block" id="trkClose">Tushunarli, yopish</button>
@@ -1430,7 +1447,7 @@
         const owns = modalTrackId() === String(orderId);
         if(!document.getElementById("arrivedOverlay") && (!modalOpen || owns)){
           openModal(`<div style="text-align:center">
-            <div style="font-size:42px">❌</div>
+            <div style="display:flex;justify-content:center;color:var(--red)">${ic('x-circle','yz-i-xxl')}</div>
             <h2 style="margin:8px 0">Buyurtma bekor qilindi</h2>
             <p class="modal-sub" style="margin:2px 0">${esc(order.label)}</p>
             ${reason?`<p class="modal-sub">Restoran ko'rsatgan sabab:</p><p style="font-weight:700;color:var(--red);margin:6px 0 4px">${esc(reason)}</p>`:'<p class="modal-sub">Restoran buyurtmani bekor qildi.</p>'}
@@ -1504,8 +1521,8 @@
       if(tCour){
         if(be && be.courierPhone){
           const dial = String(be.courierPhone).replace(/[^\d+]/g,"");
-          const nameLine = be.courier ? `<div style="font-weight:700;margin-bottom:8px;text-align:center">🛵 ${esc(be.courier)}</div>` : "";
-          tCour.innerHTML = `${nameLine}<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">📞 ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
+          const nameLine = be.courier ? `<div style="font-weight:700;margin-bottom:8px;text-align:center">${ic('scooter')} ${esc(be.courier)}</div>` : "";
+          tCour.innerHTML = `${nameLine}<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${ic('phone')} ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
         } else if(tCour.innerHTML) {
           tCour.innerHTML = "";
         }
@@ -1547,12 +1564,12 @@
     }
     el.style.display = "";
 
-    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")+" 🎉"];
+    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
     const stepColors = ["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
 
     el.innerHTML = `
       <div class="otb-inner">
-        <div class="otb-title">🛵 Buyurtmangiz yo'lda</div>
+        <div class="otb-title">${ic('scooter')} Buyurtmangiz yo'lda</div>
         ${orders.map(o=>{
           const left = Math.max(0, o.arriveAt - Date.now());
           const m = Math.floor(left/60000);
@@ -1573,7 +1590,7 @@
             <div class="otb-bar-wrap">
               <div class="otb-bar" style="width:${pct}%;background:${stepColors[step]}"></div>
             </div>
-            ${step<3?`<button class="otb-cancel" data-cancel="${o.id}" style="margin-top:8px;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">✕ ${I18N.t("cancel_btn")}</button>`:""}
+            ${step<3?`<button class="otb-cancel" data-cancel="${o.id}" style="margin-top:8px;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer">${ic('x')} ${I18N.t("cancel_btn")}</button>`:""}
           </div>`;
         }).join("")}
       </div>`;
@@ -1587,7 +1604,7 @@
   /* Buyurtmani bekor qilish (mijoz) */
   function confirmCancelOrder(orderId){
     openModal(`<div style="text-align:center">
-      <div style="font-size:42px">🛑</div>
+      <div style="display:flex;justify-content:center;color:#C8102E">${ic('stop-circle','yz-i-xxl')}</div>
       <h2 style="margin:8px 0">Buyurtmani bekor qilish</h2>
       <p class="modal-sub">Ushbu buyurtmani rostdan bekor qilmoqchimisiz?</p>
       <div style="display:flex;gap:10px;margin-top:8px">
@@ -1624,7 +1641,7 @@
   function showCancelWarnModal(res){
     const blocked=!!res.blocked;
     openModal(`<div style="text-align:center">
-      <div style="font-size:46px">${blocked?"⛔":"⚠️"}</div>
+      <div style="display:flex;justify-content:center;color:#C8102E">${ic(blocked?'ban':'alert-triangle','yz-i-xxl')}</div>
       <h2 style="margin:8px 0;color:#C8102E">${blocked?"Raqamingiz bloklandi":"Ogohlantirish!"}</h2>
       <p class="modal-sub" style="font-size:15px;line-height:1.5">${esc(res.warn||"")}</p>
       ${blocked?"":`<p style="font-size:13px;color:#888;margin-top:6px">Bekor qilishlar soni: <b>${res.cancels||0}</b></p>`}
@@ -1654,7 +1671,7 @@
       if(drawerBody) drawerBody.before(panel);
     }
 
-    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking")+" ⏳",I18N.t("st_ready")+" ✅",I18N.t("st_ontheway")+" 🛵",I18N.t("st_arrived")+" 🎉"];
+    const stepLabels = [I18N.t("st_accepted"),I18N.t("st_cooking"),I18N.t("st_ready"),I18N.t("st_ontheway"),I18N.t("st_arrived")];
     const stepColors = ["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
 
     panel.innerHTML = `
@@ -1687,9 +1704,9 @@
                tursin: "sous bilan" deb yozganini eslay olsin. */
             const ns=(o.items||[]).filter(i=>i&&String(i.note||"").trim());
             if(!ns.length) return "";
-            return `<div class="aop-notes">${ns.map(i=>`<div>💬 <b>${esc(i.name)}</b>: ${esc(i.note)}</div>`).join("")}</div>`;
+            return `<div class="aop-notes">${ns.map(i=>`<div>${ic('message')} <b>${esc(i.name)}</b>: ${esc(i.note)}</div>`).join("")}</div>`;
           })()}
-          ${step<3?`<button class="aop-cancel" data-cancel="${o.id}" style="margin-top:8px;width:100%;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer">✕ Buyurtmani bekor qilish</button>`:""}
+          ${step<3?`<button class="aop-cancel" data-cancel="${o.id}" style="margin-top:8px;width:100%;background:#fdecec;color:#C8102E;border:none;border-radius:9px;padding:9px 12px;font-size:13px;font-weight:700;cursor:pointer">${ic('x')} Buyurtmani bekor qilish</button>`:""}
         </div>`;
       }).join("")}
       <div class="aop-divider"></div>`;
@@ -1722,13 +1739,13 @@
     overlay.className = "arrived-overlay";
     overlay.innerHTML = `
       <div class="arrived-card">
-        <button class="arrived-close" id="arrivedClose">✕</button>
+        <button class="arrived-close" id="arrivedClose">${ic('x')}</button>
         <div class="arrived-emoji" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:84px;height:84px;margin:0 auto 8px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#FCEEDF,#F7E2E5)">${orderIconHtml(order,44)}</div>
-        <div class="arrived-title">${I18N.t("st_arrived")}! 🎉</div>
+        <div class="arrived-title">${I18N.t("st_arrived")}! ${ic('party')}</div>
         <div class="arrived-name">${esc(order.label)}</div>
         ${trackItemsHtml(order)}
         <div class="arrived-msg">${I18N.t("arrived_msg")}</div>
-        <button class="btn btn-primary" id="arrivedOk">${I18N.t("got_it")} ✓</button>
+        <button class="btn btn-primary" id="arrivedOk">${ic('check')} ${I18N.t("got_it")}</button>
       </div>`;
     document.body.appendChild(overlay);
 
@@ -1847,21 +1864,21 @@
     const stars = ()=> [1,2,3,4,5].map(n=>`<span class="rate-star" data-n="${n}">☆</span>`).join("");
     openModal(`
       <div style="text-align:center">
-        <div style="font-size:40px">⭐</div>
+        <div style="display:flex;justify-content:center;color:#f5a623">${ic('star','yz-i-xxl')}</div>
         <h2 style="margin:6px 0 2px">${I18N.t("rate_title")}</h2>
         <p class="modal-sub" style="margin-bottom:14px">Buyurtmangiz uchun rahmat! Fikringiz muhim.</p>
         ${e.rest?`
         <div class="rate-block">
-          <div class="rate-label">🏪 ${esc(trTxt(e.rest))}</div>
+          <div class="rate-label">${ic('store')} ${esc(trTxt(e.rest))}</div>
           <div class="rate-stars" id="rateRest">${stars()}</div>
         </div>`:""}
         <div class="rate-block">
-          <div class="rate-label">🍽️ ${esc(trTxt(e.dish||"Taom"))}</div>
+          <div class="rate-label">${ic('utensils')} ${esc(trTxt(e.dish||"Taom"))}</div>
           <div class="rate-stars" id="rateDish">${stars()}</div>
         </div>
         ${e.courier?`
         <div class="rate-block">
-          <div class="rate-label">🛵 Kuryer: ${esc(trTxt(e.courier))}</div>
+          <div class="rate-label">${ic('scooter')} Kuryer: ${esc(trTxt(e.courier))}</div>
           <div class="rate-stars" id="rateCour">${stars()}</div>
         </div>`:""}
         <textarea id="rateText" rows="2" placeholder="Izoh (ixtiyoriy)" style="width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:11px;padding:10px;font-family:inherit;font-size:14px;margin:10px 0;resize:vertical"></textarea>
@@ -1888,7 +1905,7 @@
       if(dishR>0 && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:dishR, dish:e.dish, rest:e.rest, text:text}, e.token);
       if(restR>0 && e.rest && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:restR, dish:"🏪 Restoran: "+e.rest, rest:e.rest, text:text}, e.token);
       if(courR>0 && e.courier && typeof STORE!=="undefined") STORE.addReview({name:e.user, rating:courR, dish:"🛵 Kuryer: "+e.courier, text:text}, e.token);
-      removePendingRating(e.id); closeModal(); toast(I18N.t("rate_thanks")+" ✓","success");
+      removePendingRating(e.id); closeModal(); toast(I18N.t("rate_thanks"),"success");
       try{ renderReviews(); }catch(_){}
     });
   }
@@ -2033,16 +2050,16 @@
 
     openModal(`
       <div class="promo-modal">
-        <h2 style="margin-bottom:4px">🔥 Aksiyalar va chegirmalar</h2>
+        <h2 style="margin-bottom:4px">${ic('flame')} Aksiyalar va chegirmalar</h2>
         <p class="modal-sub">Bugungi maxsus takliflar</p>
 
         ${discDishes.length ? `
-        <div class="promo-section-title">🏷️ Aksiyadagi taomlar</div>
+        <div class="promo-section-title">${ic('tag')} Aksiyadagi taomlar</div>
         <div class="promo-dishes">
           ${discDishes.map(d=>`
           <div class="promo-dish-card" data-id="${d.id}">
             <div class="pdc-img tone-${d.kw}">
-              <span style="font-size:32px">${d.emoji}</span>
+              <span style="font-size:32px">${catIcon(d)}</span>
             </div>
             <div class="pdc-info">
               <div class="pdc-name">${esc(nm(d))}</div>
@@ -2059,12 +2076,12 @@
         ` : ""}
 
         ${bonusPromos.length ? `
-        <div class="promo-section-title" style="margin-top:${discDishes.length?'16px':'0'}">🎁 Bonuslar</div>
+        <div class="promo-section-title" style="margin-top:${discDishes.length?'16px':'0'}">${ic('gift')} Bonuslar</div>
         <div class="promo-announcements">
           ${bonusPromos.map(p=>`
           <div class="promo-ann promo-ann-clickable" data-bonus="1">
             <div class="promo-ann-icon">
-              ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px">🎁</span>`}
+              ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px;color:var(--grey)">${ic('gift')}</span>`}
             </div>
             <div class="promo-ann-body">
               <div class="promo-ann-rest">${p.rest?esc(trTxt(p.rest)):"Yetkaz.uz"}</div>
@@ -2076,12 +2093,12 @@
         </div>
         ` : ""}
 
-        <div class="promo-section-title" style="margin-top:${(discDishes.length||bonusPromos.length)?'16px':'0'}">📢 Restoranlar e'lonlari</div>
+        <div class="promo-section-title" style="margin-top:${(discDishes.length||bonusPromos.length)?'16px':'0'}">${ic('megaphone')} Restoranlar e'lonlari</div>
         <div class="promo-announcements">
           ${promos.map(p=>`
           <div class="promo-ann promo-ann-clickable" data-rest="${esc(p.rest)}">
             <div class="promo-ann-icon">
-              ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px">${p.emoji||"📢"}</span>`}
+              ${p.img?`<img src="${p.img}" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;display:block">`:`<span style="font-size:28px;color:var(--grey)">${promoIcon(p.emoji)}</span>`}
             </div>
             <div class="promo-ann-body">
               <div class="promo-ann-rest">${esc(trTxt(p.rest))}</div>
@@ -2099,7 +2116,7 @@
         e.stopPropagation();
         const id = +btn.dataset.id;
         const d = catalog().find(x=>x.id===id);
-        if(d){ addToCart(d); updateAllCards(); btn.textContent="✓"; btn.style.background="var(--green)"; }
+        if(d){ addToCart(d); updateAllCards(); btn.innerHTML=ic('check'); btn.style.background="var(--green)"; }
       });
     });
     document.querySelectorAll(".promo-dish-card").forEach(card=>{
@@ -2152,13 +2169,13 @@
       const badge = p.tag ? `<span class="ph-badge">${esc(trTxt(p.tag))}</span>` : "";
       /* Haqiqiy taom/restoran rasmi (bo'lmasa emoji ko'rsatiladi) */
       const photo = promoPhoto(p);
-      const photoInner = `<span class="ph-emoji">${p.emoji||"🍽️"}</span>` +
+      const photoInner = `<span class="ph-emoji">${promoIcon(p.emoji)}</span>` +
         (photo ? `<img class="ph-img" src="${photo}" alt="${esc(trTxt(p.rest))}" data-onerr="remove">` : "");
       /* Butun hero kartasi bosilganda — mavjud promo modal ochiladi (yangi funksiya yo'q) */
       slidesEl.innerHTML=`
         <div class="ph-card">
           <div class="ph-left">
-            <span class="ph-tag">${p.emoji||"🔥"} AKSIYA</span>
+            <span class="ph-tag">${ic('flame')} AKSIYA</span>
             <h3 class="ph-title">${esc(trTxt(p.rest))||"Yetkaz.uz"}</h3>
             <p class="ph-desc">${esc(trTxt(p.text))}</p>
             <div class="ph-actions">
@@ -2213,15 +2230,15 @@
     const slideHtml = (p)=>{
       /* Rasm: avval restoran yuklagan e'lon rasmi (p.img), bo'lmasa taom/restoran rasmi */
       const photo = p.img || promoPhoto(p);
-      const photoInner = `<span class="apb-emoji">${p.emoji||"🔥"}</span>` +
+      const photoInner = `<span class="apb-emoji">${promoIcon(p.emoji)}</span>` +
         (photo ? `<img class="apb-img" src="${photo}" alt="${esc(p.rest||"")}" data-onerr="remove">` : "");
       return `
         <div class="apb-slide">
           <div class="apb-left">
-            <span class="apb-tag">${p.emoji||"🔥"} ${esc(p.tag||"AKSIYA")}</span>
+            <span class="apb-tag">${promoIcon(p.emoji)} ${esc(p.tag||"AKSIYA")}</span>
             <h2 class="apb-title">${esc(p.text)}</h2>
-            ${p.rest?`<div class="apb-rest">🏪 ${esc(p.rest)}</div>`:""}
-            ${p.dish?`<div class="apb-dish">🍽️ ${esc(p.dish)}</div>`:""}
+            ${p.rest?`<div class="apb-rest">${ic('store')} ${esc(p.rest)}</div>`:""}
+            ${p.dish?`<div class="apb-dish">${ic('utensils')} ${esc(p.dish)}</div>`:""}
             <button class="apb-cta" type="button">Batafsil →</button>
           </div>
           <div class="apb-right">
@@ -2281,12 +2298,12 @@
      (yoritilgan element) + tooltip karta ("bu yerni bosing"). O'zbek tilida.
      ============================================================ */
   const TOUR_STEPS = [
-    { sel:()=>"#dishSearch",  title:"🔍 1. Qidiruv",       text:"Bu yerga taom yoki restoran nomini yozib tez toping.", before:()=>{ try{ closeCart(); }catch(e){} } },
-    { sel:()=>"#dishFilters", title:"🍽️ 2. Kategoriyalar", text:"Milliy, Fastfood, Shirinlik, Ichimlik — kerakli turni shu yerdan tanlang." },
-    { sel:()=>"#dishesGrid",  title:"➕ 3. Savatga qo'shish", text:"Yoqqan taomdagi qizil «+» tugmasini bosing — taom savatga qo'shiladi va savat ikonkasiga uchib boradi. Bir nechta taom qo'shsangiz bo'ladi." },
-    { sel:()=> (window.innerWidth<=768 ? "#mbbCart" : "#cartBtn"), title:"🛒 4. Savatni ochish", text:"Qo'shgan taomlaringizni ko'rish uchun shu savat tugmasini bosing.", before:()=>{ try{ closeCart(); }catch(e){} } },
-    { sel:()=>"#cartItems",    title:"🧺 5. Savat ichi",    text:"Bu yerda taomlar ro'yxati. «−» va «+» bilan sonini o'zgartirasiz, jami summa pastda ko'rinadi.", before:()=>{ try{ openCart(); }catch(e){} } },
-    { sel:()=>"#checkoutBtn",  title:"✅ 6. Buyurtma berish", text:"«Buyurtma berish» tugmasini bosing → ism, telefon va manzilni kiriting → to'lovni tanlab tasdiqlang. Buyurtma darhol restoranga yuboriladi!", before:()=>{ try{ openCart(); }catch(e){} } },
+    { sel:()=>"#dishSearch",  title:ic('search')+" 1. Qidiruv",       text:"Bu yerga taom yoki restoran nomini yozib tez toping.", before:()=>{ try{ closeCart(); }catch(e){} } },
+    { sel:()=>"#dishFilters", title:ic('utensils')+" 2. Kategoriyalar", text:"Milliy, Fastfood, Shirinlik, Ichimlik — kerakli turni shu yerdan tanlang." },
+    { sel:()=>"#dishesGrid",  title:ic('plus')+" 3. Savatga qo'shish", text:"Yoqqan taomdagi qizil «+» tugmasini bosing — taom savatga qo'shiladi va savat ikonkasiga uchib boradi. Bir nechta taom qo'shsangiz bo'ladi." },
+    { sel:()=> (window.innerWidth<=768 ? "#mbbCart" : "#cartBtn"), title:ic('cart')+" 4. Savatni ochish", text:"Qo'shgan taomlaringizni ko'rish uchun shu savat tugmasini bosing.", before:()=>{ try{ closeCart(); }catch(e){} } },
+    { sel:()=>"#cartItems",    title:ic('basket')+" 5. Savat ichi",    text:"Bu yerda taomlar ro'yxati. «−» va «+» bilan sonini o'zgartirasiz, jami summa pastda ko'rinadi.", before:()=>{ try{ openCart(); }catch(e){} } },
+    { sel:()=>"#checkoutBtn",  title:ic('check-circle')+" 6. Buyurtma berish", text:"«Buyurtma berish» tugmasini bosing → ism, telefon va manzilni kiriting → to'lovni tanlab tasdiqlang. Buyurtma darhol restoranga yuboriladi!", before:()=>{ try{ openCart(); }catch(e){} } },
   ];
   function startTour(){
     if(document.getElementById("yzTour")) return;
@@ -2296,7 +2313,7 @@
     ov.innerHTML='<div class="yz-tour-hole"></div><div class="yz-tour-tip"></div>';
     document.body.appendChild(ov);
     const hole=ov.querySelector(".yz-tour-hole"), tip=ov.querySelector(".yz-tour-tip");
-    function end(){ try{ ov.remove(); }catch(e){} try{ closeCart(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin 🎉","success"); }
+    function end(){ try{ ov.remove(); }catch(e){} try{ closeCart(); }catch(e){} toast("Tayyor! Endi buyurtma berishingiz mumkin","success"); }
     /* Chetга (qorong'i fon) bosilса — tur yopiladi (tip kartaсiga bosilса yopilmaydi) */
     ov.addEventListener("click",(e)=>{ if(!e.target.closest(".yz-tour-tip")) end(); });
     function next(){ i++; if(i>=TOUR_STEPS.length){ end(); return; } show(); }
@@ -2313,7 +2330,7 @@
         const below = (r.bottom+170) < window.innerHeight;
         tip.innerHTML='<div class="yz-tour-card"><h4>'+step.title+'</h4><p>'+step.text+'</p>'+
           '<div class="yz-tour-actions"><span class="yz-tour-count">'+(i+1)+' / '+TOUR_STEPS.length+'</span>'+
-          '<span><button class="yz-tour-skip">Yopish</button><button class="yz-tour-next">'+(i<TOUR_STEPS.length-1?"Keyingi →":"Tugatish ✓")+'</button></span></div></div>';
+          '<span><button class="yz-tour-skip">Yopish</button><button class="yz-tour-next">'+(i<TOUR_STEPS.length-1?"Keyingi →":"Tugatish "+ic('check'))+'</button></span></div></div>';
         tip.style.cssText="position:fixed;z-index:100001;left:50%;transform:translateX(-50%);width:min(360px,92vw);"+(below?("top:"+(r.bottom+14)+"px"):("bottom:"+(window.innerHeight-r.top+14)+"px"));
         tip.querySelector(".yz-tour-next").addEventListener("click",next);
         tip.querySelector(".yz-tour-skip").addEventListener("click",end);
@@ -2348,15 +2365,15 @@
     const heroFreeEl=$("#heroFree");
     if(heroFreeEl) heroFreeEl.addEventListener("click",()=>{
       openModal(`<div style="text-align:center">
-        <div style="font-size:46px">🛵</div>
+        <div style="display:flex;justify-content:center;color:#16a34a">${ic('scooter','yz-i-xxl')}</div>
         <h2 style="margin:8px 0;color:#16a34a">Bepul va tez yetkazib berish!</h2>
-        <div style="background:#eafaf0;border:1px solid #bdebd0;border-radius:12px;padding:12px;margin:8px 0;color:#16a34a;font-weight:700">🎉 Aksiya doirasida yetkazib berish BEPUL</div>
+        <div style="background:#eafaf0;border:1px solid #bdebd0;border-radius:12px;padding:12px;margin:8px 0;color:#16a34a;font-weight:700">${ic('party')} Aksiya doirasida yetkazib berish BEPUL</div>
         <div style="text-align:left;color:var(--ink);font-size:14px;line-height:1.8;margin-top:6px">
-          🕒 O'rtacha yetkazish vaqti: <b>15–25 daqiqa</b>.<br>
-          💰 Aksiya kunlari yetkazib berish <b>butunlay bepul</b>.<br>
-          🛵 Eng yaqin va bo'sh kuryer <b>avtomatik</b> biriktiriladi.<br>
-          📦 Buyurtmani jonli kuzatasiz: qabul → tayyor → yo'lda → yetdi.<br>
-          ✅ Yetib kelganда "Oldim, rahmat" tugmasi bilan tasdiqlaysiz.
+          ${ic('clock')} O'rtacha yetkazish vaqti: <b>15–25 daqiqa</b>.<br>
+          ${ic('wallet')} Aksiya kunlari yetkazib berish <b>butunlay bepul</b>.<br>
+          ${ic('scooter')} Eng yaqin va bo'sh kuryer <b>avtomatik</b> biriktiriladi.<br>
+          ${ic('package')} Buyurtmani jonli kuzatasiz: qabul → tayyor → yo'lda → yetdi.<br>
+          ${ic('check-circle')} Yetib kelganда "Oldim, rahmat" tugmasi bilan tasdiqlaysiz.
         </div>
         <button class="btn btn-primary btn-block" id="hfCloseBtn" style="margin-top:14px">Tushunarli</button>
       </div>`);

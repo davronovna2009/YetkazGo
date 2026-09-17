@@ -79,7 +79,11 @@
        kechagi) sana bilan ko'rinardi. */
     const date = (o.created_at && YZ_TIME.fmtDate(o.created_at)) || YZ_TIME.fmtDate(new Date().toISOString()) || "";
     return { id:o.id, dish:o.item, emoji:o.emoji, rest:o.rest, date:date, amount:o.amount,
-      addr:o.addr, pay:o.pay, deliveredIn:o.eta, promised:(o.eta||15)+3, reviewed:rid.has(String(o.id)), status:o.status, reason:o.reason||"" };
+      addr:o.addr, pay:o.pay, deliveredIn:o.eta, promised:(o.eta||15)+3, reviewed:rid.has(String(o.id)), status:o.status, reason:o.reason||"",
+      /* To'liq tafsilot modali uchun — items (rasm/chegirma), kuryer, guruh va h.k. */
+      items:o.items||[], qtyTotal:o.qtyTotal||0, courier:o.courier||"", courierPhone:o.courierPhone||"",
+      deliveryMin:o.deliveryMin||0, source:o.source||"", created_at:o.created_at||"",
+      groupBreakdown:o.groupBreakdown||null, groupId:o.groupId||null };
   }
   /* Optimistik (hali serverga bog'lanmagan) yozuvning imzosi — restoran + taom + to'lov.
      Shu imzo bo'yicha backend buyurtmasi bilan yarashtirlади (id emas: lokal id
@@ -603,6 +607,25 @@
     if(street) parts.push(String(street).trim());
     return parts.join(", ");
   }
+  /* Profil rasmi (Telegram kabi) — Sozlamalar'даgi doiraviy ko'rinish */
+  function renderAvaPreview(url){
+    var box=document.getElementById("avaPreview"); if(!box) return;
+    box.innerHTML = url ? '<img src="'+esc(url)+'" alt="" style="width:100%;height:100%;object-fit:cover">' : ic('user','yz-i-xl');
+  }
+  /* Rasmni canvas orqali kichraytirib (max 500px, doiraviy profil uchun yetarli) dataURL qaytaradi */
+  function resizeAvaImage(file){
+    return new Promise(function(resolve){
+      var fr=new FileReader();
+      fr.onload=function(){ var img=new Image();
+        img.onload=function(){ var w=img.width, h=img.height; var scale=Math.min(1, 500/Math.max(w,h));
+          w=Math.round(w*scale); h=Math.round(h*scale);
+          var cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+          cv.getContext("2d").drawImage(img,0,0,w,h);
+          try{ resolve(cv.toDataURL("image/jpeg",0.85)); }catch(e){ resolve(fr.result); } };
+        img.onerror=function(){ resolve(""); }; img.src=fr.result; };
+      fr.onerror=function(){ resolve(""); }; fr.readAsDataURL(file);
+    });
+  }
   function renderSettings(){
     var ses=(typeof STORE!=="undefined")?STORE.session():null;
     var set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v||""; };
@@ -613,6 +636,7 @@
     set("stRegion", ses&&ses.addrRegion);
     set("stMahalla", ses&&ses.addrMahalla);
     set("stStreet", ses&&ses.addrStreet);
+    renderAvaPreview(ses&&ses.avatar);
     try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("kabLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     var snd=document.getElementById("stSound");
     try{ if(snd) snd.checked = localStorage.getItem("yz_sound")!=="0"; }catch(e){}
@@ -634,15 +658,19 @@
         ? `<button class="kab-cancel" data-oid="${o.id}" style="background:#fdecec;color:#C8102E;border:none;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer">${ic('x')} Bekor</button>`
         : (o.status==="cancelled" ? ('<span class="pill warn">Bekor qilingan</span>'+(o.reason?'<div style="font-size:11px;color:#C8102E;margin-top:3px">'+esc(o.reason)+'</div>':''))
           : (o.reviewed?'<span class="pill ok">Izoh berilgan</span>':'<span class="pill warn">Izoh kutmoqda</span>'));
-      return `<tr>
-        <td><div class="tname"><span class="av">${orderDishIcon(o.emoji)}</span>${esc(o.dish)}</div></td>
-        <td>${esc(o.rest)}</td>
+      const rp=restPhotoK(o.rest);
+      return `<tr class="kab-order-row" data-oid="${o.id}" style="cursor:pointer">
+        <td><div class="tname"><span class="av">${kOrderThumb(o,40)}</span>${esc(o.dish)}</div></td>
+        <td><div class="tname">${rp?`<img class="av" src="${esc(rp)}" alt="" style="object-fit:cover">`:`<span class="av">${ic('store')}</span>`}${esc(o.rest)}</div></td>
         <td>${esc(o.date)}</td>
         <td class="money">${money(o.amount)}</td>
-        <td>${o.deliveredIn} daq</td>
+        <td>${o.deliveryMin>0?o.deliveryMin+" daq":(o.deliveredIn+" daq (taxm.)")}</td>
         <td>${last}</td>
       </tr>`;}).join("");
-    $$("#orderTbody .kab-cancel").forEach(b=>b.addEventListener("click",()=>kabCancelOrder(b.dataset.oid)));
+    $$("#orderTbody .kab-cancel").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); kabCancelOrder(b.dataset.oid); }));
+    $$("#orderTbody .kab-order-row").forEach(tr=>tr.addEventListener("click",()=>{
+      const o=USER.orders.find(x=>String(x.id)===tr.dataset.oid); if(o) openKOrderDetailModal(o);
+    }));
     $("#myReviews").innerHTML=USER.reviews.length?USER.reviews.map(r=>`
       <div class="panel" style="margin-bottom:10px"><div class="panel-body">
         <div style="display:flex;justify-content:space-between"><b>${esc(r.dish)}</b><span class="star">${starsHtml(r.rating)}</span></div>
@@ -769,6 +797,11 @@
     for(const r of K_CAT_RULES){ if(emoji&&r.emo.includes(emoji)) return ic(CAT_ICON_K[r.cat],cls); }
     return ic("utensils",cls);
   }
+  /* Buyurtma tarixi/modal uchun — birinchi taomning RASMI (bo'lsa), aks holda ikon */
+  function kOrderThumb(o,size){
+    try{ const l=(YZ_ITEMS.lines(o)||[])[0]; return YZ_ITEMS.thumb(l,size); }
+    catch(e){ return orderDishIcon(o&&o.emoji,'yz-i-lg'); }
+  }
   /* ===== ISH VAQTI =====
      Manba — assets/js/hours.js (Asia/Tashkent). Bosh sayt (app.js), Telegram
      mini ilova va server AYNAN shu qoidaga tayanadi. Yopiq restorandan taom
@@ -782,12 +815,15 @@
      klasslar (.add-btn/.card-qty/.qty-btn — index.html: assets/js/app.js
      updateCardQty), shu sabab ko'rinishi ham AYNAN bir xil bo'ladi:
        1) restoran yopiq → ⏱   2) savatda bor → −/+   3) aks holda → + */
+  function kNoteOf(id){ const it=cart.find(i=>i.id===id); return (it&&it.note)||""; }
   function kActionHTML(d, qty){
     if(qty>0){
       const shut=!kIsOpen(d.rest);
+      const hasNote=!!kNoteOf(d.id).trim();
       return `<div class="card-qty"><button class="qty-btn qty-minus" data-id="${d.id}" data-m="-1">−</button>`+
              `<span class="qty-num">${qty}</span>`+
-             `<button class="qty-btn qty-plus${shut?" qty-closed":""}" data-id="${d.id}" data-m="1">+</button></div>`;
+             `<button class="qty-btn qty-plus${shut?" qty-closed":""}" data-id="${d.id}" data-m="1">+</button>`+
+             `<button class="qty-btn qty-note${hasNote?' has-note':''}" data-noteid="${d.id}" aria-label="Izoh" title="Izoh">${ic('message')}</button></div>`;
     }
     if(!kIsOpen(d.rest)){
       return `<button class="add-btn add-closed kshut-add" data-shut="${esc(d.rest)}" title="${esc(kClosedMsg(d.rest))}">${ic('clock')}</button>`;
@@ -819,6 +855,13 @@
       <div style="padding:16px 0 0">
         <h2 style="font-size:19px;margin-bottom:4px">${esc(nm(d))}</h2>
         <div style="color:var(--grey);font-size:13px;margin-bottom:10px">${ic('store')} ${esc(trTxt(d.rest))}</div>
+        <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--grey)"><b style="color:var(--ink)">${kDishStar(d)}</b></span>
+          ${kDishSold(d)?`<span style="font-size:13px;color:var(--grey)">${kDishSold(d).replace(/^ · /,'')}</span>`:""}
+          ${d.weight?`<span style="font-size:13px;color:var(--grey)">${ic('scale')} ${esc(trTxt(d.weight))}</span>`:""}
+        </div>
+        ${d.descr?`<p style="font-size:14px;color:var(--ink);margin-bottom:10px;line-height:1.5">${esc(trTxt(d.descr))}</p>`:""}
+        ${d.ingredients?`<div style="font-size:13px;color:var(--grey);margin-bottom:14px;line-height:1.5"><b>${ic('utensils')} Tarkibi:</b> ${esc(trTxt(d.ingredients))}</div>`:""}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
           ${priceStr}<span style="font-size:14px;color:var(--grey)"> so'm</span>
         </div>
@@ -828,7 +871,7 @@
       const q=(cart.find(i=>i.id===d.id)||{}).qty||0;
       const foot=$("#kdmFoot"); if(!foot) return;
       if(q===0 && !kIsOpen(d.rest)){
-        foot.innerHTML=`<div class="yz-closed-bar" style="margin:0"><span style="font-size:20px">⏱</span>`+
+        foot.innerHTML=`<div class="yz-closed-bar" style="margin:0"><span style="font-size:20px;color:#C8102E">${ic('clock')}</span>`+
           `<span><b>${esc(d.rest)}</b> hozir yopiq.<br>Ish vaqti: <b>${esc(kHours(d.rest))}</b> — shu vaqtda buyurtma bering.</span></div>`;
         return;
       }
@@ -842,13 +885,72 @@
             <span style="min-width:28px;text-align:center;color:#fff;font-size:17px;font-weight:800">${q}</span>
             <button class="kqb" data-id="${d.id}" data-m="1" style="width:44px;height:44px;border:none;background:transparent;color:#fff;font-size:22px;font-weight:700;cursor:pointer">+</button>
           </div>
+          <button class="set-save" style="width:100%;background:#f1eef0;color:#555;margin-bottom:8px" id="kdmNote">${ic('message')} ${kNoteOf(d.id).trim()?"Izohni tahrirlash":"Izoh qoldirish"}</button>
           <button class="set-save" style="width:100%" id="kdmCart">Savatni ko'rish</button>`;
         foot.querySelectorAll(".kqb").forEach(b=>b.addEventListener("click",()=>{ changeQty(+b.dataset.id,+b.dataset.m); refreshKdm(); updateKMenuQty(); }));
+        foot.querySelector("#kdmNote").addEventListener("click",()=>openKNoteModal(d));
         foot.querySelector("#kdmCart").addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
       }
     }
     refreshKdm();
     $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+  }
+
+  /* Taom uchun izoh oynasi — index.html'dagi openNoteModal bilan bir xil:
+     mijoz savatni ochmasdan ham "sous bilan yuboring" kabi tilagini yozadi. */
+  const NOTE_MAX=200;
+  function openKNoteModal(d){
+    $("#koContent").innerHTML=`<div style="text-align:center">
+        <div style="display:flex;justify-content:center;color:var(--grey);font-size:40px">${ic('message','yz-i-xxl')}</div>
+        <h2 style="margin:6px 0 2px">${esc(nm(d))}</h2>
+        <p class="modal-sub" style="margin-bottom:12px">Taomni qanday tayyorlash/jo'natish kerakligini yozing</p>
+      </div>
+      <div style="text-align:left">
+        <input id="kNoteInp" class="ci-note-inp" type="text" maxlength="${NOTE_MAX}"
+               placeholder="Masalan: sous bilan yuboring" value="${esc(kNoteOf(d.id))}" style="width:100%;box-sizing:border-box">
+        <button class="set-save" id="kNoteSave" style="width:100%;margin-top:14px">Saqlash</button>
+      </div>`;
+    $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+    const inp=$("#kNoteInp"); if(inp) setTimeout(()=>inp.focus(),50);
+    const save=$("#kNoteSave");
+    if(save) save.addEventListener("click",()=>{
+      const it=cart.find(x=>x.id===d.id);
+      if(it) it.note=String((inp&&inp.value)||"").replace(/\s+/g," ").trim().slice(0,NOTE_MAX);
+      $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open");
+      renderCart(); updateKMenuQty();
+    });
+  }
+
+  /* Buyurtma tarixi — bitta yozuvga bosilganда TO'LIQ tafsilot: sana, narx,
+     chegirma foizi, qaysi kuryer yetkazgani, nechta taom, guruh buyurtmasimi. */
+  function openKOrderDetailModal(o){
+    const omr=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">${k}</span><b style="text-align:right">${v}</b></div>`;
+    let itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:260}); }catch(e){}
+    let groupHtml=""; try{ groupHtml=YZ_ITEMS.groupBreakdownHtml(o,{}); }catch(e){}
+    const discLines=(o.items||[]).filter(l=>Number(l.pct)>0);
+    const discHtml=discLines.length
+      ? omr(ic('tag')+" Chegirma", discLines.map(l=>esc(l.name)+" −"+Math.round(l.pct)+"%").join(", "))
+      : "";
+    $("#koContent").innerHTML=`
+      <div style="display:flex;justify-content:center;color:var(--grey)">${kOrderThumb(o,64)}</div>
+      <h2 style="text-align:center;margin:8px 0 2px">${esc(o.dish)}</h2>
+      <div style="text-align:center;margin-bottom:14px;color:var(--grey);font-size:13px">${ic('store')} ${esc(o.rest)}</div>
+      ${groupHtml}
+      ${itemsHtml}
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;margin-top:${itemsHtml?'12px':'0'}">
+        ${omr(ic('calendar')+" Sana",esc(o.date))}
+        ${o.qtyTotal?omr(ic('utensils')+" Jami mahsulot",o.qtyTotal+" dona"):""}
+        ${omr(ic('cash')+" Summa",money(o.amount)+" so'm")}
+        ${discHtml}
+        ${o.courier?omr(ic('scooter')+" Kuryer",esc(o.courier)):""}
+        ${o.deliveryMin>0?omr(ic('check-circle')+" Yetkazish vaqti",o.deliveryMin+" daqiqada"):""}
+        ${o.groupId?omr(ic('users')+" Turi","Guruh buyurtmasi"):""}
+        ${o.source?omr(ic('smartphone')+" Qayerdan",o.source==="telegram"?"Telegram":"Sayt"):""}
+        ${o.reason?omr("Bekor sababi",'<span style="color:#C8102E">'+esc(o.reason)+'</span>'):""}
+      </div>
+      <button class="set-save" id="kodClose" style="width:100%;margin-top:16px;background:#f1eef0;color:#555">Yopish</button>`;
+    $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
+    const cb=$("#kodClose"); if(cb) cb.addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
   }
 
   /* Kard qty ko'rinishini yangilash — narx/rasm (card-body) tegilmaydi,
@@ -866,7 +968,9 @@
       pod.innerHTML=kActionHTML(d,qty);
       const add=pod.querySelector(".add-btn:not(.add-closed)");
       if(add) add.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(id); });
-      pod.querySelectorAll(".qty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); syncKabBar(); }));
+      pod.querySelectorAll(".qty-btn:not(.qty-note)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); syncKabBar(); }));
+      const noteBtn=pod.querySelector(".qty-note");
+      if(noteBtn) noteBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openKNoteModal(d); });
       bindShutButtons(pod);
     });
     syncKabBar();
@@ -1043,7 +1147,7 @@
         $("#koModal").classList.add("open"); $("#koBackdrop").classList.add("open");
         const no=$("#kSwitchNo"); if(no) no.addEventListener("click",()=>{ $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open"); });
         const yes=$("#kSwitchYes"); if(yes) yes.addEventListener("click",()=>{
-          cart=[{id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,price:(d.eff||d.price),rest:d.rest,qty:1}];
+          cart=[{id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,photo:d.photo,price:(d.eff||d.price),rest:d.rest,qty:1}];
           renderCart(); $("#koModal").classList.remove("open"); $("#koBackdrop").classList.remove("open");
           filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){}
           toast(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi");
@@ -1051,7 +1155,7 @@
       }
       return;
     }
-    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,price:(d.eff||d.price),rest:d.rest,qty:1});
+    if(ex) ex.qty++; else cart.push({id:d.id,name:d.name,nameCyr:d.nameCyr,emoji:d.emoji,kw:d.kw,photo:d.photo,price:(d.eff||d.price),rest:d.rest,qty:1});
     renderCart(); updateKMenuQty(); toast(typeof KT==="function"?KT('savatga_qoshildi'):"Savatga qo'shildi");
   }
   function changeQty(id,m){
@@ -1097,7 +1201,7 @@
       } else {
         body.innerHTML=cart.map(i=>`
           <div class="kab-dr-row">
-            <span class="kab-dr-emoji">${foodIcon(i.kw)}</span>
+            <span class="kab-dr-emoji">${foodIcon(i.kw)}${i.photo?`<img src="${esc(i.photo)}" alt="" data-onerr="remove">`:""}</span>
             <div class="kab-dr-info">
               <div class="kab-dr-name">${esc(nm(i))}</div>
               <div class="kab-dr-rest">${esc(trTxt(i.rest))}</div>
@@ -1587,9 +1691,32 @@
 
   /* Restoran bo'yicha filter */
   let activeRest=null;
+  /* Restoran haqida to'liq ma'lumot — index.html'dagi restInfoBlock bilan bir
+     xil mazmun (ish vaqti, manzil, hudud, reyting, tavsif), lekin index.html'ga
+     yo'naltirmasdan, kabinet ICHIDA (o'zining CSS'siz, inline uslubda). */
+  function restInfoBlockK(rname){
+    const be=restListK().find(r=>r.name===rname)||{};
+    const open=kIsOpen(rname), hrs=kHours(rname);
+    const photo=restPhotoK(rname);
+    const row=(ic1,k,v)=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><span style="color:var(--grey);flex:none;margin-top:1px">${ic1}</span><div style="flex:1;min-width:0"><div style="font-size:11.5px;color:var(--grey)">${k}</div><div style="font-size:14px;font-weight:600">${v}</div></div></div>`;
+    const rows=[row(ic('clock'),"Ish vaqti",esc(hrs)+" "+(open?"<span style=\"color:#16a34a\">(hozir ochiq)</span>":"<span style=\"color:#C8102E\">(hozir yopiq)</span>"))];
+    if(be.addr) rows.push(row(ic('map-pin'),"Manzil",esc(trTxt(be.addr))));
+    if(be.area) rows.push(row(ic('scooter'),"Yetkazish hududi",esc(trTxt(be.area))));
+    if(be.email) rows.push(row(ic('mail'),"Aloqa",esc(be.email)));
+    rows.push(row(ic('star'),"Reyting",(be.rating?be.rating:"—")+(be.ratingCount?" · "+be.ratingCount+" ta baho":"")+" · "+(be.eta||20)+" daq"));
+    return `<div class="panel" style="margin-bottom:12px;overflow:hidden">
+      ${photo?`<div style="height:130px;margin:-1px -1px 0;background:#f3eef0"><img src="${esc(photo)}" alt="" style="width:100%;height:100%;object-fit:cover" data-onerr="remove"></div>`:""}
+      <div class="panel-body">
+        <h3 style="font-size:17px;margin-bottom:2px">${esc(nm(be.name?be:{name:rname}))}</h3>
+        ${be.descr?`<p style="font-size:13px;color:var(--grey);margin:4px 0 0">${esc(trTxt(be.descr))}</p>`:""}
+        ${rows.join("")}
+      </div>
+    </div>`;
+  }
   function filterByRest(rname){
     activeRest=rname;
     const g=document.getElementById("kMenu"); if(!g) return;
+    const info=document.getElementById("kRestInfo"); if(info) info.innerHTML=restInfoBlockK(rname);
     const list=kcatalog().filter(d=>d.rest===rname);
     /* kFilter chip sifatida restoran nomi ko'rsatilsin + tavsiya banneri */
     const box=document.getElementById("kFilters");
@@ -1606,7 +1733,7 @@
         (isPref?`<div style="flex-basis:100%;width:100%;margin-top:8px;font-size:13px;color:#16a34a;background:#eafaf0;border:1px solid #bdebd0;border-radius:10px;padding:8px 12px">${ic('star','yz-i-fill yz-i-amber')} Siz shu restorandan buyurtma bergansiz — taomlar shu yerdan tavsiya qilinmoqda. Boshqa restoran uchun ${ic('x')} bosing.</div>`:``);
       const chip=box.querySelector("#kRestFilterChip");
       /* "Taomlar" alohida tab emas — filtr olib tashlansa Restoranlar ro'yxatiga qaytamiz */
-      if(chip) chip.addEventListener("click",()=>{ activeRest=null; nav("rests"); });
+      if(chip) chip.addEventListener("click",()=>{ activeRest=null; const info=document.getElementById("kRestInfo"); if(info) info.innerHTML=""; nav("rests"); });
     }
     renderMenuFiltered(list);
   }
@@ -1639,7 +1766,8 @@
       else { filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){} }
     }));
     document.querySelectorAll("#kMenu .add-btn:not(.add-closed)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(+b.dataset.id); }));
-    document.querySelectorAll("#kMenu .qty-btn").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
+    document.querySelectorAll("#kMenu .qty-btn:not(.qty-note)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
+    document.querySelectorAll("#kMenu .qty-note").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); const d=kcatalog().find(x=>x.id===+b.dataset.noteid); if(d) openKNoteModal(d); }));
     bindLikeButtons();
     bindShutButtons(document.getElementById("kMenu"));
   }
@@ -1799,6 +1927,20 @@
     /* ===== Sozlamalar ===== */
     (function(){
       var v=function(id){ var el=document.getElementById(id); return el?el.value.trim():""; };
+      var avaInput=document.getElementById("avaInput");
+      if(avaInput) avaInput.addEventListener("change", async function(){
+        var f=avaInput.files&&avaInput.files[0]; if(!f) return;
+        var avaMsg=document.getElementById("avaMsg");
+        if(avaMsg) avaMsg.textContent="Yuklanmoqda...";
+        var dataUrl=await resizeAvaImage(f);
+        if(!dataUrl){ if(avaMsg) avaMsg.textContent="Rasmni o'qib bo'lmadi"; return; }
+        var url=(typeof STORE!=="undefined"&&STORE.uploadImage)? await STORE.uploadImage(dataUrl):"";
+        if(!url){ if(avaMsg) avaMsg.textContent="Yuklashda xatolik"; return; }
+        var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({avatar:url}) : {error:"Serverga ulanmadi"};
+        if(r && !r.error){ renderAvaPreview(url); if(avaMsg) avaMsg.textContent=""; toast("Profil rasmi yangilandi","success"); }
+        else if(avaMsg) avaMsg.textContent=(r&&r.error)||"Xatolik";
+        avaInput.value="";
+      });
       var sp=document.getElementById("stSaveProfile");
       if(sp) sp.addEventListener("click", async function(){
         var msg=document.getElementById("stMsg");

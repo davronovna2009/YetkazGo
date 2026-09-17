@@ -440,6 +440,11 @@ export function initSchema() {
     // ulushi/to'lovi (JSON: [{name,amount,pay,paid}]) ni saqlaydi.
     'ALTER TABLE orders ADD COLUMN group_id INTEGER DEFAULT NULL',
     "ALTER TABLE orders ADD COLUMN group_breakdown TEXT DEFAULT ''",
+    // Profil rasmi (Telegram kabi) — HAR ROL uchun bitta umumiy ustun.
+    // Kabinet/restoran/kuryer/admin "Sozlamalar"да o'rnatiladi, barcha
+    // panellarda va o'sha kishi yozgan izohlarda ko'rinadi (routes/auth.js,
+    // routes/reviews.js).
+    "ALTER TABLE accounts ADD COLUMN avatar TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
 
   reconcileLogins();

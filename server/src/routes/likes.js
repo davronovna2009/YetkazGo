@@ -13,11 +13,13 @@ router.get('/', authRequired, (req, res) => {
   res.json(rows);
 });
 
-/* POST /api/likes/toggle { rest, name } — bor bo'lsa o'chiradi, yo'q bo'lsa qo'shadi */
+/* POST /api/likes/toggle { rest, name } — bor bo'lsa o'chiradi, yo'q bo'lsa qo'shadi.
+   `name` bo'sh bo'lishi mumkin — bu holda RESTORANNING O'ZI (kartochkadagi
+   yurakcha) yoqtirilgan hisoblanadi, aniq taom emas. */
 router.post('/toggle', authRequired, (req, res) => {
   const rest = String(req.body?.rest || '').trim();
   const name = String(req.body?.name || '').trim();
-  if (!rest || !name) return res.status(400).json({ error: 'Taom aniqlanmadi' });
+  if (!rest) return res.status(400).json({ error: 'Restoran aniqlanmadi' });
   const exists = db.prepare('SELECT 1 FROM likes WHERE account_id = ? AND rest = ? AND name = ?')
     .get(req.user.id, rest, name);
   if (exists) {

@@ -10,6 +10,7 @@ const router = Router();
 function publicAccount(a) {
   return {
     id: a.id, role: a.role, login: a.login, name: a.name, phone: a.phone || '', email: a.email || '', target: a.target,
+    avatar: a.avatar || '',
     /* Tuzilgan manzil (faqat 'user' rolда to'ldiriladi, lekin boshqa rolда ham
        bo'sh qiymat bilan xavfsiz qaytadi — panel UI'lari e'tiborsiz qoldiradi). */
     addrRegion: a.addr_region || '', addrMahalla: a.addr_mahalla || '', addrStreet: a.addr_street || '',
@@ -116,6 +117,14 @@ router.patch('/me', authRequired, (req, res) => {
   }
   if (b.phone != null) db.prepare('UPDATE accounts SET phone = ? WHERE id = ?').run(String(b.phone), acc.id);
   if (b.email != null) db.prepare('UPDATE accounts SET email = ? WHERE id = ?').run(String(b.email), acc.id);
+  /* Profil rasmi (Telegram kabi) — bo'sh satr o'chirishni bildiradi (ikonga
+     qaytadi). Faqat /api/upload bergan qisqa yo'l (yoki bo'sh) qabul qilinadi. */
+  if (b.avatar != null) {
+    const av = String(b.avatar).trim();
+    if (av === '' || /^\/(?:img|uploads)\//.test(av)) {
+      db.prepare('UPDATE accounts SET avatar = ? WHERE id = ?').run(av, acc.id);
+    }
+  }
   /* Manzil — faqat 'user' (mijoz) roli uchun mantiqli, lekin cheklab qo'yishning
      hojati yo'q (restoran/kuryer bu maydonlarni yubormaydi). */
   if (b.addrRegion != null) db.prepare('UPDATE accounts SET addr_region = ? WHERE id = ?').run(String(b.addrRegion).trim(), acc.id);

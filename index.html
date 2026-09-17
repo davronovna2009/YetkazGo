@@ -32,6 +32,7 @@
   <link rel="icon" type="image/png" href="assets/favicon-64.png" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="stylesheet" href="assets/css/styles.css" />
+  <link rel="stylesheet" href="assets/css/icons.css" />
 </head>
 <body>
 
@@ -59,7 +60,7 @@
           <span class="cart-count" id="cartCount">0</span>
         </button>
         <button class="btn btn-primary" id="loginBtn">Kirish</button>
-        <button class="nav-burger" id="navBurger" aria-label="Menyu" aria-expanded="false">☰</button>
+        <button class="nav-burger" id="navBurger" aria-label="Menyu" aria-expanded="false"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></button>
       </div>
     </div>
     <!-- Headerning to'lqinsimon (wavy) pastki chegarasi — qaymoqrang, sezilarli -->
@@ -86,7 +87,7 @@
       <p class="hero-sub" data-i18n="hero_sub">Yoqtirgan taomingizni tanlang — biz eshigingizgacha yetkazamiz.</p>
       <div class="hero-cta">
         <button class="btn btn-primary btn-lg" id="heroSearchBtn" data-i18n="order_start">Buyurtmani boshlash</button>
-        <span class="hero-free" id="heroFree" style="cursor:pointer" title="Batafsil">🛵 <span data-i18n="free_delivery">Tez yetkazib berish</span></span>
+        <span class="hero-free" id="heroFree" style="cursor:pointer" title="Batafsil"><svg class="yz-i"><use href="assets/icons.svg#scooter"/></svg> <span data-i18n="free_delivery">Tez yetkazib berish</span></span>
       </div>
       <div class="hero-dots" id="heroDots"></div>
     </div>
@@ -113,7 +114,7 @@
         <p data-i18n="dishes_sub">Eng ko'p buyurtma qilinadigan, ishtahani ochadigan taomlar</p>
       </div>
       <div class="dish-search" style="margin:0 auto 16px;max-width:540px">
-        <input id="dishSearch" type="search" data-i18n-ph="search_ph" placeholder="🔍 Taom yoki restoran qidiring..."
+        <input id="dishSearch" type="search" data-i18n-ph="search_ph" placeholder="Taom yoki restoran qidiring..."
           style="width:100%;padding:14px 18px;border:1.5px solid #eee;border-radius:14px;font-size:15px;font-family:inherit;outline:none;box-shadow:0 2px 10px rgba(0,0,0,.04)" />
       </div>
       <div class="chips" id="dishFilters"></div>
@@ -203,7 +204,7 @@
   <div class="drawer" id="cartDrawer" role="dialog" aria-label="Savat">
     <div class="drawer-head">
       <h3 data-i18n="cart_title">Savatingiz</h3>
-      <button class="drawer-close" id="cartClose" aria-label="Yopish">✕</button>
+      <button class="drawer-close" id="cartClose" aria-label="Yopish"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
     </div>
     <div class="drawer-body" id="cartItems"></div>
     <div class="drawer-foot">
@@ -216,14 +217,14 @@
   <!-- MODAL -->
   <div class="modal-backdrop" id="modalBackdrop"></div>
   <div class="modal" id="modal" role="dialog">
-    <button class="modal-close" id="modalClose" aria-label="Yopish">✕</button>
+    <button class="modal-close" id="modalClose" aria-label="Yopish"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
     <div id="modalContent"></div>
   </div>
 
   <!-- ONBOARDING -->
   <div class="onboard" id="onboard">
     <div class="onboard-card">
-      <h3 data-i18n="onb_title">Xush kelibsiz! 👋</h3>
+      <h3 data-i18n="onb_title">Xush kelibsiz!</h3>
       <p data-i18n="onb_text">Yetkaz'da birinchi marta? Buyurtma berish juda oson — taom tanlang, savatga qo'shing va manzilingizni kiriting. Boshlaymizmi?</p>
       <div class="onboard-actions">
         <button class="btn btn-outline" id="onbSkip" data-i18n="onb_skip">Keyinroq</button>
@@ -251,13 +252,13 @@
 
     <!-- Chap: Kirish -->
     <button class="mbb-item mbb-login" id="mbbLogin" aria-label="Kirish">
-      <span class="mbb-icon">👤</span>
+      <span class="mbb-icon"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg></span>
       <span class="mbb-label">Kirish</span>
     </button>
 
     <!-- Savat: MARKAZDA, KATTA va ko'zga tashlanadi -->
     <button class="mbb-cart-btn" id="mbbCart" aria-label="Savat">
-      <span class="mbb-cart-icon">🛒</span>
+      <span class="mbb-cart-icon"><svg class="yz-i"><use href="assets/icons.svg#cart"/></svg></span>
       <span class="mbb-cart-label">Savat</span>
       <!-- Badge: soni -->
       <span class="mbb-cart-badge" id="mbbCartCount">0</span>
@@ -275,10 +276,10 @@
 
   <!-- MOBIL NAV (burger bosganda) -->
   <nav class="main-nav" id="mobileMainNav">
-    <a href="#restaurants" data-i18n="nav_restaurants">🏪 Restoranlar</a>
-    <a href="#dishes"      data-i18n="nav_dishes">🍽️ Taomlar</a>
-    <a href="#reviews"     data-i18n="nav_reviews">⭐ Izohlar</a>
-    <a href="#about"       data-i18n="nav_about">ℹ️ Sayt haqida</a>
+    <a href="#restaurants"><svg class="yz-i"><use href="assets/icons.svg#store"/></svg> <span data-i18n="nav_restaurants">Restoranlar</span></a>
+    <a href="#dishes"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> <span data-i18n="nav_dishes">Taomlar</span></a>
+    <a href="#reviews"><svg class="yz-i"><use href="assets/icons.svg#star"/></svg> <span data-i18n="nav_reviews">Izohlar</span></a>
+    <a href="#about"><svg class="yz-i"><use href="assets/icons.svg#help-circle"/></svg> <span data-i18n="nav_about">Sayt haqida</span></a>
   </nav>
 
   <script src="assets/js/safe.js"></script>
@@ -311,12 +312,12 @@
     var navOpen = false;
     function openMobNav(){
       if(mobileNav) mobileNav.classList.add('open');
-      if(mbbBurger){ mbbBurger.textContent = '✕'; mbbBurger.setAttribute('aria-expanded','true'); }
+      if(mbbBurger){ mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#x"/></svg>'; mbbBurger.setAttribute('aria-expanded','true'); }
       navOpen = true;
     }
     function closeMobNav(){
       if(mobileNav) mobileNav.classList.remove('open');
-      if(mbbBurger){ mbbBurger.textContent = '☰'; mbbBurger.setAttribute('aria-expanded','false'); }
+      if(mbbBurger){ mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#menu"/></svg>'; mbbBurger.setAttribute('aria-expanded','false'); }
       navOpen = false;
     }
 

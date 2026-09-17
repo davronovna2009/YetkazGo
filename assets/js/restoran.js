@@ -7,6 +7,18 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  const ic=(name,cls)=>'<svg class="yz-i'+(cls?' '+cls:'')+'"><use href="assets/icons.svg#'+name+'"/></svg>';
+  /* Taom turi bo'yicha standart emoji (taom/ichimlik/shirinlik) — mos ikonga o'giradi */
+  const DISH_ICON_MAP={'🍽️':'utensils','🥤':'food-drink','🍰':'food-cake'};
+  const dishIcon=(emoji,cls)=>ic(DISH_ICON_MAP[emoji]||'food-generic',cls);
+  /* Izoh muallifining profil rasmi (kabinet "Sozlamalar"да o'rnatiladi) —
+     bo'lmasa umumiy foydalanuvchi ikoni. */
+  function reviewerAva(r){
+    var p=r&&r.ava;
+    var isPhoto=p&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(p);
+    return isPhoto ? '<img src="'+esc(p)+'" alt="" style="width:1.4em;height:1.4em;border-radius:50%;object-fit:cover;vertical-align:-0.3em">' : ic('user');
+  }
 
   /* Har bir restoran FAQAT o'z ma'lumotlarini ko'radi. Kuryer/sayt ichki foydasi YO'Q. */
   /* Parollar bu yerda saqlanmaydi — kirish backend orqali (xeshlangan) tekshiriladi */
@@ -182,7 +194,7 @@
   function enter(r){ CUR=r;
     syncFromBackend(); loadDishes();
     $("#loginWrap").style.display="none"; $("#app").classList.add("show");
-    $("#sbName").textContent=CUR.name; $("#sbEmoji").textContent=CUR.emoji||"🏪"; renderAll();
+    $("#sbName").textContent=CUR.name; $("#sbEmoji").innerHTML=ic('store'); renderAll();
     /* Ish vaqti nishoni DARHOL to'g'ri chiqsin: DOMContentLoaded da CUR hali
        yo'q edi va nishon standart 09:00–23:00 ni ko'rsatardi. */
     try{ yzUpdateOnline(); }catch(e){}
@@ -202,13 +214,13 @@
     var open=(function(){ try{ return YZ_TIME.restOpen(be); }catch(e){ return true; } })();
     var hrs=(function(){ try{ return YZ_TIME.restHours(be); }catch(e){ return ""; } })();
     box.innerHTML=
-      '<div class="rest-head-ava">'+(p?'<img src="'+esc(p)+'" alt="">':esc(CUR.emoji||"🏪"))+'</div>'+
+      '<div class="rest-head-ava">'+(p?'<img src="'+esc(p)+'" alt="">':ic('store'))+'</div>'+
       '<div class="rest-head-info">'+
         '<div class="rest-head-kicker">Restoran paneli</div>'+
         '<h1 class="rest-head-name">'+esc(CUR.name)+'</h1>'+
         '<div class="rest-head-meta">'+
-          '<span class="'+(open?'rh-open':'rh-closed')+'">'+(open?'🟢 Ochiq':'🔴 Yopiq')+(hrs?' · '+esc(hrs):'')+'</span>'+
-          (be.addr?'<span>📍 '+esc(be.addr)+'</span>':'')+
+          '<span class="'+(open?'rh-open':'rh-closed')+'">'+ic('dot',open?'yz-i-green':'yz-i-red')+' '+(open?'Ochiq':'Yopiq')+(hrs?' · '+esc(hrs):'')+'</span>'+
+          (be.addr?'<span>'+ic('map-pin')+' '+esc(be.addr)+'</span>':'')+
         '</div>'+
       '</div>';
   }
@@ -240,7 +252,7 @@
     var url="";
     if(typeof STORE!=="undefined" && STORE.uploadImage){ url=(await STORE.uploadImage(dataUrl))||dataUrl; } else url=dataUrl;
     if(typeof STORE!=="undefined" && STORE.setRestaurantPhoto){ STORE.setRestaurantPhoto(url); }
-    CUR.photo=url; renderRestPhotoCard(); toast("Restoran rasmi yangilandi \u2713");
+    CUR.photo=url; renderRestPhotoCard(); toast("Restoran rasmi yangilandi");
   }
   /* Rasm yuklash SOZLAMALARДА (#rPhotoArea) — ilgari dashboard tepasida turib,
      buyurtmalarni pastga surib yuborardi. Endi dashboardда faqat buyurtmalar. */
@@ -249,12 +261,12 @@
     var p=curRestPhoto();
     card.innerHTML='<div><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
       '<div style="width:76px;height:76px;border-radius:16px;background:#f3eef0;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden;flex:none">'+
-        (p?'<img src="'+p+'" alt="" style="width:100%;height:100%;object-fit:cover">':(CUR.emoji||"\ud83c\udfea"))+'</div>'+
+        (p?'<img src="'+p+'" alt="" style="width:100%;height:100%;object-fit:cover">':(CUR.emoji||ic('store')))+'</div>'+
       '<div style="flex:1;min-width:190px">'+
         '<p style="color:var(--grey);font-size:13px;margin:0 0 8px">Rasmni yuklang yoki kameradan oling — bosh sahifada kartochkangizda ko\'rinadi.</p>'+
-        '<label class="set-save" style="display:inline-block;cursor:pointer;padding:9px 14px">\ud83d\udcf7 Rasm tanlash / olish'+
+        '<label class="set-save" style="display:inline-block;cursor:pointer;padding:9px 14px">'+ic('camera')+' Rasm tanlash / olish'+
           '<input type="file" id="restPhotoInput" accept="image/*" capture="environment" style="display:none"></label>'+
-        (p?'<div style="color:var(--grey);font-size:12px;margin-top:7px">Rasm yuklangan ✓ — almashtirish uchun qayta tanlang</div>'
+        (p?'<div style="color:var(--grey);font-size:12px;margin-top:7px">Rasm yuklangan '+ic('check')+' — almashtirish uchun qayta tanlang</div>'
           :'<div style="color:var(--grey);font-size:12px;margin-top:7px">Rasm hali yuklanmagan — hozircha belgi ko\'rsatilmoqda</div>')+
       '</div></div></div>';
     var inp=document.getElementById("restPhotoInput");
@@ -278,10 +290,10 @@
     const bugun=live.filter(o=>o.status!=="cancelled" && YZ_TIME.isToday(o.created_at)).length;
     const faol=live.filter(o=>!["done","cancelled"].includes(o.status)).length;
     $("#statCards").innerHTML=`
-      <div class="scard c1"><div class="si">🔔</div><b>${money(bugun)}</b><span>Bugungi buyurtmalar</span></div>
-      <div class="scard c2"><div class="si">🧾</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
-      <div class="scard c3"><div class="si">🛵</div><b>${money(faol)}</b><span>Hozir jarayonda</span></div>
-      <div class="scard c4"><div class="si">⭐</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
+      <div class="scard c1"><div class="si">${ic("bell")}</div><b>${money(bugun)}</b><span>Bugungi buyurtmalar</span></div>
+      <div class="scard c2"><div class="si">${ic("receipt")}</div><b>${money(orders)}</b><span>Jami buyurtmalar</span></div>
+      <div class="scard c3"><div class="si">${ic("scooter")}</div><b>${money(faol)}</b><span>Hozir jarayonda</span></div>
+      <div class="scard c4"><div class="si">${ic("star")}</div><b>${r.rating||"—"}</b><span>Reyting</span></div>`;
     /* Daromad grafigi «Daromad hisoboti» bo'limida (renderIncome) — davrga
        qarab o'zgaradi va ustunlar yig'indisi kartadagi raqamga teng bo'ladi. */
     /* REAL: eng ko'p sotilgan va talab — buyurtma TARKIBI bo'yicha.
@@ -289,11 +301,11 @@
     const agg=salesMap(paid);
     const top=Object.values(agg).sort((a,b)=>b.qty-a.qty).slice(0,5);
     $("#topDishes").innerHTML=top.length?top.map((d,i)=>`
-      <div class="topitem" data-topname="${esc(d.name)}" style="cursor:pointer"><span class="rank">${i+1}</span><span style="font-size:20px">${d.emoji}</span>
+      <div class="topitem" data-topname="${esc(d.name)}" style="cursor:pointer"><span class="rank">${i+1}</span><span style="font-size:20px">${dishIcon(d.emoji)}</span>
         <span class="ti-name">${esc(d.name)}</span><span class="ti-val">${money(d.qty)} dona</span></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Hozircha buyurtma yo\'q</p>';
     const maxd=(top[0]&&top[0].qty)||1;
     $("#demandList").innerHTML=top.length?top.map(d=>`
-      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${d.emoji} ${esc(d.name)}</b><span>${money(d.qty)} dona · ${money(d.orders)} buyurtmada</span></div>
+      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${dishIcon(d.emoji)} ${esc(d.name)}</b><span>${money(d.qty)} dona · ${money(d.orders)} buyurtmada</span></div>
       <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(d.qty/maxd*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join(""):'<p style="color:var(--grey);font-size:13px">Talab ma\'lumoti buyurtmalar bilan to\'ladi</p>';
     /* Eng ko'p sotilgan taom ustiga bosilganda — to'liq ma'lumot (asl rasm bilan) */
     $$("#topDishes .topitem").forEach(function(it){ it.addEventListener("click",function(){
@@ -323,11 +335,11 @@
       if(o.source==="telegram") map[d].tg++; else map[d].web++; });
     var custs=Object.values(map).map(function(c){ c.count=c.tg+c.web; c.src=c.tg>c.web?"telegram":"sayt"; return c; }).sort(function(a,b){return b.count-a.count;});
     var bar='<div style="display:flex;height:16px;border-radius:9px;overflow:hidden;margin:10px 0 6px;background:#f1eef0">'+(tgP>0?'<div style="width:'+tgP+'%;background:#2563eb"></div>':'')+(webP>0?'<div style="width:'+webP+'%;background:#16a34a"></div>':'')+'</div>';
-    var legend='<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:6px"><span>🤖 Telegram: <b>'+tgP+'%</b> ('+tg.length+' ta)</span><span>🌐 Sayt: <b>'+webP+'%</b> ('+web.length+' ta)</span></div>';
+    var legend='<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:6px"><span>'+ic('bot')+' Telegram: <b>'+tgP+'%</b> ('+tg.length+' ta)</span><span>'+ic('globe')+' Sayt: <b>'+webP+'%</b> ('+web.length+' ta)</span></div>';
     var list=custs.length?'<div style="max-height:320px;overflow-y:auto;margin-top:8px">'+custs.map(function(c){
-      return '<div class="rsrc-c" data-ph="'+esc(String(c.phone||"").replace(/\D/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="width:24px;height:24px;border-radius:50%;background:'+(c.src==="telegram"?"#2563eb":"#16a34a")+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">'+(c.src==="telegram"?"🤖":"🌐")+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:12px">📞 '+esc(c.phone)+'</div></div><div style="text-align:right;font-size:12px"><b>'+c.count+' ta</b><div style="color:var(--grey)">🤖'+c.tg+' · 🌐'+c.web+'</div></div></div>';
+      return '<div class="rsrc-c" data-ph="'+esc(String(c.phone||"").replace(/\D/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="width:24px;height:24px;border-radius:50%;background:'+(c.src==="telegram"?"#2563eb":"#16a34a")+';color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(c.src==="telegram"?ic('bot'):ic('globe'))+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:12px">'+ic('phone')+' '+esc(c.phone)+'</div></div><div style="text-align:right;font-size:12px"><b>'+c.count+' ta</b><div style="color:var(--grey)">'+ic('bot')+' '+c.tg+' · '+ic('globe')+' '+c.web+'</div></div></div>';
     }).join("")+'</div>':'<p style="color:var(--grey);font-size:13px;margin-top:6px">Hozircha buyurtma yo\'q.</p>';
-    box.innerHTML='<div class="panel-head"><h3>🤖 Bot va 🌐 sayt reytingi</h3><span style="color:var(--grey);font-size:13px">'+orders.length+' buyurtma</span></div><div class="panel-body">'+bar+legend+'<div style="font-size:12px;color:var(--grey);margin-top:10px;font-weight:700">Manba bo\'yicha mijozlar (ustiga bosing):</div>'+list+'</div>';
+    box.innerHTML='<div class="panel-head"><h3>'+ic('bot')+' Bot va '+ic('globe')+' sayt reytingi</h3><span style="color:var(--grey);font-size:13px">'+orders.length+' buyurtma</span></div><div class="panel-body">'+bar+legend+'<div style="font-size:12px;color:var(--grey);margin-top:10px;font-weight:700">Manba bo\'yicha mijozlar (ustiga bosing):</div>'+list+'</div>';
     box.querySelectorAll(".rsrc-c").forEach(function(el){ el.addEventListener("click",function(){ openCustomerModal(el.dataset.ph); }); });
   }
   /* Mijoz kartochkasi — telefon bo'yicha (restoran o'z buyurtmalari doirasida) */
@@ -340,10 +352,10 @@
     el=document.createElement("div"); el.id="custModal";
     el.style.cssText="position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     var hist=orders.map(function(o){ var s=RSM[o.status]||["?","warn"];
-      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+(o.emoji||"🍽️")+' '+esc(o.item)+'</b><span class="pill '+s[1]+'">'+s[0]+'</span></div><div style="color:var(--grey);font-size:12px;margin-top:4px">'+fmtDateTime(o)+' · '+money(o.amount)+" so'm · "+(o.source==="telegram"?"🤖 Telegram":"🌐 Sayt")+'</div></div>'; }).join("");
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+dishIcon(o.emoji)+' '+esc(o.item)+'</b><span class="pill '+s[1]+'">'+s[0]+'</span></div><div style="color:var(--grey);font-size:12px;margin-top:4px">'+fmtDateTime(o)+' · '+money(o.amount)+" so'm · "+(o.source==="telegram"?ic('bot')+' Telegram':ic('globe')+' Sayt')+'</div></div>'; }).join("");
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">'+
-      '<button id="custClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
-      '<div style="text-align:center;font-size:42px">👤</div><h3 style="text-align:center;margin:6px 0 12px">'+esc(name)+'</h3>'+
+      '<button id="custClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;cursor:pointer">'+ic('x')+'</button>'+
+      '<div style="display:flex;justify-content:center;font-size:42px;color:var(--grey)">'+ic('user')+'</div><h3 style="text-align:center;margin:6px 0 12px">'+esc(name)+'</h3>'+
       '<div style="display:flex;flex-direction:column;gap:8px;font-size:14px;margin-bottom:14px">'+
       omr("Telefon",'<a href="tel:'+encodeURIComponent(phone)+'" style="color:var(--red);text-decoration:none">'+esc(phone)+'</a>')+
       omr("Buyurtmalar",orders.length+" ta")+omr("Jami sarflagan",money(spent)+" so'm")+'</div>'+
@@ -373,8 +385,8 @@
     var box=document.getElementById("topCustPanel");
     if(!box){ box=document.createElement("div"); box.id="topCustPanel"; box.className="panel"; box.style.marginTop="16px"; host.appendChild(box); }
     /* Mijozlar ko'payib ketsa ham panel cho'zilmaydi — ichida scroll bo'ladi */
-    box.innerHTML='<div class="panel-head"><h3>👑 Doimiy mijozlar (eng ko\'p buyurtma bergan)</h3><span style="color:var(--grey);font-size:13px">'+list.length+' ta</span></div><div class="panel-body">'+
-      (list.length?'<div style="max-height:500px;overflow-y:auto">'+list.map(function(c,i){ return '<div class="topcust-row" data-ph="'+esc(String(c.phone||"").replace(/\D/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">📞 '+esc(c.phone)+(c.addr?' · 📍 '+esc(c.addr):'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join("")+'</div>':'<p style="color:var(--grey)">Hozircha doimiy mijoz yo\'q.</p>')+
+    box.innerHTML='<div class="panel-head"><h3>'+ic('crown')+' Doimiy mijozlar (eng ko\'p buyurtma bergan)</h3><span style="color:var(--grey);font-size:13px">'+list.length+' ta</span></div><div class="panel-body">'+
+      (list.length?'<div style="max-height:500px;overflow-y:auto">'+list.map(function(c,i){ return '<div class="topcust-row" data-ph="'+esc(String(c.phone||"").replace(/\D/g,""))+'" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer"><span style="background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0">'+(i+1)+'</span><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(c.name)+'</div><div style="color:var(--grey);font-size:13px">'+ic('phone')+' '+esc(c.phone)+(c.addr?' · '+ic('map-pin')+' '+esc(c.addr):'')+'</div></div><b style="color:var(--red);white-space:nowrap">'+c.count+' marta</b></div>'; }).join("")+'</div>':'<p style="color:var(--grey)">Hozircha doimiy mijoz yo\'q.</p>')+
       '</div>';
     /* Mijoz ustiga bosilsa — to'liq ma'lumot va buyurtma tarixi */
     box.querySelectorAll(".topcust-row").forEach(function(el){ el.addEventListener("click",function(){ if(el.dataset.ph) openCustomerModal(el.dataset.ph); }); });
@@ -398,10 +410,10 @@
           '<img src="'+dish.photo+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(16px) brightness(.85);transform:scale(1.2)">'+
           '<img src="'+dish.photo+'" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain">'+
         '</div>'
-      : '<div style="font-size:60px;text-align:center;margin-bottom:8px">'+(d.emoji||"🍽️")+'</div>';
+      : '<div style="display:flex;justify-content:center;margin-bottom:8px;color:var(--grey)">'+dishIcon(d.emoji,'yz-i-xxl')+'</div>';
     var row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">'+
-      '<button id="tdmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
+      '<button id="tdmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;cursor:pointer">'+ic('x')+'</button>'+
       img+'<h3 style="text-align:center;margin:4px 0 12px">'+esc(d.name)+'</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px">'+
       /* salesMap qaytargan REAL ko'rsatkichlar: qty — dona, orders — nechta
@@ -421,27 +433,26 @@
     try{ return ((typeof STORE!=="undefined"&&STORE.overrides)?(STORE.overrides().soldout||[]):[]).indexOf(CUR.name+"|"+name)>=0; }catch(e){ return false; }
   }
   function renderDishes(){
-    const kindIco={taom:"🍽️",ichimlik:"🥤",shirinlik:"🍰"};
     $("#dishTbody").innerHTML=CUR.dishes.map((d,i)=>{ const so=isSoldout(d.name);
-      const rt=(d.rating||0); const rtHtml=rt>0?`<span class="star" style="color:#f5a623">★ ${rt}</span> <span style="color:var(--grey);font-size:11px">(${d.ratingCount||0})</span>`:'<span style="color:var(--grey);font-size:12px">—</span>';
+      const rt=(d.rating||0); const rtHtml=rt>0?`<span class="star" style="color:#f5a623">${ic('star')} ${rt}</span> <span style="color:var(--grey);font-size:11px">(${d.ratingCount||0})</span>`:'<span style="color:var(--grey);font-size:12px">—</span>';
       const lim=(d.maxQty>0)?` <span class="pill blue" style="font-size:10px" title="Bir buyurtmada eng ko'pi ${d.maxQty} ta">max ${d.maxQty}</span>`:'';
       return `
       <tr${so?' style="opacity:.6"':''}>
-        <td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${kindIco[d.kind]||d.emoji}</span>`}${esc(d.name)}${so?' <span class="pill warn" style="font-size:10px">Tugagan</span>':''}${lim}</div></td>
+        <td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${dishIcon(d.emoji)}</span>`}${esc(d.name)}${so?' <span class="pill warn" style="font-size:10px">Tugagan</span>':''}${lim}</div></td>
         <td>${d.discount?`<span style="text-decoration:line-through;color:var(--grey)">${money(d.price)}</span> <b style="color:var(--red)">${money(d.eff)}</b> <span class="pill red">-${d.discount}%</span>`:money(d.price)}</td>
         <td>${rtHtml}</td>
         <td>${money(d.sold)}</td>
         <td><b style="color:var(--green)">${money(d.net)}</b></td>
         <td style="white-space:nowrap">
-          <button class="so-btn" data-name="${esc(d.name)}" title="Sotuvda bor/yo'q" style="background:${so?'#e9f7ef':'#fde9c8'};color:${so?'#16a34a':'#b45309'};border:none;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">${so?'✅ Sotuvga':'⛔ Tugadi'}</button>
-          <button class="del-btn" data-i="${i}" title="O'chirish" style="background:#FBE3E6;color:var(--red);border:none;border-radius:8px;padding:6px 9px;font-size:15px;cursor:pointer">🗑</button>
+          <button class="so-btn" data-name="${esc(d.name)}" title="Sotuvda bor/yo'q" style="background:${so?'#e9f7ef':'#fde9c8'};color:${so?'#16a34a':'#b45309'};border:none;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">${so?ic('check')+' Sotuvga':ic('ban')+' Tugadi'}</button>
+          <button class="del-btn" data-i="${i}" title="O'chirish" style="background:#FBE3E6;color:var(--red);border:none;border-radius:8px;padding:6px 9px;cursor:pointer">${ic('trash')}</button>
         </td>
       </tr>`;}).join("");
     $$("#dishTbody .del-btn").forEach(b=>b.addEventListener("click",()=>removeDish(+b.dataset.i)));
     $$("#dishTbody .so-btn").forEach(b=>b.addEventListener("click",()=>{
       const name=b.dataset.name; const cur=isSoldout(name);
       if(typeof STORE!=="undefined" && STORE.setSoldout) STORE.setSoldout(CUR.name, name, !cur);
-      renderDishes(); toast(!cur?"Taom sotuvdan olindi":"Taom qaytadan sotuvda ✓");
+      renderDishes(); toast(!cur?"Taom sotuvdan olindi":"Taom qaytadan sotuvda");
     }));
   }
 
@@ -473,10 +484,9 @@
     $$(".nd-f").forEach(function(el){ el.hidden = !el.classList.contains("nd-"+ndKind); });
     var lbl=$("#ndNameLbl"); if(lbl) lbl.textContent=KIND_NAMELBL[ndKind];
     var nm=$("#ndName"); if(nm) nm.placeholder=KIND_NAMEPH[ndKind];
-    var em=$("#ndEmoji"); if(em && (!em.value || Object.values(KIND_EMOJI).indexOf(em.value)>=0)) em.value=KIND_EMOJI[ndKind];
   }
   async function addDish(){
-    const name=$("#ndName").value.trim(), price=parseInt(($("#ndPrice").value||"").replace(/\D/g,""),10), emoji=($("#ndEmoji").value.trim()||KIND_EMOJI[ndKind]);
+    const name=$("#ndName").value.trim(), price=parseInt(($("#ndPrice").value||"").replace(/\D/g,""),10), emoji=KIND_EMOJI[ndKind];
     const maxQty=Math.max(0, parseInt(($("#ndMaxQty").value||"").replace(/\D/g,""),10)||0);
     const kindLabel={taom:"Taom",ichimlik:"Ichimlik",shirinlik:"Shirinlik"}[ndKind];
     if(name.length<2){ toast(kindLabel+" nomini kiriting"); return; }
@@ -510,17 +520,17 @@
     try{ if(typeof STORE!=="undefined") STORE.addDish({id:Date.now(),name:name,emoji:emoji,price:price,rest:CUR.name,cat:KIND_CAT[ndKind],kw:"",photo:photo,sold:0,
       kind:ndKind, maxQty:maxQty, weight:weight,ingredients:ingredients,descr:descr, volume:volume, dtype:dtype, allergens:allergens}); }catch(e){}
     loadDishes(); renderAll();
-    $("#ndName").value=""; $("#ndPrice").value=""; $("#ndMaxQty").value=""; $("#ndEmoji").value=KIND_EMOJI[ndKind];
+    $("#ndName").value=""; $("#ndPrice").value=""; $("#ndMaxQty").value="";
     ["#ndWeight","#ndIngredients","#ndDescr","#ndVolume","#ndDescrDrink","#ndWeightSweet","#ndAllergens","#ndDescrSweet"].forEach(function(s){ var el=$(s); if(el) el.value=""; });
     var dt=$("#ndDtype"); if(dt) dt.value="";
     if(fileInput) fileInput.value="";
-    toast(photo?(kindLabel+" rasm bilan qo'shildi ✓"):(kindLabel+" qo'shildi ✓"));
+    toast(photo?(kindLabel+" rasm bilan qo'shildi"):(kindLabel+" qo'shildi"));
   }
   function removeDish(i){
     if(!CUR.dishes || CUR.dishes.length<=1){ toast("Kamida bitta taom qolishi kerak"); return; }
     const nm=CUR.dishes[i] && CUR.dishes[i].name; if(!nm) return;
     try{ if(typeof STORE!=="undefined") STORE.removeDish(CUR.name,nm); }catch(e){}
-    loadDishes(); renderAll(); toast("Taom o'chirildi ✓ (saytdan ham o'chadi)");
+    loadDishes(); renderAll(); toast("Taom o'chirildi (saytdan ham o'chadi)");
   }
 
   /* ===== Rasm yordamchilari va taom tanlash modali ===== */
@@ -539,11 +549,11 @@
     var d=(discSelIdx!=null)?CUR.dishes[discSelIdx]:null;
     if(d){
       var img=dishImg(d);
-      btn.innerHTML=(img?'<img src="'+img+'" alt="" class="dpb-img">':'<span class="dpb-emoji">'+(d.emoji||"🍽️")+'</span>')+
+      btn.innerHTML=(img?'<img src="'+img+'" alt="" class="dpb-img">':'<span class="dpb-emoji">'+dishIcon(d.emoji)+'</span>')+
         '<span class="dpb-name">'+esc(d.name)+'</span><span class="dpb-arrow">▾</span>';
       btn.classList.add("has-sel");
     } else {
-      btn.innerHTML='<span class="dpb-emoji">🍽️</span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span>';
+      btn.innerHTML='<span class="dpb-emoji">'+ic('utensils')+'</span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span>';
       btn.classList.remove("has-sel");
     }
   }
@@ -555,13 +565,13 @@
     var cards=CUR.dishes.map(function(d,i){
       var img=dishImg(d);
       return '<button type="button" class="dpick-card'+(i===discSelIdx?' sel':'')+'" data-i="'+i+'">'+
-        '<div class="dpick-thumb">'+(img?'<img src="'+img+'" alt="">':'<span>'+(d.emoji||"🍽️")+'</span>')+'</div>'+
+        '<div class="dpick-thumb">'+(img?'<img src="'+img+'" alt="">':'<span>'+dishIcon(d.emoji)+'</span>')+'</div>'+
         '<div class="dpick-name">'+esc(d.name)+'</div>'+
         '<div class="dpick-price">'+money(d.price)+" so'm"+(d.discount>0?' <span class="pill red" style="font-size:10px">-'+d.discount+'%</span>':'')+'</div>'+
         '</button>';
     }).join("");
     el.innerHTML='<div class="dpick-sheet">'+
-      '<div class="dpick-head"><h3>🍽️ Taom tanlang</h3><button id="dpickClose" class="dpick-x" aria-label="Yopish">✕</button></div>'+
+      '<div class="dpick-head"><h3>'+ic('utensils')+' Taom tanlang</h3><button id="dpickClose" class="dpick-x" aria-label="Yopish">'+ic('x')+'</button></div>'+
       '<div class="dpick-grid">'+cards+'</div></div>';
     document.body.appendChild(el);
     var close=function(){ el.remove(); };
@@ -609,7 +619,7 @@
             if(id && typeof STORE!=="undefined" && STORE.deleteAnnouncementById) await STORE.deleteAnnouncementById(id);
             else if(typeof STORE!=="undefined" && STORE.deleteAnnouncement) STORE.deleteAnnouncement({rest:CUR.name, text:delText});
           }catch(e){}
-          renderPromo(); toast("E'lon o'chirildi ✓");
+          renderPromo(); toast("E'lon o'chirildi");
         }));
       } else {
         activeList.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha aksiya yo\'q.</p>';
@@ -624,7 +634,7 @@
       if(disc.length){
         discList.innerHTML=disc.map(x=>`
           <div class="disc-item">
-            <span class="disc-emoji">${x.d.emoji}</span>
+            <span class="disc-emoji">${dishIcon(x.d.emoji)}</span>
             <div class="disc-info">
               <div class="disc-name">${x.d.name}</div>
               <div class="disc-prices">
@@ -672,22 +682,22 @@
     if($("#annText")) $("#annText").value="";
     if(fi) fi.value="";
     const pv=$("#annPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
-    renderPromo(); toast(img?"E'lon rasm bilan joylandi — saytda ko'rinadi ✓":"E'lon joylandi — saytda ko'rinadi ✓");
+    renderPromo(); toast(img?"E'lon rasm bilan joylandi — saytda ko'rinadi":"E'lon joylandi — saytda ko'rinadi");
   }
   /* ============================================================
      BONUSLAR — restoran O'ZINIKI (scope='restoran', rest majburan CUR.name,
      server buni spoofingdan himoyalaydi) + admin qo'ygan umumiy bonuslarni
      KO'RADI ("kim bajardi" ham), lekin o'chira olmaydi.
      ============================================================ */
-  const BON_TYPE_LABEL_R={order_count:"📦 Buyurtmalar soni",referral:"🤝 Do'st taklif qilish",custom:"ℹ️ Ma'lumot"};
+  const BON_TYPE_LABEL_R={order_count:ic('package')+" Buyurtmalar soni",referral:ic('handshake')+" Do'st taklif qilish",custom:ic('help-circle')+" Ma'lumot"};
   function bonusRowHtml(b, mine){
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">'+
-      (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:22px;flex:none">🎁</span>')+
+      (b.image?'<img src="'+esc(b.image)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:22px;flex:none;color:var(--grey)">'+ic('gift')+'</span>')+
       '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+esc(b.title)+'</div>'+
         '<div style="color:var(--grey);font-size:12px">'+(BON_TYPE_LABEL_R[b.type]||b.type)+(b.target?' · maqsad: '+b.target:'')+'</div>'+
-        (b.rewardText?'<div style="color:#16a34a;font-size:12px;font-weight:700">🏆 '+esc(b.rewardText)+'</div>':'')+'</div>'+
-      '<button class="add-action-btn" data-bonqual="'+b.id+'" style="background:#2563eb;flex:none">👥 Kim bajardi?</button>'+
-      (mine?'<button class="add-action-btn" data-bondel="'+b.id+'" style="background:#C8102E;flex:none">🗑</button>':'')+
+        (b.rewardText?'<div style="color:#16a34a;font-size:12px;font-weight:700">'+ic('trophy')+' '+esc(b.rewardText)+'</div>':'')+'</div>'+
+      '<button class="add-action-btn" data-bonqual="'+b.id+'" style="background:#2563eb;flex:none">'+ic('users')+' Kim bajardi?</button>'+
+      (mine?'<button class="add-action-btn" data-bondel="'+b.id+'" style="background:#C8102E;flex:none">'+ic('trash')+'</button>':'')+
       '</div>';
   }
   function renderBonusesRest(){
@@ -701,17 +711,17 @@
     document.querySelectorAll('#view-bonuses [data-bondel]').forEach(function(b){ b.addEventListener('click',async function(){
       b.disabled=true;
       const r=(typeof STORE!=="undefined"&&STORE.deleteBonus)? await STORE.deleteBonus(b.dataset.bondel):null;
-      if(r&&r.error){ b.disabled=false; toast(r.error); } else { toast("Bonus o'chirildi ✓"); renderBonusesRest(); }
+      if(r&&r.error){ b.disabled=false; toast(r.error); } else { toast("Bonus o'chirildi"); renderBonusesRest(); }
     }); });
     document.querySelectorAll('#view-bonuses [data-bonqual]').forEach(function(b){ b.addEventListener('click',function(){ openBonusQualifiersRest(b.dataset.bonqual); }); });
   }
   async function openBonusQualifiersRest(id){
     const c=$("#bonQualContent"); if(!c) return;
-    c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
+    c.innerHTML='<h2>'+ic('users')+' Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
     $("#bonQualModal").classList.add("open"); $("#bonQualBackdrop").classList.add("open");
     const rows=(typeof STORE!=="undefined"&&STORE.bonusQualifiers)? await STORE.bonusQualifiers(id) : [];
-    if(!Array.isArray(rows)||!rows.length){ c.innerHTML='<h2>👥 Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Hozircha (oxirgi 7 kunda) hech kim shartga mos kelmadi.</p>'; return; }
-    c.innerHTML='<h2>👥 Kim bajardi? ('+rows.length+' ta)</h2>'+
+    if(!Array.isArray(rows)||!rows.length){ c.innerHTML='<h2>'+ic('users')+' Kim bajardi?</h2><p style="color:var(--grey);font-size:13px">Hozircha (oxirgi 7 kunda) hech kim shartga mos kelmadi.</p>'; return; }
+    c.innerHTML='<h2>'+ic('users')+' Kim bajardi? ('+rows.length+' ta)</h2>'+
       '<div style="max-height:360px;overflow-y:auto;margin-top:10px">'+
       rows.map(function(r){
         return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px">'+
@@ -736,7 +746,7 @@
     const r=(typeof STORE!=="undefined"&&STORE.addBonus)? await STORE.addBonus(data) : {error:"Tizim tayyor emas"};
     if(btn){ btn.disabled=false; }
     if(r&&r.error){ toast(r.error); return; }
-    toast("Bonus joylandi ✓"); t.value="";
+    toast("Bonus joylandi"); t.value="";
     if($("#bonDescr")) $("#bonDescr").value=""; if($("#bonReward")) $("#bonReward").value="";
     if(fi) fi.value=""; const pv=$("#bonPhotoPreview"); if(pv){ pv.style.display="none"; pv.innerHTML=""; }
     setTimeout(renderBonusesRest, 300);
@@ -754,13 +764,13 @@
     host.innerHTML=list.map(function(e){
       return '<div style="padding:12px 0;border-bottom:1px solid var(--line)">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">📅 '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
-        '<div style="font-size:13px;margin-top:4px">👤 '+esc(e.user)+' · 📞 '+esc(e.phone)+' · 👥 '+(e.headcount||0)+' kishi</div>'+
-        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">📍 '+esc(e.addr)+'</div>':'')+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+ic('calendar')+' '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
+        '<div style="font-size:13px;margin-top:4px">'+ic('user')+' '+esc(e.user)+' · '+ic('phone')+' '+esc(e.phone)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
+        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('map-pin')+' '+esc(e.addr)+'</div>':'')+
         '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
           '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
-          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">🏷 Chegirma belgilash</button>'+
-          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">✓ '+e.discountPct+'% belgilangan</span>':'')+
+          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">'+ic('tag')+' Chegirma belgilash</button>'+
+          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">'+ic('check')+' '+e.discountPct+'% belgilangan</span>':'')+
         '</div></div>';
     }).join("");
     host.querySelectorAll('[data-evsave]').forEach(function(b){ b.addEventListener('click',async function(){
@@ -770,7 +780,7 @@
       var r=(typeof STORE!=="undefined"&&STORE.setEventDiscount)? await STORE.setEventDiscount(id,pct):null;
       b.disabled=false;
       if(r&&r.error){ toast(r.error); return; }
-      toast("Chegirma belgilandi ✓"); renderEventsRest();
+      toast("Chegirma belgilandi"); renderEventsRest();
     }); });
   }
 
@@ -781,7 +791,7 @@
     CUR.dishes[i].discount=pct;
     try{ if(typeof STORE!=="undefined") STORE.setDiscount(CUR.name,CUR.dishes[i].name,pct); }catch(e){}
     recompute(CUR); discSelIdx=null; renderAll(); $("#discPct").value="";
-    toast("Chegirma belgilandi ✓");
+    toast("Chegirma belgilandi");
   }
   let tT; function toast(m){ const e=$("#toast2"); if(!e) return; e.textContent=m; e.classList.add("show"); clearTimeout(tT); tT=setTimeout(()=>e.classList.remove("show"),2200); }
 
@@ -846,7 +856,7 @@
     const best=rows.slice().sort((a,b)=>b.st.qty-a.st.qty).filter(x=>x.st.qty>0).slice(0,5);
     const maxSold=(best[0]&&best[0].st.qty)||1;
     const bestSellers = best.length ? best.map(x=>`
-      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${x.d.emoji||"🍽️"} ${esc(x.d.name)}</b><span>${money(x.st.qty)} dona</span></div>
+      <div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px"><b>${dishIcon(x.d.emoji)} ${esc(x.d.name)}</b><span>${money(x.st.qty)} dona</span></div>
       <div style="height:9px;background:#F3EEF0;border-radius:6px;overflow:hidden"><div style="height:100%;width:${Math.round(x.st.qty/maxSold*100)}%;background:linear-gradient(90deg,var(--gold),var(--red))"></div></div></div>`).join("") : '<p style="color:var(--grey);font-size:13px">Hozircha sotuv yo\'q</p>';
     $("#incomeBody").innerHTML=`
       <div class="panel"><div class="panel-body" style="padding:12px 14px">
@@ -866,22 +876,22 @@
           <div class="fin-row"><span>Sayt komissiyasi (${gross?Math.round(commission/gross*100):pct}%)</span><b style="color:var(--red)">− ${money(commission)} so'm</b></div>
           <div class="fin-row tot"><span>Sizning daromadingiz</span><b style="color:var(--green)">${money(net)} so'm</b></div>
         </div></div>
-        <div class="panel"><div class="panel-head"><h3>💳 To'lov turi bo'yicha</h3></div><div class="panel-body">
-          <div class="fin-row"><span>💳 Karta orqali</span><b>${money(cardOrders.length)} ta · ${money(cardNet)} so'm</b></div>
-          <div class="fin-row"><span>💵 Naqd</span><b>${money(cashOrders.length)} ta · ${money(cashNet)} so'm</b></div>
+        <div class="panel"><div class="panel-head"><h3>${ic('card')} To'lov turi bo'yicha</h3></div><div class="panel-body">
+          <div class="fin-row"><span>${ic('card')} Karta orqali</span><b>${money(cardOrders.length)} ta · ${money(cardNet)} so'm</b></div>
+          <div class="fin-row"><span>${ic('cash')} Naqd</span><b>${money(cashOrders.length)} ta · ${money(cashNet)} so'm</b></div>
           <div style="height:14px;background:#f1eef0;border-radius:8px;overflow:hidden;margin-top:8px;display:flex">
             ${doneOrders.length?`<div style="width:${Math.round(cardOrders.length/doneOrders.length*100)}%;background:#2563eb"></div><div style="width:${Math.round(cashOrders.length/doneOrders.length*100)}%;background:#16a34a"></div>`:''}
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--grey);margin-top:5px"><span>💳 ${doneOrders.length?Math.round(cardOrders.length/doneOrders.length*100):0}%</span><span>💵 ${doneOrders.length?Math.round(cashOrders.length/doneOrders.length*100):0}%</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--grey);margin-top:5px"><span>${ic('card')} ${doneOrders.length?Math.round(cardOrders.length/doneOrders.length*100):0}%</span><span>${ic('cash')} ${doneOrders.length?Math.round(cashOrders.length/doneOrders.length*100):0}%</span></div>
         </div></div>
       </div>
-      <div class="panel"><div class="panel-head"><h3>🔥 Eng ko'p sotilgan taomlar</h3></div><div class="panel-body">
+      <div class="panel"><div class="panel-head"><h3>${ic('flame')} Eng ko'p sotilgan taomlar</h3></div><div class="panel-body">
         ${bestSellers}
       </div></div>
       <div class="panel"><div class="panel-head"><h3>Har bir taomdan qancha daromad (${pLabel})</h3></div>
         <div class="panel-body" style="padding:0;overflow-x:auto">
           <table class="tbl"><thead><tr><th>Taom</th><th>1 dona narx</th><th>Sotildi (dona)</th><th>Tushum</th><th>Sizga qoladi</th></tr></thead>
-          <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${d.emoji}</span>`}${esc(d.name)}</div></td>
+          <tbody>${r.dishes.map(d=>{const st=dishStats(d);return `<tr><td><div class="tname">${d.photo?`<img src="${d.photo}" class="av" alt="" style="object-fit:cover">`:`<span class="av">${dishIcon(d.emoji)}</span>`}${esc(d.name)}</div></td>
             <td>${money(d.price)}</td>
             <td>${money(st.qty)}</td><td>${money(st.gross)}</td><td class="money">${money(st.net)}</td></tr>`;}).join("")}
             ${(dt.__totals.gross-dt.__totals.shownGross)>0?`<tr style="color:var(--grey)"><td><i>Menyudan olib tashlangan taomlar</i></td><td>—</td><td>—</td><td>${money(dt.__totals.gross-dt.__totals.shownGross)}</td><td class="money">${money(dt.__totals.net-dt.__totals.shownNet)}</td></tr>`:''}
@@ -908,8 +918,8 @@
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     const row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:14px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:380px;width:100%;padding:22px;position:relative">'+
-      '<button id="ibmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
-      '<h3 style="text-align:center;margin:4px 0 14px">📅 '+esc(x.label)+'</h3>'+
+      '<button id="ibmClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;cursor:pointer">'+ic('x')+'</button>'+
+      '<h3 style="text-align:center;margin:4px 0 14px">'+ic('calendar')+' '+esc(x.label)+'</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px">'+
       row("Yetkazilgan buyurtma", money(orders.length)+" ta")+
       row("Aylanma (mijoz to'lagan)", money(gross)+" so'm")+
@@ -944,12 +954,12 @@
   function srcBadge(x){
     var tg=(x&&x.source)==="telegram";
     return '<span class="pill '+(tg?"blue":"ok")+'" title="'+(tg?"Telegram bot orqali":"Sayt orqali")+'">'
-      +(tg?"🤖 Telegram":"🌐 Sayt")+'</span>';
+      +(tg?ic('bot')+' Telegram':ic('globe')+' Sayt')+'</span>';
   }
   function rActions(x){
     var b=function(act,label,bg){ return "<button class=\"r-act\" data-act=\""+act+"\" data-id=\""+x.id+"\" style=\"border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer;margin:2px;background:"+bg+";color:#fff\">"+label+"</button>"; };
     /* Faqat rad etish — va faqat 3 daqiqalik oyna ichida */
-    if(canReject(x)) return "<span style=\"color:var(--grey);font-size:12px;margin-right:6px\">Rad etishga: "+rejectLeftText(x)+"</span>"+b("cancelled","✕ Rad etish","#C8102E");
+    if(canReject(x)) return "<span style=\"color:var(--grey);font-size:12px;margin-right:6px\">Rad etishga: "+rejectLeftText(x)+"</span>"+b("cancelled",ic('x')+" Rad etish","#C8102E");
     return "";
   }
   /* Buyurtmalar jadvalini KO'RSATILGAN tbody ga render qiladi (bir nechta joy uchun:
@@ -967,14 +977,14 @@
     const tb=$("#"+tbId); if(!tb) return;
     tb.innerHTML=o.length?o.map(function(x){ const s=RSM[x.status]||["?","warn"];
       var ph=orderPhoto(x);
-      var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+(x.emoji||"🍽️")+"</span>";
+      var av=ph?"<img src=\""+ph+"\" class=\"av\" alt=\"\" style=\"object-fit:cover\">":"<span class=\"av\">"+dishIcon(x.emoji)+"</span>";
       /* Ko'p mahsulotli buyurtma: nom ostida BARCHA taomlar rasmi (gorizontal scroll)
          va "N xil · M dona" belgisi — restoran nima tayyorlashini darrov ko'radi. */
       var n=(x.items&&x.items.length)||0;
       var extra = n>1
         ? "<div class=\"o-more\">"+n+" xil · "+orderQty(x)+" dona</div>"+itemsStrip(x)
         : "";
-      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div>"+extra+itemsNotes(x)+"</td><td>"+esc(x.user)+"</td><td>📍 "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
+      return "<tr style=\"cursor:pointer\" data-oid=\""+x.id+"\"><td><div class=\"tname\">"+av+esc(x.item)+"</div>"+extra+itemsNotes(x)+"</td><td>"+esc(x.user)+"</td><td>"+ic('map-pin')+" "+esc(x.addr)+"</td><td class=\"money\">"+money(x.amount)+"</td><td>"+srcBadge(x)+"</td><td><div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span>"+rActions(x)+"</div></td></tr>"; }).join("")
       :"<tr><td colspan=6 style=\"color:var(--grey);padding:20px\">Hozircha buyurtma yoq.</td></tr>";
     $$("#"+tbId+" .r-act").forEach(function(btn){ btn.addEventListener("click",function(e){ e.stopPropagation(); rAdvance(btn.dataset.id, btn.dataset.act); }); });
     $$("#"+tbId+" [data-oid]").forEach(function(row){ row.addEventListener("click",function(){ const x=o.find(function(t){return t.id==row.dataset.oid;}); openOrderModal(x); }); });
@@ -986,7 +996,7 @@
     if(status==="cancelled"){ askCancelReason(id); return; }
     if(typeof STORE!=="undefined" && STORE.updateOrder) STORE.updateOrder(id,{status:status});
     renderOrdersView(); renderDash();
-    toast(status==="accepted"?"Buyurtma qabul qilindi ✓":status==="ready"?"Tayyor — kuryer chaqirildi 🛵":"Yangilandi");
+    toast(status==="accepted"?"Buyurtma qabul qilindi":status==="ready"?"Tayyor — kuryer chaqirildi":"Yangilandi");
   }
   /* Bekor qilish — sabab so'raladi va mijozga yuboriladi */
   function askCancelReason(id){
@@ -1043,14 +1053,14 @@
     var ph=orderPhoto(o);
     var head=ph
       ? "<div style=\"width:100%;height:180px;border-radius:14px;overflow:hidden;margin-bottom:10px;background:#f4f4f6\"><img src=\""+ph+"\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover\"></div>"
-      : "<div style=\"text-align:center;font-size:46px\">"+(o.emoji||"🍽️")+"</div>";
+      : "<div style=\"display:flex;justify-content:center;color:var(--grey)\">"+dishIcon(o.emoji,'yz-i-xxl')+"</div>";
     /* Buyurtma tarkibi — HAR BIR taom rasmi, dona soni va summasi bilan.
        Ro'yxat uzun bo'lsa (20–30 mahsulot) ichida scroll bo'ladi, modal
        cho'zilib ketmaydi (YZ_ITEMS — order-items.js). */
     var itemsHtml=""; try{ itemsHtml=YZ_ITEMS.listHtml(o,{maxHeight:280}); }catch(e){}
     var groupHtml=""; try{ groupHtml=YZ_ITEMS.groupBreakdownHtml(o,{onPaidClick:true}); }catch(e){}
     el.innerHTML="<div style=\"background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto\">"+
-      "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;z-index:2\">✕</button>"+
+      "<button id=\"ordModalClose\" style=\"position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;cursor:pointer;z-index:2\">"+ic('x')+"</button>"+
       head+
       "<h3 style=\"text-align:center;margin:6px 0 2px\">"+esc(o.item)+"</h3>"+
       "<div style=\"text-align:center;margin-bottom:14px\"><span class=\"pill "+s[1]+"\">"+s[0]+"</span></div>"+
@@ -1061,12 +1071,12 @@
         omr("Mijoz",esc(o.user)||"-")+omr("Telefon",o.phone?("<a href=\"tel:"+encodeURIComponent(o.phone)+"\" style=\"color:var(--red);text-decoration:none\">"+esc(o.phone)+"</a>"):"-")+
         omr("Manzil",esc(o.addr)||"-")+
         (orderQty(o)?omr("Jami mahsulot",orderQty(o)+" dona"):"")+
-        omr("Summa",money(o.amount)+" so'm")+omr("To'lov",(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta"))+
+        omr("Summa",money(o.amount)+" so'm")+omr("To'lov",(o.pay==="cash"?ic('cash'):ic('card'))+" "+((typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"Naqd":"Karta")))+
         omr("Kuryer",esc(o.courier)||"-")+
-        omr("🕐 Buyurtma berilgan",fmtDateTime(o))+
+        omr(ic('clock')+" Buyurtma berilgan",fmtDateTime(o))+
         (orderDelivered(o)
-          ? omr("✅ Yetkazilgan","<span style=\"color:#16a34a\">"+orderDelivered(o)+"</span>")
-          : omr("🛵 Yetib borish (taxm.)",orderArrival(o)))+
+          ? omr(ic('check-circle')+" Yetkazilgan","<span style=\"color:#16a34a\">"+orderDelivered(o)+"</span>")
+          : omr(ic('scooter')+" Yetib borish (taxm.)",orderArrival(o)))+
         (o.reason?omr("Bekor sababi","<span style=\"color:#C8102E\">"+esc(o.reason)+"</span>"):"")+
       "</div>"+
       (canReject(o)?"<div style=\"display:flex;align-items:center;gap:8px;margin-top:16px\">"+rActions(o)+"</div><p style=\"color:var(--grey);font-size:12px;margin-top:8px\">Buyurtma avtomatik kuryerga yo'naltirildi. 3 daqiqa ichida rad etishingiz mumkin.</p>":"")+
@@ -1101,8 +1111,8 @@
   }
   function reviewsListHtml(rv){
     return rv.length?rv.map(function(r){ const rr=Math.max(0,Math.min(5,r.rating|0));
-      const label=isRestLevelReview(r) ? ("🏪 "+esc(CUR.name)) : esc(r.dish);
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>${r.ava||"👤"} ${esc(r.name)} → ${label}</b><span class="star">${"★".repeat(rr)}${"☆".repeat(5-rr)}</span></div><div style="font-size:14px;margin-top:4px">${esc(r.text)} ${r.flagged?'<span class="pill red">signal</span>':''}</div></div>`; }).join(""):`<p style="color:var(--grey)">Sizga hali izoh yo'q.</p>`;
+      const label=isRestLevelReview(r) ? (ic('store')+" "+esc(CUR.name)) : esc(r.dish);
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>${reviewerAva(r)} ${esc(r.name)} → ${label}</b><span class="star">${"★".repeat(rr)}${"☆".repeat(5-rr)}</span></div><div style="font-size:14px;margin-top:4px">${esc(r.text)} ${r.flagged?'<span class="pill red">signal</span>':''}</div></div>`; }).join(""):`<p style="color:var(--grey)">Sizga hali izoh yo'q.</p>`;
   }
   function renderRestReviews(){
     const tb=$("#restReviews"); if(!tb) return;
@@ -1154,7 +1164,7 @@
     try{ open=YZ_TIME.isOpen(oh,ch,9,23); hrs=YZ_TIME.text(oh,ch,9,23); }
     catch(e){ return; }
     var nowTxt=""; try{ nowTxt=YZ_TIME.nowClock(); }catch(e){}
-    box.innerHTML='<span class="yz-openbadge '+(open?'is-open':'is-closed')+'">'+(open?'🟢 Hozir ochiq':'🔴 Hozir yopiq')+'</span>'+
+    box.innerHTML='<span class="yz-openbadge '+(open?'is-open':'is-closed')+'">'+ic('dot',open?'yz-i-green':'yz-i-red')+(open?' Hozir ochiq':' Hozir yopiq')+'</span>'+
       '<span style="color:var(--grey);font-size:12.5px;margin-left:8px">'+esc(hrs)+' · Toshkent vaqti '+esc(nowTxt)+'</span>';
   }
   async function saveRestInfo(){
@@ -1180,7 +1190,7 @@
     try{
       var r=(typeof STORE!=="undefined"&&STORE.updateRestaurantInfo)? await STORE.updateRestaurantInfo(data) : null;
       if(r && !r.error){
-        toast("Ma'lumot saqlandi — saytda ko'rinadi ✓");
+        toast("Ma'lumot saqlandi — saytda ko'rinadi");
         /* Yangi ish vaqti darrov panelda ham aks etsin (mijoz ko'radiganidek) */
         try{ renderHoursPreview(); yzUpdateOnline(); }catch(e){}
       }
@@ -1310,7 +1320,7 @@
   function yzUpdateOnline(){
     var b=document.querySelector(".tb-badge"); if(!b) return;
     var work=yzIsWork();
-    b.textContent=work?"🟢 Ochiq":"🔴 Yopiq";
+    b.innerHTML=ic('dot',work?'yz-i-green':'yz-i-red')+(work?" Ochiq":" Yopiq");
     b.title="Ish vaqti: "+yzHoursText();
     b.style.background=work?"#16a34a":"#9ca3af"; b.style.color="#fff";
   }
@@ -1322,10 +1332,10 @@
     el.style.cssText="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:18px";
     var row=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">'+k+'</span><b>'+v+'</b></div>'; };
     el.innerHTML='<div style="background:#fff;border-radius:20px;max-width:400px;width:100%;padding:22px;position:relative">'+
-      '<button id="yzOnClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>'+
-      '<h3 style="margin:0 0 14px">🕒 Holat va ish vaqti</h3>'+
+      '<button id="yzOnClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;cursor:pointer">'+ic('x')+'</button>'+
+      '<h3 style="margin:0 0 14px">'+ic('clock')+' Holat va ish vaqti</h3>'+
       '<div style="display:flex;flex-direction:column;gap:10px;font-size:14px">'+
-      row("Hozirgi holat",'<span style="color:'+(work?"#16a34a":"#9ca3af")+'">'+(work?"🟢 Ochiq":"🔴 Yopiq")+'</span>')+
+      row("Hozirgi holat",'<span style="color:'+(work?"#16a34a":"#9ca3af")+'">'+ic('dot',work?'yz-i-green':'yz-i-red')+(work?" Ochiq":" Yopiq")+'</span>')+
       row("Ish vaqti",esc(hrs))+
       row("Hozir soat (Toshkent)",YZ_TIME.nowClock())+
       (next?row("Keyingi o'zgarish",esc(next)):"")+

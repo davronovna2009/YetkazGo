@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#1c1416" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <link rel="manifest" href="/kuryer.webmanifest" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/assets/apple-touch.png" />
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
   <title>Yetkaz — Kuryer paneli</title>
   <link rel="icon" type="image/png" href="assets/favicon-64.png" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/admin.css" />
+  <link rel="stylesheet" href="assets/css/icons.css" />
 </head>
 <body>
   <div class="sb-overlay" id="sbOverlay"></div>
@@ -32,23 +33,23 @@
 
   <div class="app" id="app">
     <aside class="sidebar" id="sidebar">
-      <div class="sb-logo"><span style="font-size:22px;flex-shrink:0">🛵</span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Kuryer</span></div>
+      <div class="sb-logo"><span style="font-size:22px;flex-shrink:0"><svg class="yz-i"><use href="assets/icons.svg#scooter"/></svg></span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Kuryer</span></div>
       <nav class="sb-nav">
-        <a class="sb-link active" data-view="dash"><span class="ic">📦</span> Buyurtmalar</a>
-        <a class="sb-link" data-view="orders"><span class="ic">🛵</span> Faol buyurtmalar</a>
-        <a class="sb-link" data-view="income"><span class="ic">💰</span> Daromad</a>
-        <a class="sb-link" data-view="help"><span class="ic">📣</span> Shikoyat / yordam</a>
-        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
+        <a class="sb-link active" data-view="dash"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#package"/></svg></span> Buyurtmalar</a>
+        <a class="sb-link" data-view="orders"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#scooter"/></svg></span> Faol buyurtmalar</a>
+        <a class="sb-link" data-view="income"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#wallet"/></svg></span> Daromad</a>
+        <a class="sb-link" data-view="help"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#megaphone"/></svg></span> Shikoyat / yordam</a>
+        <a class="sb-link" data-view="settings"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#settings"/></svg></span> Sozlamalar</a>
       </nav>
       <div class="sb-foot"><div>yetkaz.uz jamoasi</div><button id="logoutBtn">← Chiqish</button></div>
     </aside>
 
     <div class="main">
       <div class="topbar">
-        <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menyu"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></button>
         <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
         <h2 id="tbTitle">Buyurtmalar</h2>
-        <div class="tb-right"><span class="tb-badge">● Online</span></div>
+        <div class="tb-right"><span class="tb-badge"><svg class="yz-i yz-i-fill" style="width:.6em;height:.6em"><use href="assets/icons.svg#dot"/></svg> Online</span></div>
       </div>
       <div class="content">
         <!-- ===== ASOSIY EKRAN: BUYURTMALAR =====
@@ -58,7 +59,7 @@
           <!-- Kechikayotgan buyurtmalar ogohlantirishi — eng tepada -->
           <div id="kDeadlineAlerts"></div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>📦 Buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:12px">Yo'lga chiqdim → Yetkazdim</span></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#package"/></svg> Buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:12px">Yo'lga chiqdim → Yetkazdim</span></div>
             <!-- Dashboard buyurtmalar KO'P bo'lsa pastga cho'zilmasin — ichida scroll -->
             <div class="panel-body"><div id="dashOrdersBody" style="max-height:60vh;overflow-y:auto"></div></div>
           </div>
@@ -87,7 +88,7 @@
 
           <!-- Ish vaqti -->
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🕒 Ish vaqti</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#clock"/></svg> Ish vaqti</h3></div>
             <div class="panel-body">
               <p style="color:var(--grey);font-size:13px;margin-bottom:10px">Ish vaqtingizni <b>admin</b> belgilaydi. Shu vaqt oralig'ida buyurtmalar sizga tushadi.</p>
               <div id="kHoursView" style="font-size:24px;font-weight:800;color:var(--red,#C8102E)">—</div>
@@ -96,8 +97,18 @@
 
           <!-- Profil ma'lumotlari (o'zi to'ldiradi; admin ham ko'radi) -->
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🪪 Profil ma'lumotlari</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#user"/></svg> Profil ma'lumotlari</h3></div>
             <div class="panel-body">
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
+                <div id="avaPreview" style="width:76px;height:76px;border-radius:50%;background:#f3eef0;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;color:#9a8d83;font-size:32px"></div>
+                <div>
+                  <label class="set-save" style="display:inline-block;cursor:pointer;padding:9px 14px">
+                    <svg class="yz-i"><use href="assets/icons.svg#camera"/></svg> Profil rasmini tanlash
+                    <input type="file" id="avaInput" accept="image/*" capture="user" style="display:none">
+                  </label>
+                  <div id="avaMsg" style="margin-top:6px;font-size:12px;color:var(--grey)"></div>
+                </div>
+              </div>
               <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Chala qolgan ma'lumotlarni to'ldiring — admin panelида ham ko'rinadi.</p>
               <div class="field"><label>Transport</label><input id="kProfTransport" placeholder="Mototsikl / Velosiped / Avto"></div>
               <div class="field"><label>Manzil</label><input id="kProfAddress" placeholder="Yashash manzili"></div>
@@ -109,7 +120,7 @@
 
           <!-- Ishdan javob / qaytish -->
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><h3>🚪 Ishdan javob olish</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg> Ishdan javob olish</h3></div>
             <div class="panel-body">
               <p style="color:var(--grey);font-size:13px;margin-bottom:12px">Ishdan javob olish uchun <b>adminga so'rov</b> yuboriladi. Admin <b>tasdiqlasa</b> — javobga chiqasiz va buyurtmalar boshqa kuryerга o'tadi; <b>rad etsa</b> — ishda qolasiz. Javobni shu yerда ko'rasiz.</p>
               <div id="kLeaveArea"></div>
@@ -118,11 +129,11 @@
 
           <!-- Login (faqat ko'rish) -->
           <div class="panel">
-            <div class="panel-head"><h3>👤 Login</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#user"/></svg> Login</h3></div>
             <div class="panel-body">
               <div class="field"><label>Login</label><input id="kSetLogin" readonly style="opacity:.7;cursor:not-allowed" autocomplete="username"></div>
               <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.6;margin-top:6px">
-                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa murojaat qiling.
+                <svg class="yz-i"><use href="assets/icons.svg#lock"/></svg> <b>Login va parolni faqat administrator o'zgartiradi.</b> Kerak bo'lsa murojaat qiling.
                 <div id="kurLoginSupport" style="margin-top:8px"></div>
               </div>
             </div>

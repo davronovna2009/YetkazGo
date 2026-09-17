@@ -6,6 +6,16 @@
   /* XSS himoyasi — ta'rif assets/js/safe.js da (YAGONA manba, `'` ni ham escape
      qiladi). Bu yerда faqat qisqartma. Yangi kod uchun: html`...` teg shabloni. */
   const esc=YZ_SAFE.esc, html=YZ_SAFE.html, raw=YZ_SAFE.raw;
+  /* Emoji o'rniga — assets/icons.svg spritedagi ikon (rang CSS'дan, class="yz-i ..."). */
+  const ic=(name,cls)=>'<svg class="yz-i'+(cls?' '+cls:'')+'"><use href="assets/icons.svg#'+name+'"/></svg>';
+  /* Buyurtmaning birinchi taomi — rasm bo'lsa rasm, bo'lmasa umumiy ikon (order-items.js) */
+  function orderThumb(o,size){ try{ return YZ_ITEMS.thumb((YZ_ITEMS.lines(o)||[])[0],size); }catch(e){ return ic('food-generic','yz-i-lg'); } }
+  /* Izoh muallifining profil rasmi (kabinet "Sozlamalar"да o'rnatiladi) — bo'lmasa umumiy ikon */
+  function reviewerAva(r){
+    var p=r&&r.ava;
+    var isPhoto=p&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(p);
+    return isPhoto ? '<img src="'+esc(p)+'" alt="" style="width:1.4em;height:1.4em;border-radius:50%;object-fit:cover;vertical-align:-0.3em">' : ic('user');
+  }
   /* «Daromad» bo'limi (nav: data-view="income") MAVJUD va ishlaydi — renderIncome().
      Kuryer daromadi = HAR yetkazilgan buyurtmaga muhrlangan haq (o.courierFee)
      yig'indisi; admin panelidagi "kuryer xarajati" bilan 1 so'mgacha mos. */
@@ -234,8 +244,8 @@
       /* Faqat SHU kuryerga berilgan reytinglar (dish = "🛵 Kuryer: <ism>") */
       var mine=all.filter(function(r){ var d=String(r.dish||""); return /^🛵\s*Kuryer:/.test(d) && d.replace(/^🛵\s*Kuryer:\s*/,"")===c.name; });
       var avg=mine.length?(mine.reduce(function(s,r){return s+(r.rating||0);},0)/mine.length):0;
-      revBox.innerHTML='<div class="panel-head"><h3>⭐ Mening reytingim</h3>'+(mine.length?'<span style="color:var(--grey);font-size:13px">O\'rtacha <b>'+avg.toFixed(1)+'</b> · '+mine.length+' baho</span>':'')+'</div><div class="panel-body">'+
-        (mine.length?mine.slice(0,20).map(function(r){ var rr=Math.max(0,Math.min(5,r.rating|0)); return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+(r.ava||"👤")+' '+esc(r.name)+'</b><span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span></div>'+(r.text?'<div style="font-size:14px;margin-top:4px">'+esc(r.text)+'</div>':'')+'</div>'; }).join(""):'<p style="color:var(--grey)">Sizga hali reyting berilmagan. Tez va xushmuomala yetkazsangiz — mijozlar baholaydi!</p>')+
+      revBox.innerHTML='<div class="panel-head"><h3>'+ic('star')+' Mening reytingim</h3>'+(mine.length?'<span style="color:var(--grey);font-size:13px">O\'rtacha <b>'+avg.toFixed(1)+'</b> · '+mine.length+' baho</span>':'')+'</div><div class="panel-body">'+
+        (mine.length?mine.slice(0,20).map(function(r){ var rr=Math.max(0,Math.min(5,r.rating|0)); return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+reviewerAva(r)+' '+esc(r.name)+'</b><span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span></div>'+(r.text?'<div style="font-size:14px;margin-top:4px">'+esc(r.text)+'</div>':'')+'</div>'; }).join(""):'<p style="color:var(--grey)">Sizga hali reyting berilmagan. Tez va xushmuomala yetkazsangiz — mijozlar baholaydi!</p>')+
         '</div>';
     }
   }
@@ -263,7 +273,7 @@
          biladi: izohni o'tkazib yuborsa buyurtma noto'g'ri yetkaziladi. */
       const noteBox=(function(){ try{ return YZ_ITEMS.notesHtml(o,{title:"Mijoz izohi — shuni bajaring"}); }catch(e){ return ""; } })();
       return `<div class="panel" style="margin-bottom:14px;cursor:pointer" data-oid="${o.id}"><div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <span class="av" style="width:48px;height:48px;font-size:24px">${o.emoji}</span>
+        <span class="av" style="width:48px;height:48px;overflow:hidden;display:inline-flex">${orderThumb(o,48)}</span>
         <div style="flex:1;min-width:160px">
           <div style="font-weight:700">${esc(o.item)} <span class="pill ${s.p}" style="margin-left:6px">${s.t}</span></div>
           <div style="color:var(--grey);font-size:14px">${esc(o.user)}${o.phone?` · 📞 ${esc(o.phone)}`:""}</div>
@@ -320,7 +330,7 @@
     const gate = s.next==="ontheway" && needsCall(o);
     el.innerHTML=`<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px;position:relative;max-height:90vh;overflow:auto">
       <button id="ordModalClose" style="position:absolute;top:14px;right:14px;border:none;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
-      <div style="text-align:center;font-size:46px">${o.emoji||"🍽️"}</div>
+      <div style="display:flex;justify-content:center;color:var(--brand,#ff5722)">${orderThumb(o,64)}</div>
       <h3 style="text-align:center;margin:6px 0 2px">${esc(o.item)}</h3>
       <div style="text-align:center;margin-bottom:8px"><span class="pill ${s.p}">${s.t}</span></div>
       <div style="text-align:center">${callBadge(o)}</div>
@@ -333,7 +343,7 @@
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Manzil</span><b style="text-align:right">${esc(o.addr)||"-"}</b></div>
         ${orderQty(o)?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Jami mahsulot</span><b>${orderQty(o)} dona</b></div>`:""}
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Summa</span><b>${money(o.amount)} so'm</b></div>
-        <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"💵 Naqd":"💳 Karta")}</b></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">To'lov</span><b>${ic(o.pay==="cash"?"cash":"card")} ${(typeof STORE!=="undefined"&&STORE.payLabel)?STORE.payLabel(o.pay):(o.pay==="cash"?"Naqd":"Karta")}</b></div>
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Sana / vaqt</span><b>${fmtDateTime(o)}</b></div>
         ${(o.status==="done"||o.status==="arrived")&&o.deliveryMin>0?`<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Yetkazish vaqti</span><b style="color:#16a34a">${kMins(o.deliveryMin)} ichida yetkazildi</b></div>`:""}
         <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--grey)">Restoran</span><b>${esc(o.rest)||"-"}</b></div>
@@ -486,11 +496,30 @@
     b.textContent="🟢 Online"; b.style.background="#16a34a"; b.style.color="#fff";
   }
 
+  /* Profil rasmi (Telegram kabi) — Sozlamalar'даgi doiraviy ko'rinish */
+  function renderAvaPreview(url){
+    var box=document.getElementById("avaPreview"); if(!box) return;
+    box.innerHTML = url ? '<img src="'+esc(url)+'" alt="" style="width:100%;height:100%;object-fit:cover">' : ic('user','yz-i-xl');
+  }
+  function resizeAvaImage(file){
+    return new Promise(function(resolve){
+      var fr=new FileReader();
+      fr.onload=function(){ var img=new Image();
+        img.onload=function(){ var w=img.width, h=img.height; var scale=Math.min(1, 500/Math.max(w,h));
+          w=Math.round(w*scale); h=Math.round(h*scale);
+          var cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+          cv.getContext("2d").drawImage(img,0,0,w,h);
+          try{ resolve(cv.toDataURL("image/jpeg",0.85)); }catch(e){ resolve(fr.result); } };
+        img.onerror=function(){ resolve(""); }; img.src=fr.result; };
+      fr.onerror=function(){ resolve(""); }; fr.readAsDataURL(file);
+    });
+  }
   async function fillCourierSettings(){
     await loadCourierState();
     const hv=$("#kHoursView"), lg=$("#kSetLogin");
     if(hv) hv.textContent=courierHoursText();
     if(lg && !lg.value) lg.value=(CUR&&CUR.login)||"";
+    try{ renderAvaPreview(STORE.session()&&STORE.session().avatar); }catch(e){}
     try{ if(typeof YZ_SUPPORT!=="undefined"){ var sb=document.getElementById("kurLoginSupport"); if(sb) YZ_SUPPORT.mount(sb,{compact:true,intro:""}); } }catch(e){}
     renderStatusPanel(); renderLeaveArea(); updateStatusBadge();
     /* Profil ma'lumotlarini o'z yozuvidan to'ldiramiz */
@@ -633,6 +662,20 @@
     $("#logoutBtn").addEventListener("click",()=>{ if(typeof STORE!=="undefined") STORE.clearSession(); $("#app").classList.remove("show"); $("#loginWrap").style.display="flex"; $("#klPass").value=""; CUR=null; try{location.href="index.html";}catch(e){} });
     /* Sozlamalar tugmalari (ish vaqti tugmasi yo'q — uni admin belgilaydi) */
     var spr=$("#kSaveProfile"); if(spr) spr.addEventListener("click",saveCourierProfile);
+    var avaInput=$("#avaInput");
+    if(avaInput) avaInput.addEventListener("change", async function(){
+      var f=avaInput.files&&avaInput.files[0]; if(!f) return;
+      var avaMsg=$("#avaMsg");
+      if(avaMsg) avaMsg.textContent="Yuklanmoqda...";
+      var dataUrl=await resizeAvaImage(f);
+      if(!dataUrl){ if(avaMsg) avaMsg.textContent="Rasmni o'qib bo'lmadi"; return; }
+      var url=(typeof STORE!=="undefined"&&STORE.uploadImage)? await STORE.uploadImage(dataUrl):"";
+      if(!url){ if(avaMsg) avaMsg.textContent="Yuklashda xatolik"; return; }
+      var r=(typeof STORE!=="undefined"&&STORE.updateProfile)? await STORE.updateProfile({avatar:url}) : {error:"Serverga ulanmadi"};
+      if(r && !r.error){ renderAvaPreview(url); if(avaMsg) avaMsg.textContent=""; toast("Profil rasmi yangilandi"); }
+      else if(avaMsg) avaMsg.textContent=(r&&r.error)||"Xatolik";
+      avaInput.value="";
+    });
     // menuToggle — HTML dagi script boshqaradi (ikki listener bo'lmasin)
   });
 

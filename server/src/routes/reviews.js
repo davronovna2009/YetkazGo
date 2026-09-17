@@ -35,10 +35,18 @@ router.post('/', (req, res) => {
   if (!authed && !okToken) return res.status(401).json({ error: 'Ruxsat yo`q' });
   const rating = Math.max(1, Math.min(5, Number(b.rating) || 5));
   const date = String(b.date || new Date().toLocaleDateString('ru-RU'));
+  /* Muallifning profil rasmi — kirgan foydalanuvchining accounts.avatar'idan
+     olinadi (mehmon/tokenli izohda bo'sh qoladi, klient umumiy ikon ko'rsatadi).
+     Klientdan kelgan `ava` E'TIBORGA OLINMAYDI — soxta rasm/emoji yubormasin. */
+  let ava = '';
+  if (authed) {
+    const acc = db.prepare('SELECT avatar FROM accounts WHERE id = ?').get(req.user.id);
+    ava = (acc && acc.avatar) || '';
+  }
   const info = db.prepare(
     'INSERT INTO reviews (name, ava, rating, dish, rest, text, text_cyr, flagged, date) VALUES (?,?,?,?,?,?,?,?,?)'
   ).run(
-    String(b.name || ''), String(b.ava || '👤'), rating, String(b.dish || ''), String(b.rest || ''),
+    String(b.name || ''), ava, rating, String(b.dish || ''), String(b.rest || ''),
     String(b.text || ''), String(b.textCyr || ''), b.flagged ? 1 : 0, date
   );
   res.status(201).json(rowToReview(db.prepare('SELECT * FROM reviews WHERE id = ?').get(info.lastInsertRowid)));

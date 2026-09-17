@@ -3,7 +3,12 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v36 — Kabinet katta yangilanish: Profil/manzil (tuman/mahalla/ko'cha +
+/* v37 — Emoji o'rniga ikon tizimi (assets/icons.svg) restoran/index/kuryer
+   panellarida; profil rasmi (Telegram uslubida, Sozlamalar'да o'rnatiladi,
+   izohlarda ko'rinadi); restoranga like tuzatildi; BITTA umumiy PWA (har
+   panel alohida ilova emas — manifest.webmanifest hammaga umumiy,
+   pwa-install.js endi faqat index.html'da ishlaydi).
+   v36 — Kabinet katta yangilanish: Profil/manzil (tuman/mahalla/ko'cha +
    GPS, onboarding taklifi), Bonuslar (admin/restoran belgilaydi, referral
    linki, "kim bajardi" jonli hisoblanadi), Tadbirlar (kalendar, admin/
    restoran chegirma belgilaydi), Restoranlar bo'limi index.html uslubida +
@@ -117,7 +122,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v36';
+const CACHE = 'yetkaz-v37';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css', '/assets/css/kabinet-cards.css',
@@ -127,7 +132,7 @@ const ASSETS = [
   '/assets/js/pwa-install.js',
   '/assets/logo.png', '/assets/logo.svg', '/assets/favicon-64.png',
   '/assets/apple-touch.png', '/assets/logo-maskable.png',
-  '/manifest.webmanifest', '/kabinet.webmanifest',
+  '/manifest.webmanifest',
 ];
 
 self.addEventListener('install', (e) => {

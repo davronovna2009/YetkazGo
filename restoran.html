@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#1c1416" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <link rel="manifest" href="/restoran.webmanifest" />
+  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/assets/apple-touch.png" />
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}</script>
   <title>Yetkaz — Restoran paneli</title>
   <link rel="icon" type="image/png" href="assets/favicon-64.png" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/css/admin.css" />
+  <link rel="stylesheet" href="assets/css/icons.css" />
 </head>
 <body>
 
@@ -35,30 +36,30 @@
   <!-- APP -->
   <div class="app" id="app">
     <aside class="sidebar" id="sidebar">
-      <div class="sb-logo"><span id="sbEmoji" style="font-size:22px;flex-shrink:0">🏪</span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Restoran</span></div>
+      <div class="sb-logo"><span id="sbEmoji" style="font-size:22px;flex-shrink:0"><svg class="yz-i"><use href="assets/icons.svg#store"/></svg></span><span id="sbName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">Restoran</span></div>
       <nav class="sb-nav">
-        <a class="sb-link active" data-view="dash"><span class="ic">📊</span> Mening panelim</a>
-        <a class="sb-link" data-view="orders"><span class="ic">🧾</span> Buyurtmalar</a>
-        <a class="sb-link" data-view="dishes"><span class="ic">🍽️</span> Taom qo'shish</a>
-        <a class="sb-link" data-view="income"><span class="ic">💰</span> Daromad hisoboti</a>
-        <a class="sb-link" data-view="promo"><span class="ic">📢</span> E'lon va chegirma</a>
-        <a class="sb-link" data-view="bonuses"><span class="ic">🎁</span> Bonuslar</a>
-        <a class="sb-link" data-view="events"><span class="ic">🎉</span> Tadbirlar</a>
-        <a class="sb-link" data-view="help"><span class="ic">📣</span> Shikoyat / yordam</a>
-        <a class="sb-link" data-view="settings"><span class="ic">⚙️</span> Sozlamalar</a>
+        <a class="sb-link active" data-view="dash"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#bar-chart"/></svg></span> Mening panelim</a>
+        <a class="sb-link" data-view="orders"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#receipt"/></svg></span> Buyurtmalar</a>
+        <a class="sb-link" data-view="dishes"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg></span> Taom qo'shish</a>
+        <a class="sb-link" data-view="income"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#wallet"/></svg></span> Daromad hisoboti</a>
+        <a class="sb-link" data-view="promo"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#megaphone"/></svg></span> E'lon va chegirma</a>
+        <a class="sb-link" data-view="bonuses"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#gift"/></svg></span> Bonuslar</a>
+        <a class="sb-link" data-view="events"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#party"/></svg></span> Tadbirlar</a>
+        <a class="sb-link" data-view="help"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#megaphone"/></svg></span> Shikoyat / yordam</a>
+        <a class="sb-link" data-view="settings"><span class="ic"><svg class="yz-i"><use href="assets/icons.svg#settings"/></svg></span> Sozlamalar</a>
       </nav>
       <div class="sb-foot">
         <div>yetkaz.uz hamkori</div>
-        <button id="logoutBtn">← Chiqish</button>
+        <button id="logoutBtn"><svg class="yz-i"><use href="assets/icons.svg#arrow-left"/></svg> Chiqish</button>
       </div>
     </aside>
 
     <div class="main">
       <div class="topbar">
-        <button class="menu-toggle" id="menuToggle" aria-label="Menyu">☰</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="Menyu"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></button>
         <a class="tb-logo" href="index.html" aria-label="Yetkaz.uz"><img src="assets/logo.png" alt="Yetkaz.uz"></a>
         <h2 id="tbTitle">Mening panelim</h2>
-        <div class="tb-right"><span class="tb-badge">● Online</span></div>
+        <div class="tb-right"><span class="tb-badge"><svg class="yz-i yz-i-fill" style="width:.6em;height:.6em"><use href="assets/icons.svg#dot"/></svg> Online</span></div>
       </div>
 
       <div class="content">
@@ -72,7 +73,7 @@
                Statistika va qolgan panellar pastda. Rasm yuklash "Sozlamalar"ga
                ko'chirildi (u bu yerda buyurtmalarni pastga surib yuborardi). -->
           <div class="panel">
-            <div class="panel-head"><h3>🔔 Yangi buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi</span></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#bell"/></svg> Yangi buyurtmalar (jonli)</h3><span style="color:var(--grey);font-size:13px">Avtomatik kuryerga yo'naltiriladi</span></div>
             <div class="panel-body tbl-wrap" style="max-height:560px;overflow-y:auto">
               <table class="tbl"><thead><tr><th>Taom</th><th>Mijoz</th><th>Manzil</th><th>Summa</th><th>Qayerdan</th><th>Holat</th></tr></thead>
               <tbody id="dashOrdersBody"></tbody></table>
@@ -107,18 +108,17 @@
         <!-- DISHES / TAOM QO'SHISH -->
         <section class="view" id="view-dishes">
           <div class="panel">
-            <div class="panel-head"><h3>➕ Menyuga qo'shish</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#plus"/></svg> Menyuga qo'shish</h3></div>
             <div class="panel-body">
               <!-- 3 xil: Taom / Ichimlik / Shirinlik — har biriga mos maydonlar -->
               <div id="ndKindTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-                <button type="button" class="nd-kind active" data-kind="taom">🍽️ Taom qo'shish</button>
-                <button type="button" class="nd-kind" data-kind="ichimlik">🥤 Ichimlik qo'shish</button>
-                <button type="button" class="nd-kind" data-kind="shirinlik">🍰 Shirinlik qo'shish</button>
+                <button type="button" class="nd-kind active" data-kind="taom"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> Taom qo'shish</button>
+                <button type="button" class="nd-kind" data-kind="ichimlik"><svg class="yz-i"><use href="assets/icons.svg#food-drink"/></svg> Ichimlik qo'shish</button>
+                <button type="button" class="nd-kind" data-kind="shirinlik"><svg class="yz-i"><use href="assets/icons.svg#food-cake"/></svg> Shirinlik qo'shish</button>
               </div>
               <div class="set-grid set-grid-dishes">
                 <div class="set-field"><label id="ndNameLbl">Taom nomi</label><input id="ndName" placeholder="Masalan: Tovuqli burger" /></div>
                 <div class="set-field"><label>Narx (so'm)</label><input id="ndPrice" inputmode="numeric" placeholder="30000" /></div>
-                <div class="set-field"><label>Belgi</label><input id="ndEmoji" value="🍽️" /></div>
 
                 <!-- TAOM maydonlari -->
                 <div class="set-field nd-f nd-taom"><label>Vazni / miqdori</label><input id="ndWeight" placeholder="Masalan: 500 g yoki 3 dona" /></div>
@@ -143,7 +143,7 @@
                 <div class="set-field"><label>Bir buyurtmada maksimal dona</label><input id="ndMaxQty" inputmode="numeric" placeholder="0 = cheksiz (masalan Osh 15)" /></div>
 
                 <div class="set-field"><label>Rasm (ixtiyoriy)</label>
-                  <label class="file-drop"><span class="file-drop-ico">📷</span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden></label>
+                  <label class="file-drop"><span class="file-drop-ico"><svg class="yz-i"><use href="assets/icons.svg#camera"/></svg></span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden></label>
                 </div>
                 <button class="set-save" id="addDishBtn">+ Qo'shish</button>
               </div>
@@ -193,7 +193,7 @@
 
           <!-- Yangi e'lon -->
           <div class="settings-group">
-            <div class="settings-group-title">📢 Yangi e'lon yoki aksiya qo'shish</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#megaphone"/></svg> Yangi e'lon yoki aksiya qo'shish</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">E'lon matni</span>
@@ -221,25 +221,25 @@
                 <span class="setting-name">Reklama rasmi (ixtiyoriy)</span>
                 <span class="setting-desc">Bosh sahifadagi banner o'ng tomonida ko'rinadi</span>
               </div>
-              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash / olish
+              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700"><svg class="yz-i"><use href="assets/icons.svg#camera"/></svg> Rasm tanlash / olish
                 <input type="file" id="annPhoto" accept="image/*" capture="environment" style="display:none">
               </label>
               <div id="annPhotoPreview" style="display:none"></div>
             </div>
             <div class="settings-footer">
-              <button class="btn-save" id="annBtn">📢 E'lonni joylash</button>
+              <button class="btn-save" id="annBtn"><svg class="yz-i"><use href="assets/icons.svg#megaphone"/></svg> E'lonni joylash</button>
             </div>
           </div>
 
           <!-- Taomga chegirma -->
           <div class="settings-group">
-            <div class="settings-group-title">🏷️ Taomga chegirma belgilash</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#tag"/></svg> Taomga chegirma belgilash</div>
             <div class="setting-item" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Taom tanlang</span>
                 <span class="setting-desc">Chegirma shu taomga qo'llaniladi</span>
               </div>
-              <button type="button" id="discDishBtn" class="dishpick-btn"><span class="dpb-emoji">🍽️</span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span></button>
+              <button type="button" id="discDishBtn" class="dishpick-btn"><span class="dpb-emoji"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg></span><span class="dpb-name">Taom tanlang</span><span class="dpb-arrow">▾</span></button>
             </div>
             <div class="setting-item" style="padding:12px 16px">
               <div class="setting-label">
@@ -252,7 +252,7 @@
               </div>
             </div>
             <div class="settings-footer">
-              <button class="btn-save" id="discBtn">🏷️ Chegirmani belgilash</button>
+              <button class="btn-save" id="discBtn"><svg class="yz-i"><use href="assets/icons.svg#tag"/></svg> Chegirmani belgilash</button>
             </div>
           </div>
 
@@ -269,7 +269,7 @@
         <!-- BONUSLAR -->
         <section class="view" id="view-bonuses">
           <div class="settings-group">
-            <div class="settings-group-title">🎁 Yangi bonus (mijozlar kabinetда ko'radi)</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#gift"/></svg> Yangi bonus (mijozlar kabinetда ko'radi)</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label"><span class="setting-name">Sarlavha</span></div>
               <input type="text" id="bonTitle" class="full-textarea" style="height:auto" placeholder="Masalan: Shu hafta 3 marta buyur, tekin yetkazish yut">
@@ -281,9 +281,9 @@
             <div class="setting-item" style="padding:12px 16px">
               <div class="setting-label"><span class="setting-name">Turi</span></div>
               <select id="bonType" class="select-input">
-                <option value="order_count">📦 Buyurtmalar soni</option>
-                <option value="referral">🤝 Do'st taklif qilish</option>
-                <option value="custom">ℹ️ Boshqa (ma'lumot uchun)</option>
+                <option value="order_count">Buyurtmalar soni</option>
+                <option value="referral">Do'st taklif qilish</option>
+                <option value="custom">Boshqa (ma'lumot uchun)</option>
               </select>
             </div>
             <div class="setting-item" id="bonTargetWrap" style="padding:12px 16px">
@@ -296,7 +296,7 @@
             </div>
             <div class="setting-item column" style="padding:0 16px 14px">
               <div class="setting-label"><span class="setting-name">Rasm (ixtiyoriy)</span></div>
-              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700">📷 Rasm tanlash
+              <label style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;cursor:pointer;background:#faf7f8;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700"><svg class="yz-i"><use href="assets/icons.svg#camera"/></svg> Rasm tanlash
                 <input type="file" id="bonPhoto" accept="image/*" capture="environment" style="display:none">
               </label>
               <div id="bonPhotoPreview" style="display:none"></div>
@@ -310,7 +310,7 @@
             <div class="panel-body" id="bonListMine"></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>🌐 Admin qo'ygan umumiy bonuslar</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#globe"/></svg> Admin qo'ygan umumiy bonuslar</h3></div>
             <div class="panel-body" id="bonListAdmin"></div>
           </div>
         </section>
@@ -318,14 +318,14 @@
         <!-- Kim bajardi? modal -->
         <div class="kmodal-backdrop" id="bonQualBackdrop"></div>
         <div class="kmodal" id="bonQualModal">
-          <button class="kmodal-close" id="bonQualClose">✕</button>
+          <button class="kmodal-close" id="bonQualClose"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>
           <div id="bonQualContent"></div>
         </div>
 
         <!-- TADBIRLAR -->
         <section class="view" id="view-events">
           <div class="panel">
-            <div class="panel-head"><h3>🎉 Mijozlardan kelgan tadbirlar</h3></div>
+            <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#party"/></svg> Mijozlardan kelgan tadbirlar</h3></div>
             <div class="panel-body" id="evListRest"><p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p></div>
           </div>
         </section>
@@ -341,7 +341,7 @@
           <!-- Restoran rasmi — ilgari dashboardда edi, buyurtmalarni pastga
                surib yuborardi. Endi shu yerда, boshqa sozlamalar qatorida. -->
           <div class="settings-group">
-            <div class="settings-group-title">🖼 Restoran rasmi</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#camera"/></svg> Restoran rasmi</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Bosh sahifadagi rasm</span>
@@ -353,7 +353,7 @@
 
           <!-- Restoran ma'lumotlari (saytda ko'rinadi) -->
           <div class="settings-group">
-            <div class="settings-group-title">🏪 Restoran ma'lumotlari (saytda ko'rinadi)</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#store"/></svg> Restoran ma'lumotlari (saytda ko'rinadi)</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Tavsif</span>
@@ -397,18 +397,18 @@
               <div id="setHoursNow" style="display:flex;align-items:center;flex-wrap:wrap"></div>
               <div style="color:var(--grey);font-size:12.5px;margin-top:6px;line-height:1.5">
                 Ish vaqtidan tashqarida restoraningiz saytda, kabinetda va Telegram ilovasida
-                <b>🔴 Yopiq</b> ko'rinadi — mijozlar taom buyurtma qila olmaydi. Vaqt
+                <b><svg class="yz-i yz-i-red yz-i-fill" style="width:.7em;height:.7em"><use href="assets/icons.svg#dot"/></svg> Yopiq</b> ko'rinadi — mijozlar taom buyurtma qila olmaydi. Vaqt
                 <b>Toshkent (UTC+5)</b> bo'yicha hisoblanadi.
               </div>
             </div>
             <div class="settings-footer">
-              <button class="btn-save" id="setInfoBtn">💾 Ma'lumotni saqlash</button>
+              <button class="btn-save" id="setInfoBtn"><svg class="yz-i"><use href="assets/icons.svg#save"/></svg> Ma'lumotni saqlash</button>
             </div>
           </div>
 
           <!-- Hisob ma'lumotlari (faqat ko'rish) -->
           <div class="settings-group">
-            <div class="settings-group-title">👤 Hisob ma'lumotlari</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg> Hisob ma'lumotlari</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div class="setting-label">
                 <span class="setting-name">Login</span>
@@ -425,7 +425,7 @@
             </div>
             <div class="setting-item" style="padding:12px 16px">
               <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.6">
-                🔐 <b>Login va parolni faqat administrator o'zgartiradi.</b>
+                <svg class="yz-i"><use href="assets/icons.svg#lock"/></svg> <b>Login va parolni faqat administrator o'zgartiradi.</b>
                 Kerak bo'lsa murojaat qiling.
                 <div id="restLoginSupport" style="margin-top:8px"></div>
               </div>
@@ -434,7 +434,7 @@
 
           <!-- Restoran reytingi — mijozlar bergan baho va izohlar (eng pastda) -->
           <div class="settings-group">
-            <div class="settings-group-title">⭐ Restoran reytingi</div>
+            <div class="settings-group-title"><svg class="yz-i"><use href="assets/icons.svg#star"/></svg> Restoran reytingi</div>
             <div class="setting-item column" style="padding:14px 16px">
               <div id="restRatingSummary" style="font-size:15px;font-weight:700"></div>
               <div id="restRatingReviews" style="margin-top:10px"></div>
@@ -529,9 +529,9 @@
       var b=bar(); if(!b) return;
       var onLeave=(list||[]).filter(function(c){ return c.rest===rn && c.onLeave && !dismissed[c.id]; });
       if(!onLeave.length){ b.style.display="none"; return; }
-      b.innerHTML='🚪 <b>Kuryer ishdan javob oldi:</b> '+onLeave.map(function(c){ return esc(c.name)+(c.leaveReason?' — <i>'+esc(c.leaveReason)+'</i>':''); }).join("; ")+
+      b.innerHTML='<svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg> <b>Kuryer ishdan javob oldi:</b> '+onLeave.map(function(c){ return esc(c.name)+(c.leaveReason?' — <i>'+esc(c.leaveReason)+'</i>':''); }).join("; ")+
         '. Buyurtmalar avtomatik boshqa kuryerga yo\'naltirilmoqda.'+
-        '<button id="clnX" aria-label="Yopish" style="position:absolute;right:8px;top:8px;border:none;background:transparent;font-size:15px;cursor:pointer;color:#92400e">✕</button>';
+        '<button id="clnX" aria-label="Yopish" style="position:absolute;right:8px;top:8px;border:none;background:transparent;cursor:pointer;color:#92400e;display:flex;align-items:center"><svg class="yz-i"><use href="assets/icons.svg#x"/></svg></button>';
       b.style.display="block";
       var x=document.getElementById("clnX"); if(x) x.addEventListener("click",function(){ onLeave.forEach(function(c){ dismissed[c.id]=1; }); b.style.display="none"; });
     }

@@ -55,25 +55,33 @@
      Buning o'rniga deklarativ `data-onerr` ishlatamiz:
 
        data-onerr="remove"                       -> rasmni o'chiradi
-       data-onerr="emoji" data-emoji="🍜"        -> emoji bilan almashtiradi
-         qo'shimcha: data-emoji-tag="div"        -> qanday element (default span)
-                     data-emoji-class="ph big"   -> unga class
+       data-onerr="icon" data-icon="food-generic" -> assets/icons.svg ikoni bilan almashtiradi
+         qo'shimcha: data-icon-tag="div"         -> qanday element (default span)
+                     data-icon-class="ph big"    -> unga qo'shimcha class
 
      Bitta global tinglovchi (capture — 'error' ko'pikka chiqmaydi). */
   var TAG_OK = /^[a-z]+$/;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var XLINK_NS = 'http://www.w3.org/1999/xlink';
   function onImgError(e) {
     var t = e.target;
     if (!t || t.tagName !== 'IMG') return;
     var mode = t.getAttribute && t.getAttribute('data-onerr');
     if (!mode) return;
     if (mode === 'remove') { t.remove(); return; }
-    if (mode === 'emoji') {
-      var tag = t.getAttribute('data-emoji-tag') || 'span';
+    if (mode === 'icon' || mode === 'emoji') {
+      var tag = t.getAttribute('data-icon-tag') || t.getAttribute('data-emoji-tag') || 'span';
       if (!TAG_OK.test(tag)) tag = 'span';       // faqat oddiy teg nomi
       var el = document.createElement(tag);
-      /* textContent — hech qachon HTML sifatida talqin qilinmaydi */
-      el.textContent = t.getAttribute('data-emoji') || '🍽️';
-      var cls = t.getAttribute('data-emoji-class');
+      var name = t.getAttribute('data-icon') || 'food-generic';
+      var svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('class', 'yz-i');
+      var use = document.createElementNS(SVG_NS, 'use');
+      use.setAttributeNS(XLINK_NS, 'href', 'assets/icons.svg#' + name);
+      use.setAttribute('href', 'assets/icons.svg#' + name);
+      svg.appendChild(use);
+      el.appendChild(svg);
+      var cls = t.getAttribute('data-icon-class') || t.getAttribute('data-emoji-class');
       if (cls) el.className = cls;
       t.replaceWith(el);
     }

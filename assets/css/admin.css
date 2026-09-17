@@ -238,6 +238,11 @@ a{color:inherit;text-decoration:none}
 .setting-desc{display:block;font-size:12px;color:var(--grey);margin-top:2px;line-height:1.3}
 .setting-control{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
 .setting-hint{font-size:11px;color:var(--grey)}
+/* .setting-item ICHIDA to'g'ridan-to'g'ri turgan (input-suffix/select-input'siz)
+   input'lar — bular hech qanday class olmagani uchun border-radius'siz,
+   brauzer standart ko'rinishida chiqib qolardi (masalan #bonTarget). */
+.setting-item>input{border:2px solid var(--line);border-radius:9px;padding:8px 10px;font-size:14px;font-weight:600;outline:none;background:#fff;-webkit-appearance:none;color:var(--ink);transition:.15s}
+.setting-item>input:focus{border-color:var(--red)}
 
 /* Input with suffix */
 .input-suffix{display:flex;align-items:center;background:var(--bg);border:2px solid var(--line);border-radius:9px;overflow:hidden;transition:.15s}
@@ -414,6 +419,11 @@ a{color:inherit;text-decoration:none}
 .promo-status{padding:10px;background:#E8F5EE;border-radius:10px;color:#1c6b3f;font-size:13px;margin-bottom:10px;display:none}
 .promo-status.show{display:block}
 .set-grid-dishes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* .set-field o'zining bazaviy oralig'i yo'q edi — grid'dan tashqarida
+   (Guruh/Tadbir/Izoh/Profil formalarida) maydonlar bir-biriga yopishib,
+   tiqilib qolardi. Grid ichida esa gap allaqachon bor — bu yerда bekor qilamiz. */
+.set-field{margin-bottom:14px}
+.set-grid-dishes>.set-field{margin-bottom:0}
 .set-field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px;color:var(--ink)}
 .set-field input,.set-field textarea,.set-field select{width:100%;border:2px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;outline:none;-webkit-appearance:none;background:#fff;transition:.15s}
 .set-field input:focus,.set-field textarea:focus{border-color:var(--red)}
@@ -1027,7 +1037,9 @@ a{color:inherit;text-decoration:none}
   width:44px;height:44px;border-radius:10px;
   background:var(--bg);display:flex;align-items:center;
   justify-content:center;font-size:22px;flex-shrink:0;
+  position:relative;overflow:hidden;color:var(--grey);
 }
+.kab-dr-emoji img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .kab-dr-info{flex:1;min-width:0}
 .kab-dr-name{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kab-dr-rest{font-size:11px;color:var(--grey);margin-top:1px}
@@ -1424,6 +1436,8 @@ a{color:inherit;text-decoration:none}
   background:linear-gradient(135deg,var(--red,#C8102E),#e14b3d);
   color:#fff;border-radius:18px;padding:16px 18px;
   box-shadow:0 10px 24px rgba(200,16,46,.22);
+  /* Scroll qilinganda ham joyida tursin — .topbar (52px) ostida yopishadi */
+  position:sticky;top:52px;z-index:15;
 }
 .rest-head:empty{display:none}
 .rest-head-ava{
