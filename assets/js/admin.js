@@ -571,8 +571,14 @@
     }
     host.innerHTML=rv.map(function(r){
       const rr=Math.max(0,Math.min(5,r.rating|0));
-      /* Kuryer reytinglari saytda ko'rinmaydi — bu yerда ajratib ko'rsatamiz */
-      const isCour=/^🛵\s*Kuryer:/.test(String(r.dish||""));
+      /* Kuryer/restoran (umumiy, taomsiz) reytinglari — dish maydonida
+         "🛵 Kuryer: <ism>" / "🏪 Restoran: <nom>" ichki belgi sifatida
+         saqlanadi (boshqa panellar bilan bir xil shartnoma); bu yerда
+         ko'rsatishда tozalab, mos ikon bilan almashtiramiz. */
+      const dishStr=String(r.dish||"");
+      const isCour=/^🛵\s*Kuryer:/.test(dishStr);
+      const isRest=/^🏪\s*Restoran:/.test(dishStr);
+      const dishLabel=isCour?dishStr.replace(/^🛵\s*Kuryer:\s*/,""):isRest?dishStr.replace(/^🏪\s*Restoran:\s*/,""):dishStr;
       const isPhoto=r.ava&&/^\/(?:uploads|img)\/|^data:|^https?:/.test(r.ava);
       const ava=isPhoto?'<img src="'+esc(r.ava)+'" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:-4px">':ic('user');
       return '<div style="padding:14px 0;border-bottom:1px solid var(--line)" data-cmt="'+esc(String(r.id||""))+'">'+
@@ -581,7 +587,7 @@
           '<span class="star">'+"★".repeat(rr)+"☆".repeat(5-rr)+'</span>'+
         '</div>'+
         '<div style="color:var(--grey);font-size:12px;margin-top:2px">'+
-          (isCour?ic('scooter'):ic('utensils'))+' '+esc(r.dish||"—")+(r.rest?' · '+ic('store')+' '+esc(r.rest):"")+(r.date?' · '+esc(r.date):"")+
+          (isCour?ic('scooter'):isRest?ic('store'):ic('utensils'))+' '+esc(dishLabel||"—")+(r.rest&&!isRest?' · '+ic('store')+' '+esc(r.rest):"")+(r.date?' · '+esc(r.date):"")+
           (r.flagged?' <span class="pill red">signal</span>':"")+
         '</div>'+
         '<div style="font-size:14px;margin-top:6px">'+esc(r.text||"—")+'</div>'+
