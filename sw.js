@@ -3,7 +3,12 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v38 — KATTA XATO TUZATILDI: bosh saytdan BOSHQA restoran (yoki kuryer)
+/* v39 — Kabinet (mijoz paneli): bonus shartini bajarsa yoki tadbirga restoran
+   javob bersa (taom/chegirma belgilasa), mijozning O'ZIGA — ilgari FAQAT
+   admin/restoran ko'rardi — rasmli/zarrachali (confetti) yutuq modali
+   chiqadi. Savatga taom qo'shilganda rasm index.html'dagi kabi savat
+   ikonkasiga uchib boradi.
+   v38 — KATTA XATO TUZATILDI: bosh saytdan BOSHQA restoran (yoki kuryer)
    login/paroli bilan kirsangiz ham panel ESKI akkauntni ochib berardi
    (masalan doim "Shashlik" restorani). Sabab: yangi token faqat
    localStorage'ga yozilar, panel esa tabdagi ESKI sessionStorage tokenini
@@ -135,7 +140,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v38';
+const CACHE = 'yetkaz-v39';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css', '/assets/css/kabinet-cards.css',

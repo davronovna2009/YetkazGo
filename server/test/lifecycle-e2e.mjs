@@ -456,6 +456,21 @@ async function main() {
   ok(qual.data.some((q) => q.phone.replace(/\D/g, '').endsWith('901234712') && q.count >= 2), '2 marta buyurgan mijoz ro\'yxatda');
   ok(!qual.data.some((q) => q.phone.replace(/\D/g, '').endsWith('901234713')), '1 marta buyurgan mijoz ro\'yxatda YO\'Q (target=2)');
 
+  /* GET /bonuses/mine — mijozning O'ZI shart bajarganini ko'rishi (avval FAQAT
+     admin/restoran "kim bajardi?" orqali ko'rar edi, mijozga hech narsa
+     ko'rinmasdi — kabinet endi shu yerdan olib yutuq modalini chiqaradi). */
+  const mine = await api('GET', '/bonuses/mine', null, BQT);
+  eq(mine.status, 200, 'mijoz o\'z bonuslarini so\'radi (/bonuses/mine)');
+  ok(mine.data.some((b) => b.id === adminBonus.data.id && b.count >= 2), 'mijoz o\'zi shart bajarganini ko\'radi (/bonuses/mine)');
+  const oneOrderReg = await api('POST', '/auth/register', { name: 'Bitta Mijoz', phone: oneOrderOnly, login: 'e2e_oneorder', pass: 'one-order-pass' });
+  const mineNotYet = await api('GET', '/bonuses/mine', null, oneOrderReg.data.token);
+  ok(!mineNotYet.data.some((b) => b.id === adminBonus.data.id), 'faqat 1 marta buyurgan mijoz hali /bonuses/mine da ko\'rinmaydi');
+  const mineAsRest = await api('GET', '/bonuses/mine', null, RT);
+  eq(mineAsRest.status, 200, 'restoran roli ham /bonuses/mine ni so\'ray oladi (401/403 emas)');
+  eq(mineAsRest.data.length, 0, 'restoran roliga /bonuses/mine bo\'sh massiv qaytaradi (faqat mijoz uchun)');
+  const mineNoAuth = await api('GET', '/bonuses/mine');
+  eq(mineNoAuth.status, 401, 'tokensiz /bonuses/mine -> 401');
+
   /* referral qualifiers — taklif qilingan hisob ro'yxatdan o'tgach ko'rinishi kerak */
   const refBonus = await api('POST', '/bonuses', { title: 'Referral test', type: 'referral', target: 1 }, AT);
   const referrer = await api('POST', '/auth/register', { name: 'Referrer', phone: '+998901234714', login: 'e2e_referrer', pass: 'ref-pass-123' });

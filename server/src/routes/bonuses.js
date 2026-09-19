@@ -6,7 +6,7 @@
    bilan bir xil yondashuv — eskirish/sinxron-buzilish xavfi yo'q). */
 import { Router } from 'express';
 import { db } from '../db.js';
-import { requireRole } from '../auth.js';
+import { authRequired, requireRole } from '../auth.js';
 import { toImageUrl } from './upload.js';
 
 const router = Router();
@@ -22,6 +22,47 @@ function rowToBonus(r) {
 /* GET /api/bonuses — ommaviy (kabinet + reklama banner shu yerdan oladi) */
 router.get('/', (_req, res) => {
   res.json(db.prepare('SELECT * FROM bonuses WHERE active = 1 ORDER BY id DESC').all().map(rowToBonus));
+});
+
+/* GET /api/bonuses/mine — SHU MIJOZ (req.user) shartni bajarganmi? Admin/
+   restoran "Kim bajardi?" (qualifiers, pastda) ko'radi, lekin mijozning
+   o'ziga hech narsa ko'rsatilmasdi — endi kabinet shu yerdan o'zining
+   bajargan (target'ga yetgan) bonuslarini olib, yutuq modalini chiqaradi. */
+router.get('/mine', authRequired, (req, res) => {
+  if (req.user.role !== 'user') return res.json([]);
+  const acc = db.prepare('SELECT phone, login FROM accounts WHERE id = ?').get(req.user.id);
+  /* MUHIM: accounts.phone (ro'yxatdan o'tishда yozilgan xom matn) va
+     orders.phone (prettyPhone() bilan "+998 XX XXX XX XX" shaklida
+     saqlanadi, orders-core.js:288) BIR XIL FORMATDA emas — to'g'ridan-to'g'ri
+     "phone = ?" solishtirish hech qachon mos kelmaydi. guestOrderStatus() dagi
+     kabi OXIRGI 9 RAQAM (operator+raqam, kod bilan) bo'yicha solishtiramiz. */
+  const phoneTail = String((acc && acc.phone) || '').replace(/\D/g, '').slice(-9);
+  const bonuses = db.prepare('SELECT * FROM bonuses WHERE active = 1').all();
+  const out = [];
+  for (const bonus of bonuses) {
+    const target = Math.max(1, Number(bonus.target) || 1);
+    let count = 0;
+    if (bonus.type === 'order_count' && phoneTail) {
+      const rows = bonus.scope === 'restoran' && bonus.rest
+        ? db.prepare(
+            `SELECT phone FROM orders
+             WHERE created_at > datetime('now','-7 days') AND status <> 'cancelled' AND rest = ?`
+          ).all(bonus.rest)
+        : db.prepare(
+            `SELECT phone FROM orders WHERE created_at > datetime('now','-7 days') AND status <> 'cancelled'`
+          ).all();
+      count = rows.filter((r) => String(r.phone || '').replace(/\D/g, '').slice(-9) === phoneTail).length;
+    } else if (bonus.type === 'referral' && acc && acc.login) {
+      const row = db.prepare(
+        `SELECT COUNT(*) AS cnt FROM accounts WHERE ref_by = ? AND created_at > datetime('now','-7 days')`
+      ).get(acc.login);
+      count = row.cnt;
+    } else {
+      continue; // 'custom' — avtomatik shart yo'q, yutuq hisoblanmaydi
+    }
+    if (count >= target) out.push(Object.assign(rowToBonus(bonus), { count }));
+  }
+  res.json(out);
 });
 
 /* POST /api/bonuses — admin (istalgan scope/rest) yoki restoran (scope='restoran', rest=o'zi) */

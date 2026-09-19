@@ -696,6 +696,12 @@ const STORE = (function () {
       try { return await api("/bonuses/" + id + "/qualifiers", { auth: true }); }
       catch (e) { return []; }
     },
+    /* Mijozning O'ZI qaysi bonus shart(lar)ini bajarganini so'raydi — kabinet
+       shu ro'yxatdagi (hali "ko'rilmagan") bonuslar uchun yutuq modalini ochadi. */
+    async myQualifiedBonuses() {
+      try { return await api("/bonuses/mine", { auth: true }); }
+      catch (e) { return []; }
+    },
 
     /* ---- TADBIRLAR (kabinet yaratadi; admin/restoran ko'radi + chegirma belgilaydi) ---- */
     async addEvent(data) {

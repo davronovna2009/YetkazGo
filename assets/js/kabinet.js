@@ -164,7 +164,9 @@
     /* AI maslahat: "har doim shu payt shu taomni buyurasiz — bugun ham xohlaysizmi?" */
     try{ checkHabitSuggestion(); }catch(e){}
     /* Tadbirlar (chegirmali bo'lsa reklama bannerда ko'rinishi uchun) */
-    refreshMyEventsCache().then(function(){ try{ renderKabPromoBand(); }catch(e){} });
+    refreshMyEventsCache().then(function(){ try{ renderKabPromoBand(); }catch(e){} try{ checkEventWins(); }catch(e){} });
+    /* Bonus shartlarini allaqachon bajargan bo'lsa — kirishда darrov tabrik */
+    try{ checkBonusWins(); }catch(e){}
     /* Oldingi faol guruh (agar bo'lsa) — boshqa qurilma/sessiyada ham davom etsin.
        DOM hozir ko'rinmasa ham xavfsiz (renderGroupView ichidagi elementlar
        topilmasa jim o'tadi), lekin "Guruh yaratish"ga kirganda darrov tayyor bo'ladi. */
@@ -186,10 +188,14 @@
         try{ renderKabPromoBand(); }catch(e){}
         /* Yangi bonus qo'shilsa — sidebar'da nishon chiqsin */
         try{ updateBonusBadge(); }catch(e){}
+        /* Buyurtmalar ro'yxati yangilandi — bonus shartiga yangi yetgan
+           bo'lishi mumkin (masalan "N marta buyurtma bering"), darrov tekshiramiz */
+        try{ checkBonusWins(); }catch(e){}
       }); }
     /* Kirganда tasdiqlanmagan buyurtma bo'lsa — darrov so'raymiz */
     if(typeof STORE!=="undefined" && STORE.ready) STORE.ready().then(function(){ try{ askPendingConfirmKab(); }catch(e){} }).catch(function(){});
     startKabOpenWatch();
+    startWinWatch();
   }
 
   /* ===== ONBOARDING: birinchi kirishда manzilni saqlashga taklif =====
@@ -274,6 +280,118 @@
         catch(e){ toast(link); }
       });
     });
+  }
+
+  /* ============================================================
+     YUTUQ MODALI — ilgari bonus shartini bajargan mijoz FAQAT admin/restoran
+     panelida ("Kim bajardi?") ko'rinardi, o'ziga hech narsa chiqmasdi. Endi:
+       1) Bonus shartiga (buyurtmalar soni / do'st taklif qilish) yetgan
+          zahoti — rasmli/sovg'ali tabrik modali, zarrachalar (confetti) bilan.
+       2) O'zining yuborgan tadbiriga restoran javob bersa (taom belgilasa
+          yoki chegirma qo'ysa) — xuddi shunday tabrik.
+     Har biri FAQAT BIR MARTA chiqadi (localStorage'da "ko'rilgan" deb
+     belgilanadi) — sahifa qayta ochilganda takrorlanmaydi. ============ */
+  function wonBonusIds(){ try{ return new Set(JSON.parse(localStorage.getItem("yz_kab_won_bonuses")||"[]")); }catch(e){ return new Set(); } }
+  function markBonusesWon(ids){
+    const s=wonBonusIds(); ids.forEach(id=>s.add(String(id)));
+    try{ localStorage.setItem("yz_kab_won_bonuses", JSON.stringify([...s])); }catch(e){}
+  }
+  function wonEventIds(){ try{ return new Set(JSON.parse(localStorage.getItem("yz_kab_won_events")||"[]")); }catch(e){ return new Set(); } }
+  function markEventsWon(ids){
+    const s=wonEventIds(); ids.forEach(id=>s.add(String(id)));
+    try{ localStorage.setItem("yz_kab_won_events", JSON.stringify([...s])); }catch(e){}
+  }
+  let _kWinQueue=[], _kWinPlaying=false;
+  function playKWinQueue(){
+    if(_kWinPlaying || !_kWinQueue.length) return;
+    _kWinPlaying=true;
+    showWinModal(_kWinQueue.shift());
+  }
+  async function checkBonusWins(){
+    if(!USER.login) return;
+    try{
+      const wins=(typeof STORE!=="undefined"&&STORE.myQualifiedBonuses)? await STORE.myQualifiedBonuses():[];
+      if(!Array.isArray(wins)||!wins.length) return;
+      const seen=wonBonusIds();
+      const fresh=wins.filter(b=>b&&b.id!=null&&!seen.has(String(b.id)));
+      if(!fresh.length) return;
+      markBonusesWon(fresh.map(b=>b.id));
+      _kWinQueue.push(...fresh.map(b=>Object.assign({kind:"bonus"},b)));
+      playKWinQueue();
+    }catch(e){}
+  }
+  function checkEventWins(){
+    if(!USER.login) return;
+    const list=(KAB_MY_EVENTS||[]).filter(e=>e && (e.discountPct>0 || (e.restDish&&String(e.restDish).trim())));
+    if(!list.length) return;
+    const seen=wonEventIds();
+    const fresh=list.filter(e=>!seen.has(String(e.id)));
+    if(!fresh.length) return;
+    markEventsWon(fresh.map(e=>e.id));
+    _kWinQueue.push(...fresh.map(e=>Object.assign({kind:"event"},e)));
+    playKWinQueue();
+  }
+  function spawnKWinConfetti(host){
+    if(!host) return;
+    host.innerHTML="";
+    const colors=["#FF5722","#FFC107","#00C96A","#2563EB","#E91E63","#9C27B0"];
+    for(let i=0;i<36;i++){
+      const p=document.createElement("span");
+      p.className="kwin-particle";
+      p.style.left=(Math.random()*100)+"%";
+      p.style.background=colors[i%colors.length];
+      p.style.animationDelay=(Math.random()*0.35)+"s";
+      p.style.animationDuration=(1.5+Math.random()*1.2)+"s";
+      p.style.setProperty("--rot",(Math.random()*360)+"deg");
+      p.style.setProperty("--drift",((Math.random()*2-1)*90)+"px");
+      host.appendChild(p);
+    }
+  }
+  function showWinModal(item){
+    const modal=$("#kWinModal"), bd=$("#kWinBackdrop"), content=$("#kWinContent");
+    if(!modal||!bd||!content){ _kWinPlaying=false; return; }
+    let img="", title="", desc="";
+    if(item.kind==="bonus"){
+      img=item.image||"";
+      title="Tabriklaymiz! Bonus shartini bajardingiz "+ic('party');
+      const parts=[];
+      if(item.rewardText) parts.push("Sizga sovg'a: <b>"+esc(item.rewardText)+"</b>");
+      else if(item.title) parts.push(esc(item.title));
+      if(item.descr) parts.push(esc(item.descr));
+      desc=parts.join(" — ")||"Shartni muvaffaqiyatli bajardingiz!";
+    } else {
+      title="Tabriklaymiz! Tadbiringizga javob keldi "+ic('party');
+      const parts=[];
+      if(item.restDish) parts.push("Tayyorlanadigan taom: <b>"+esc(item.restDish)+"</b>");
+      if(item.discountPct>0) parts.push("<b>"+item.discountPct+"%</b> chegirma");
+      desc=(esc(item.name||"Tadbiringiz")+" — "+esc(trTxt(item.rest||"")))+(parts.length?"<br>"+parts.join(" · "):"");
+    }
+    content.innerHTML=`
+      <div class="kwin-confetti" id="kWinConfetti"></div>
+      <div class="kwin-body">
+        ${img?`<div class="kwin-img"><img src="${esc(img)}" alt=""></div>`:`<div class="kwin-emoji">${ic('gift')}</div>`}
+        <h2 class="kwin-title">${title}</h2>
+        <p class="kwin-desc">${desc}</p>
+        <button class="set-save kwin-ok" id="kWinOk">Rahmat! ${ic('party')}</button>
+      </div>`;
+    modal.classList.add("open"); bd.classList.add("open");
+    spawnKWinConfetti($("#kWinConfetti"));
+    const close=()=>{
+      modal.classList.remove("open"); bd.classList.remove("open");
+      _kWinPlaying=false; setTimeout(playKWinQueue,380);
+    };
+    const ok=$("#kWinOk"); if(ok) ok.addEventListener("click",close);
+    bd.addEventListener("click",close,{once:true});
+  }
+  /* Sahifa ochiq turganда — bonus/tadbir javobi kelib-kelmaganini vaqti-vaqti
+     bilan tekshirib turadi (ular STORE'ning 5s bootstrap keshiga kirmaydi,
+     shaxsiy — shu sabab alohida so'ralishi kerak). */
+  function startWinWatch(){
+    if(window.__kabWinWatch) return; window.__kabWinWatch=true;
+    setInterval(()=>{
+      checkBonusWins();
+      refreshMyEventsCache().then(checkEventWins);
+    }, 25000);
   }
 
   /* ===== TADBIRLAR: mijoz oldindan yuboradi, admin/restoran ko'radi va
@@ -878,6 +996,38 @@
     });
   }
 
+  /* "Savatga uchish" animatsiyasi — index.html'dagi (assets/js/app.js flyToCart)
+     bilan AYNAN bir xil mantiq: taom rasmini klonlab savat ikonkasiga
+     kichrayib uchirib yuboradi. `btn` — bosilgan "+" tugmasi, undan eng
+     yaqin ".card"ni topib, ichidagi ".card-photo" rasmini uchiramiz. */
+  function kFlyToCart(btn){
+    try{
+      const card=btn && btn.closest(".card"); if(!card) return;
+      const imgEl=card.querySelector(".card-img"); if(!imgEl) return;
+      const mobile=window.innerWidth<=768;
+      const target=(mobile ? document.getElementById("kbbCart") : document.getElementById("kabTopCart"))
+                 || document.getElementById("kbbCart") || document.getElementById("kabTopCart");
+      if(!target) return;
+      const s=imgEl.getBoundingClientRect(), t=target.getBoundingClientRect();
+      if(!s.width || !t.width) return;
+      const clone=document.createElement("div");
+      clone.className="fly-clone";
+      const photo=card.querySelector(".card-photo");
+      if(photo && photo.getAttribute("src")){ clone.style.backgroundImage=`url("${photo.getAttribute("src")}")`; }
+      else { clone.innerHTML=card.querySelector(".food-emoji")?card.querySelector(".food-emoji").outerHTML:""; }
+      clone.style.left=s.left+"px"; clone.style.top=s.top+"px";
+      clone.style.width=s.width+"px"; clone.style.height=s.height+"px";
+      document.body.appendChild(clone);
+      const dx=(t.left+t.width/2)-(s.left+s.width/2);
+      const dy=(t.top+t.height/2)-(s.top+s.height/2);
+      requestAnimationFrame(()=>{
+        clone.style.transform=`translate(${dx}px,${dy}px) scale(.12)`;
+        clone.style.opacity="0.25";
+      });
+      setTimeout(()=>{ try{ clone.remove(); }catch(e){} },620);
+    }catch(e){}
+  }
+
   /* Taom modal */
   function openKDishModal(d){
     const qty = (cart.find(i=>i.id===d.id)||{}).qty||0;
@@ -1007,7 +1157,7 @@
       if(!pod) return;
       pod.innerHTML=kActionHTML(d,qty);
       const add=pod.querySelector(".add-btn:not(.add-closed)");
-      if(add) add.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(id); });
+      if(add) add.addEventListener("click",(e)=>{ e.stopPropagation(); kFlyToCart(e.currentTarget); addToCart(id); });
       pod.querySelectorAll(".qty-btn:not(.qty-note)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); syncKabBar(); }));
       const noteBtn=pod.querySelector(".qty-note");
       if(noteBtn) noteBtn.addEventListener("click",(e)=>{ e.stopPropagation(); openKNoteModal(d); });
@@ -1805,7 +1955,7 @@
       if(activeRest){ openKDishModal(d); }
       else { filterByRest(d.rest); try{window.scrollTo({top:0});}catch(e){} }
     }));
-    document.querySelectorAll("#kMenu .add-btn:not(.add-closed)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); addToCart(+b.dataset.id); }));
+    document.querySelectorAll("#kMenu .add-btn:not(.add-closed)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); kFlyToCart(e.currentTarget); addToCart(+b.dataset.id); }));
     document.querySelectorAll("#kMenu .qty-btn:not(.qty-note)").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); changeQty(+b.dataset.id,+b.dataset.m); updateKMenuQty(); }));
     document.querySelectorAll("#kMenu .qty-note").forEach(b=>b.addEventListener("click",(e)=>{ e.stopPropagation(); const d=kcatalog().find(x=>x.id===+b.dataset.noteid); if(d) openKNoteModal(d); }));
     bindLikeButtons();
