@@ -111,10 +111,10 @@
             <div class="panel-head"><h3><svg class="yz-i"><use href="assets/icons.svg#plus"/></svg> Menyuga qo'shish</h3></div>
             <div class="panel-body">
               <!-- 3 xil: Taom / Ichimlik / Shirinlik — har biriga mos maydonlar -->
-              <div id="ndKindTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-                <button type="button" class="nd-kind active" data-kind="taom"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> Taom qo'shish</button>
-                <button type="button" class="nd-kind" data-kind="ichimlik"><svg class="yz-i"><use href="assets/icons.svg#food-drink"/></svg> Ichimlik qo'shish</button>
-                <button type="button" class="nd-kind" data-kind="shirinlik"><svg class="yz-i"><use href="assets/icons.svg#food-cake"/></svg> Shirinlik qo'shish</button>
+              <div id="ndKindTabs" class="nd-kind-tabs">
+                <button type="button" class="nd-kind active" data-kind="taom"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> Taom<span class="nd-k-sfx"> qo'shish</span></button>
+                <button type="button" class="nd-kind" data-kind="ichimlik"><svg class="yz-i"><use href="assets/icons.svg#food-drink"/></svg> Ichimlik<span class="nd-k-sfx"> qo'shish</span></button>
+                <button type="button" class="nd-kind" data-kind="shirinlik"><svg class="yz-i"><use href="assets/icons.svg#food-cake"/></svg> Shirinlik<span class="nd-k-sfx"> qo'shish</span></button>
               </div>
               <div class="set-grid set-grid-dishes">
                 <div class="set-field"><label id="ndNameLbl">Taom nomi</label><input id="ndName" placeholder="Masalan: Tovuqli burger" /></div>
@@ -142,7 +142,7 @@
                 <!-- HAMMASIGA: miqdor cheklovi -->
                 <div class="set-field"><label>Bir buyurtmada maksimal dona</label><input id="ndMaxQty" inputmode="numeric" placeholder="0 = cheksiz (masalan Osh 15)" /></div>
 
-                <div class="set-field"><label>Rasm (ixtiyoriy)</label>
+                <div class="set-field nd-wide"><label>Rasm (ixtiyoriy)</label>
                   <label class="file-drop"><span class="file-drop-ico"><svg class="yz-i"><use href="assets/icons.svg#camera"/></svg></span><span class="file-drop-txt" id="ndPhotoTxt">Rasm tanlash yoki suratga olish</span><input type="file" id="ndPhoto" accept="image/*" hidden></label>
                 </div>
                 <button class="set-save" id="addDishBtn">+ Qo'shish</button>
@@ -247,7 +247,7 @@
                 <span class="setting-desc">Foizda (1–90%)</span>
               </div>
               <div class="input-suffix">
-                <input id="discPct" type="number" placeholder="10" min="1" max="90" style="width:70px" />
+                <input id="discPct" type="number" inputmode="numeric" placeholder="10" min="1" max="90" class="num-sm" />
                 <span>%</span>
               </div>
             </div>
@@ -288,7 +288,7 @@
             </div>
             <div class="setting-item" id="bonTargetWrap" style="padding:12px 16px">
               <div class="setting-label"><span class="setting-name">Maqsad son</span></div>
-              <input type="number" id="bonTarget" min="1" value="3" style="width:80px" />
+              <input type="number" id="bonTarget" inputmode="numeric" min="1" value="3" class="num-sm" />
             </div>
             <div class="setting-item column" style="padding:0 16px 14px">
               <div class="setting-label"><span class="setting-name">Sovg'a (reward)</span></div>
@@ -387,10 +387,10 @@
                 <span class="setting-name">Ish vaqti</span>
                 <span class="setting-desc">Ochilish va yopilish soati. Tungi smena ham mumkin (masalan 20 → 02), bir xil son = 24 soat.</span>
               </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <input id="setOpenH" type="number" min="0" max="23" class="set-input" style="width:70px;text-align:center" placeholder="9" />
+              <div class="hours-range">
+                <input id="setOpenH" type="number" inputmode="numeric" min="0" max="23" class="set-input hr-h" placeholder="9" />
                 <span style="color:var(--grey)">–</span>
-                <input id="setCloseH" type="number" min="0" max="24" class="set-input" style="width:70px;text-align:center" placeholder="23" />
+                <input id="setCloseH" type="number" inputmode="numeric" min="0" max="24" class="set-input hr-h" placeholder="23" />
               </div>
             </div>
             <div class="setting-item column" style="padding:10px 16px">

@@ -278,7 +278,11 @@
 
   /* ===== TADBIRLAR: mijoz oldindan yuboradi, admin/restoran ko'radi va
      chegirma belgilaydi (routes/events.js). ===== */
-  const EV_STATUS_LABEL={pending:ic('clock')+" Kutilmoqda",discounted:ic('check-circle','yz-i-green')+" Chegirma belgilandi"};
+  const EV_STATUS_LABEL={
+    pending:ic('clock')+" Kutilmoqda",
+    /* Restoran javob berdi (taomni belgiladi), lekin chegirma yo'q */
+    answered:ic('check-circle','yz-i-green')+" Restoran javob berdi",
+    discounted:ic('check-circle','yz-i-green')+" Chegirma belgilandi"};
   function fillEventRestSelect(){
     const sel=$("#evRest"); if(!sel) return;
     const rests=restListK();
@@ -292,10 +296,13 @@
     host.innerHTML=list.map(function(e){
       return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'+
         '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+EV_STATUS_LABEL[e.status]+'</span></div>'+
+          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+(EV_STATUS_LABEL[e.status]||EV_STATUS_LABEL.pending)+'</span></div>'+
         '<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('store')+' '+esc(trTxt(e.rest))+' · '+ic('calendar')+' '+esc(e.eventDate)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
-        (e.dish?'<div style="font-size:12.5px;color:var(--ink);margin-top:2px">'+ic('utensils')+' '+esc(e.dish)+'</div>':'')+
-        (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:2px">'+ic('tag')+' '+e.discountPct+'% chegirma belgilandi</div>':'')+
+        (e.dish?'<div style="font-size:12.5px;color:var(--ink);margin-top:2px">'+ic('utensils')+" So'ralgan: "+esc(e.dish)+'</div>':'')+
+        /* RESTORAN JAVOBI — tadbirga aynan qaysi taom tayyorlanadi
+           (restoran paneli «Tadbirlar» bo'limida belgilaydi). */
+        (e.restDish?'<div style="font-size:12.5px;color:#1c6b3f;font-weight:700;margin-top:3px;background:#E8F5EE;border-radius:8px;padding:6px 9px;line-height:1.35">'+ic('check-circle','yz-i-green')+' Restoran tayyorlaydi: '+esc(e.restDish)+'</div>':'')+
+        (e.discountPct>0?'<div style="font-size:12.5px;color:#16a34a;font-weight:700;margin-top:3px">'+ic('tag')+' '+e.discountPct+'% chegirma belgilandi</div>':'')+
         '</div>';
     }).join("");
   }

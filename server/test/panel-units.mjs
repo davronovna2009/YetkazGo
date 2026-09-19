@@ -501,5 +501,67 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   eq(B.session().name, 'ECO FISH', 'TAB A chiqqач ham TAB B ECO FISH bo\'lib qoladi');
 }
 
+/* ---------- store.js — BITTA TABда akkaunt almashtirish (bosh sayt -> panel) ----------
+   XATO (tuzatildi): shu tabда ilgari "Shashlik" restorani kirgan bo'lsa,
+   bosh saytда BOSHQA restoran (ECO FISH) login/parolini yozsangiz ham panel
+   ESKI "Shashlik" ni ochib berardi. Sabab: kirish tokeni faqat localStorage'ga
+   yozilar, panel esa sessionStorage'даги eski tokenni BIRLAMCHI deb olardi.
+   Kuryer panelida ham AYNAN shu xato bor edi. */
+{
+  const src = JS('store.js');
+  const LS = new Map(), SS = new Map();        // bitta brauzer + BITTA tab
+  const mkStore = (M) => ({ getItem: (k) => (M.has(k) ? M.get(k) : null), setItem: (k, v) => M.set(k, String(v)), removeItem: (k) => M.delete(k) });
+  const fakeEl = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, appendChild() {}, addEventListener() {}, remove() {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '', textContent: '' });
+  const doc = { readyState: 'complete', addEventListener: () => {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], createElement: () => fakeEl(), head: fakeEl(), body: fakeEl(), documentElement: fakeEl() };
+  /* Bitta tabда ketma-ket ochilgan sahifalar: sessionStorage SAQLANADI */
+  function mkPage(role) {
+    const win = {
+      localStorage: mkStore(LS), sessionStorage: mkStore(SS),
+      location: { protocol: 'https:', origin: 'https://x', href: 'https://x/' },
+      addEventListener: () => {}, setInterval: () => 0, setTimeout: () => {}, navigator: {}, document: doc,
+      fetch: (url, opt) => {
+        const b = opt && opt.body ? JSON.parse(opt.body) : {};
+        if (String(url).includes('/auth/login')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ token: 'TOK_' + b.login, account: { role, name: b.login.toUpperCase(), login: b.login } }) });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      },
+    };
+    win.window = win;
+    const ctx = { ...win, globalThis: win, console, JSON, Date, Promise, Math, Object, Array, String, Number };
+    vm.createContext(ctx);
+    vm.runInContext(src + '\n;this.STORE=STORE;', ctx);
+    return ctx.STORE;
+  }
+  /* 1) Shu tabда restoran paneli "shashlik" bilan kirgan edi */
+  const p1 = mkPage('restoran');
+  p1.setPanelRole('restoran');
+  await p1.login('shashlik', 'p');
+  eq(p1.session().login, 'shashlik', 'bitta tab: avval shashlik kirdi');
+  /* 2) XUDDI SHU TAB bosh saytga o'tdi va BOSHQA restoran login/paroli yozildi */
+  const site = mkPage('restoran');
+  site.setPanelRole('user');
+  await site.login('ecofish', 'p');
+  /* 3) Tab restoran.html ga yo'naltirildi (sessionStorage o'zgarmaydi) */
+  const p2 = mkPage('restoran');
+  p2.setPanelRole('restoran');
+  eq(p2.session().login, 'ecofish', 'bitta tab: panel YANGI kirgan restoranni ochadi (eski shashlik emas!)');
+  eq(SS.get('yz_token_restoran'), '"TOK_ecofish"', 'bitta tab: tabдаги token ham yangilandi');
+  eq(SS.has('yz_session_user'), false, 'bitta tab: bosh saytning eski mijoz sessiyasi shu tabда qolmadi');
+
+  /* Kuryer paneli — AYNAN shu stsenariy */
+  LS.clear(); SS.clear();
+  const k1 = mkPage('kuryer');
+  k1.setPanelRole('kuryer');
+  await k1.login('kur1', 'p');
+  eq(k1.session().login, 'kur1', 'bitta tab: avval kur1 kirdi');
+  const site2 = mkPage('kuryer');
+  site2.setPanelRole('user');
+  await site2.login('kur2', 'p');
+  const k2 = mkPage('kuryer');
+  k2.setPanelRole('kuryer');
+  eq(k2.session().login, 'kur2', 'bitta tab: kuryer paneli YANGI kuryerni ochadi (eskisi emas!)');
+}
+
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);
 process.exit(FAIL ? 1 : 0);

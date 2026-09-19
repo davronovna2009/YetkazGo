@@ -515,10 +515,36 @@ async function main() {
   eq(evPatchAdmin.status, 200, 'admin ham chegirma belgilay oladi');
   eq(evPatchAdmin.data.discountPct, 20, 'admin qiymati ustunlik qildi (20)');
 
+  /* ---- RESTORAN JAVOBI: tadbirga AYNAN qaysi taom tayyorlanadi ----
+     Restoran paneli «Tadbirlar» bo'limida belgilanadi, mijoz kabinetida ko'rinadi. */
+  const evDishOther = await api('PATCH', '/events/' + evCreate.data.id, { restDish: 'begona' }, RT3);
+  eq(evDishOther.status, 403, 'boshqa restoran tayyorlanadigan taomni belgilay olmaydi');
+  const evDishUser = await api('PATCH', '/events/' + evCreate.data.id, { restDish: 'ozim' }, BQT);
+  eq(evDishUser.status, 403, 'mijoz tayyorlanadigan taomni O`ZI belgilay olmaydi');
+  const evDishSet = await api('PATCH', '/events/' + evCreate.data.id, { restDish: 'To`y oshi (40 kishilik)' }, RT);
+  eq(evDishSet.status, 200, 'restoran tayyorlanadigan taomni belgiladi');
+  eq(evDishSet.data.restDish, 'To`y oshi (40 kishilik)', 'restDish saqlandi');
+  eq(evDishSet.data.discountPct, 20, 'taom belgilanganda CHEGIRMA o`chib ketmadi');
+  const evPctAgain = await api('PATCH', '/events/' + evCreate.data.id, { discountPct: 25 }, RT);
+  eq(evPctAgain.data.restDish, 'To`y oshi (40 kishilik)', 'chegirma o`zgarganda TAOM o`chib ketmadi');
+  eq(evPctAgain.data.status, 'discounted', 'chegirma bor -> discounted');
+  const evEmpty = await api('PATCH', '/events/' + evCreate.data.id, {}, RT);
+  eq(evEmpty.status, 400, 'bo`sh PATCH -> 400');
+  /* Faqat taom (chegirmasiz) -> 'answered' */
+  const evOnlyDish = await api('PATCH', '/events/' + evCreate.data.id, { discountPct: 0 }, RT);
+  eq(evOnlyDish.data.status, 'answered', 'chegirma yo`q, taom bor -> answered');
+  /* Ikkalasi ham bo'sh -> yana pending */
+  const evReset = await api('PATCH', '/events/' + evCreate.data.id, { restDish: '' }, RT);
+  eq(evReset.data.status, 'pending', 'javob bekor qilindi -> pending');
+  /* Testning qolgan qismi uchun javobni qaytaramiz */
+  await api('PATCH', '/events/' + evCreate.data.id, { restDish: 'To`y oshi (40 kishilik)', discountPct: 20 }, RT);
+
   /* Mijoz o'zi FAQAT o'z tadbirlarini ko'radi */
   const evOwnList = await api('GET', '/events', null, BQT);
   eq(evOwnList.status, 200, 'mijoz o\'z tadbirlarini ko\'radi');
   ok(evOwnList.data.every((e) => e.user === 'Bonus Qual'), 'faqat o\'ziniki chiqadi');
+  const evMine = evOwnList.data.find((e) => e.id === evCreate.data.id);
+  eq(evMine.restDish, 'To`y oshi (40 kishilik)', 'MIJOZ restoran javobini (tayyorlanadigan taom) ko`radi');
 
   /* ---- 21. GURUH BUYURTMASI: bir nechta a'zo, har kim o'z ulushini alohida to'laydi ---- */
   console.log('\n--- Guruh buyurtmasi ---');

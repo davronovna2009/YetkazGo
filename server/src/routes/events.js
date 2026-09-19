@@ -12,6 +12,8 @@ function rowToEvent(r) {
     id: r.id, user: r.user, phone: r.phone || '', rest: r.rest, addr: r.addr || '',
     eventDate: r.event_date, name: r.name, dish: r.dish || '', headcount: r.headcount || 0,
     advanceDays: r.advance_days || 0, discountPct: r.discount_pct || 0,
+    /* Restoran javobi — tadbirga AYNAN qaysi taom tayyorlanadi (mijozga boradi) */
+    restDish: r.rest_dish || '',
     status: r.status, createdAt: r.created_at,
   };
 }
@@ -48,7 +50,11 @@ router.get('/', authRequired, (req, res) => {
   res.json(rows.map(rowToEvent));
 });
 
-/* PATCH /api/events/:id — chegirma belgilash. Admin — istalganiga; restoran — FAQAT o'ziniki. */
+/* PATCH /api/events/:id — restoran javobi: chegirma va/yoki TAYYORLANADIGAN TAOM.
+   Admin — istalganiga; restoran — FAQAT o'ziniki.
+   MUHIM: maydonlar ALOHIDA yangilanadi. Ilgari faqat `discountPct` bor edi va
+   har PATCH uni qayta yozardi — endi `restDish` ni saqlaganда chegirma
+   o'chib ketmaydi (va aksincha). */
 router.patch('/:id', requireRole('restoran', 'admin'), (req, res) => {
   const id = Number(req.params.id);
   const row = db.prepare('SELECT * FROM events WHERE id = ?').get(id);
@@ -56,8 +62,25 @@ router.patch('/:id', requireRole('restoran', 'admin'), (req, res) => {
   if (req.user.role === 'restoran' && row.rest !== req.user.name) {
     return res.status(403).json({ error: 'Bu tadbir sizga tegishli emas' });
   }
-  const pct = Math.max(0, Math.min(90, Number(req.body?.discountPct) || 0));
-  db.prepare("UPDATE events SET discount_pct = ?, status = 'discounted' WHERE id = ?").run(pct, id);
+  const b = req.body || {};
+  let changed = false;
+  if (b.discountPct !== undefined) {
+    const pct = Math.max(0, Math.min(90, Number(b.discountPct) || 0));
+    db.prepare('UPDATE events SET discount_pct = ? WHERE id = ?').run(pct, id);
+    changed = true;
+  }
+  if (b.restDish !== undefined) {
+    db.prepare('UPDATE events SET rest_dish = ? WHERE id = ?').run(String(b.restDish || '').trim().slice(0, 200), id);
+    changed = true;
+  }
+  if (!changed) return res.status(400).json({ error: 'O`zgartirish uchun ma`lumot yo`q' });
+
+  /* Holat: chegirma bor -> 'discounted'; faqat taom belgilangan -> 'answered';
+     ikkalasi ham yo'q -> yana 'pending' (restoran javobini bekor qildi). */
+  const after = db.prepare('SELECT * FROM events WHERE id = ?').get(id);
+  const status = (after.discount_pct > 0) ? 'discounted'
+    : (String(after.rest_dish || '').trim() ? 'answered' : 'pending');
+  db.prepare('UPDATE events SET status = ? WHERE id = ?').run(status, id);
   res.json(rowToEvent(db.prepare('SELECT * FROM events WHERE id = ?').get(id)));
 });
 

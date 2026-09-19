@@ -755,34 +755,134 @@
   /* ============================================================
      TADBIRLAR — FAQAT o'z restoraniga tegishlisi (server rol bo'yicha
      filtrlaydi), lekin to'liq tafsilot bilan (mijoz+telefon+manzil+sana).
+     Kartochka ustiga bosilsa — TO'LIQ ma'lumot oynasi ochiladi: qaysi taom,
+     qaysi sanada, necha kishiga, qachon so'ralgan va h.k. O'sha oynada
+     restoran egasi «tadbirga shu taom tayyorlanadi» deb belgilaydi —
+     javob mijoz kabinetiga boradi.
      ============================================================ */
+  const EV_MONTHS=["yanvar","fevral","mart","aprel","may","iyun","iyul","avgust","sentabr","oktabr","noyabr","dekabr"];
+  const EV_WDAYS=["yakshanba","dushanba","seshanba","chorshanba","payshanba","juma","shanba"];
+  /* "2026-06-15" -> "15-iyun 2026, dushanba" (mijoz tanlagan kun) */
+  function evDateText(iso){
+    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||"")); if(!m) return String(iso||"—");
+    var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+    return (+m[3])+"-"+EV_MONTHS[+m[2]-1]+" "+m[1]+", "+EV_WDAYS[d.getUTCDay()];
+  }
+  /* Tadbirgacha necha kun qolgani (Toshkent kalendari bo'yicha) */
+  function evDaysLeft(iso){
+    var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||"")); if(!m) return null;
+    var target=Date.UTC(+m[1],+m[2]-1,+m[3]);
+    var p; try{ p=YZ_TIME.parts(); }catch(e){ return null; }
+    var today=Date.UTC(p.y,p.mo-1,p.d);
+    return Math.round((target-today)/86400000);
+  }
+  function evDaysText(iso){
+    var n=evDaysLeft(iso);
+    if(n==null) return "";
+    if(n<0) return "o'tib ketgan";
+    if(n===0) return "BUGUN";
+    if(n===1) return "ertaga";
+    return n+" kun qoldi";
+  }
+  /* Holat nishoni — mijoz kabinetidagi bilan bir xil mantiq */
+  function evStatusPill(e){
+    if(e.discountPct>0) return '<span class="pill ok">'+ic('check')+' '+e.discountPct+'% chegirma</span>';
+    if(e.restDish) return '<span class="pill ok">'+ic('check')+' Javob berilgan</span>';
+    return '<span class="pill warn">'+ic('clock')+' Javob kutilmoqda</span>';
+  }
+  let EV_CACHE=[];      // oxirgi yuklangan tadbirlar (oynani ochish uchun)
   async function renderEventsRest(){
     const host=$("#evListRest"); if(!host) return;
     host.innerHTML='<p style="color:var(--grey);font-size:13px">Yuklanmoqda...</p>';
     const list=(typeof STORE!=="undefined"&&STORE.myEvents)? await STORE.myEvents() : [];
-    if(!Array.isArray(list)||!list.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha tadbir yo\'q.</p>'; return; }
-    host.innerHTML=list.map(function(e){
-      return '<div style="padding:12px 0;border-bottom:1px solid var(--line)">'+
-        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">'+
-          '<b>'+esc(e.name)+'</b><span style="font-size:12px;color:var(--grey)">'+ic('calendar')+' '+esc(e.eventDate)+' · '+(e.advanceDays||1)+' kun oldin so\'ralgan</span></div>'+
-        '<div style="font-size:13px;margin-top:4px">'+ic('user')+' '+esc(e.user)+' · '+ic('phone')+' '+esc(e.phone)+' · '+ic('users')+' '+(e.headcount||0)+' kishi</div>'+
-        (e.dish?'<div style="font-size:13px;font-weight:700;color:var(--ink);margin-top:4px;background:#faf7f8;border-radius:8px;padding:6px 9px">'+ic('utensils')+' '+esc(e.dish)+'</div>':'')+
-        (e.addr?'<div style="font-size:12.5px;color:var(--grey);margin-top:2px">'+ic('map-pin')+' '+esc(e.addr)+'</div>':'')+
-        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">'+
-          '<input type="number" min="0" max="90" placeholder="%" value="'+(e.discountPct||"")+'" data-evpct="'+e.id+'" style="width:70px;padding:7px 10px;border:1px solid var(--line);border-radius:8px">'+
-          '<button class="add-action-btn" data-evsave="'+e.id+'" style="background:#16a34a">'+ic('tag')+' Chegirma belgilash</button>'+
-          (e.discountPct>0?'<span style="color:#16a34a;font-size:12px;font-weight:700">'+ic('check')+' '+e.discountPct+'% belgilangan</span>':'')+
-        '</div></div>';
+    EV_CACHE=Array.isArray(list)?list:[];
+    if(!EV_CACHE.length){ host.innerHTML='<p style="color:var(--grey);font-size:13px">Hozircha tadbir yo\'q.</p>'; return; }
+    host.innerHTML=EV_CACHE.map(function(e){
+      var left=evDaysText(e.eventDate);
+      return '<div class="ev-card" data-evopen="'+e.id+'" tabindex="0" role="button">'+
+        '<div class="ev-card-top">'+
+          '<b class="ev-card-name">'+esc(e.name)+'</b>'+evStatusPill(e)+
+        '</div>'+
+        '<div class="ev-card-meta">'+
+          '<span>'+ic('calendar')+' '+esc(evDateText(e.eventDate))+'</span>'+
+          (left?'<span class="ev-left'+(left==="BUGUN"?" is-now":"")+'">'+ic('clock')+' '+esc(left)+'</span>':'')+
+          '<span>'+ic('users')+' '+(e.headcount||0)+' kishi</span>'+
+        '</div>'+
+        '<div class="ev-card-meta">'+
+          '<span>'+ic('user')+' '+esc(e.user)+'</span>'+
+          (e.phone?'<span>'+ic('phone')+' '+esc(e.phone)+'</span>':'')+
+        '</div>'+
+        (e.dish?'<div class="ev-dish">'+ic('utensils')+' <span>Mijoz so\'ragan: <b>'+esc(e.dish)+'</b></span></div>':'')+
+        (e.restDish?'<div class="ev-dish is-rest">'+ic('check-circle')+' <span>Siz tayyorlaysiz: <b>'+esc(e.restDish)+'</b></span></div>':'')+
+        '<div class="ev-card-more">'+ic('chevron-right')+' Batafsil va javob berish</div>'+
+      '</div>';
     }).join("");
-    host.querySelectorAll('[data-evsave]').forEach(function(b){ b.addEventListener('click',async function(){
-      var id=b.dataset.evsave; var inp=host.querySelector('[data-evpct="'+id+'"]');
-      var pct=inp?Number(inp.value)||0:0;
-      b.disabled=true;
-      var r=(typeof STORE!=="undefined"&&STORE.setEventDiscount)? await STORE.setEventDiscount(id,pct):null;
-      b.disabled=false;
-      if(r&&r.error){ toast(r.error); return; }
-      toast("Chegirma belgilandi"); renderEventsRest();
-    }); });
+    host.querySelectorAll('[data-evopen]').forEach(function(card){
+      var open=function(){ openEventModal(card.dataset.evopen); };
+      card.addEventListener('click',open);
+      card.addEventListener('keydown',function(ev){ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); open(); } });
+    });
+  }
+
+  /* Bitta tadbirning TO'LIQ ma'lumoti + restoran javobi (taom va chegirma) */
+  function openEventModal(id){
+    var e=EV_CACHE.find(function(x){ return String(x.id)===String(id); }); if(!e) return;
+    var el=document.getElementById("evDetailModal"); if(el) el.remove();
+    el=document.createElement("div"); el.id="evDetailModal"; el.className="ev-modal-back";
+    var row=function(k,v,cls){
+      return '<div class="ev-row"><span>'+k+'</span><b'+(cls?' class="'+cls+'"':'')+'>'+v+'</b></div>';
+    };
+    var left=evDaysText(e.eventDate);
+    /* Restoran javobi maydoni oldindan to'ldiriladi: avval o'zi belgilagani,
+       bo'lmasa mijoz so'ragan taom (ko'p holda aynan shu tayyorlanadi). */
+    var prefill=e.restDish||e.dish||"";
+    el.innerHTML='<div class="ev-modal">'+
+      '<button class="ev-modal-x" id="evmClose" aria-label="Yopish">'+ic('x')+'</button>'+
+      '<div class="ev-modal-head">'+ic('party','yz-i-lg')+'<h3>'+esc(e.name)+'</h3></div>'+
+      '<div class="ev-modal-body">'+
+        row("Sana", esc(evDateText(e.eventDate)))+
+        (left?row("Qolgan vaqt", esc(left), left==="BUGUN"?"ev-hot":""):"")+
+        row("Necha kishilik", (e.headcount||0)+" kishi")+
+        row("Necha kun oldin", (e.advanceDays||1)+" kun oldin so'ralgan")+
+        row("Mijoz", esc(e.user||"—"))+
+        (e.phone?row("Telefon", '<a href="tel:'+esc(String(e.phone).replace(/[^\d+]/g,""))+'">'+esc(e.phone)+'</a>'):"")+
+        (e.addr?row("Manzil", esc(e.addr)):"")+
+        row("Mijoz so'ragan taom", e.dish?esc(e.dish):'<span class="ev-none">ko\'rsatilmagan</span>')+
+        row("Siz tayyorlaysiz", e.restDish?esc(e.restDish):'<span class="ev-none">hali belgilanmagan</span>')+
+        row("Chegirma", e.discountPct>0?(e.discountPct+"%"):'<span class="ev-none">yo\'q</span>')+
+        (e.createdAt?row("Yuborilgan", esc((function(){ try{ return YZ_TIME.fmtDateTime(e.createdAt); }catch(_){ return e.createdAt; } })())):"")+
+      '</div>'+
+      '<div class="ev-modal-form">'+
+        '<div class="set-field"><label for="evmDish">Tadbirga tayyorlanadigan taom</label>'+
+          '<input id="evmDish" maxlength="200" placeholder="Masalan: To\'y oshi (40 kishilik)" value="'+esc(prefill)+'"></div>'+
+        '<p class="ev-hint">Bu yozuv mijozning kabinetida ko\'rinadi — u tadbirga aynan nima tayyorlanishini biladi.</p>'+
+        '<div class="set-field"><label for="evmPct">Chegirma (%)</label>'+
+          '<input id="evmPct" type="number" inputmode="numeric" min="0" max="90" placeholder="0" value="'+(e.discountPct||"")+'"></div>'+
+        '<button class="btn-save" id="evmSave">'+ic('check')+' Saqlash va mijozga yuborish</button>'+
+        '<div class="ev-msg" id="evmMsg"></div>'+
+      '</div>'+
+    '</div>';
+    document.body.appendChild(el);
+    var close=function(){ el.remove(); };
+    el.querySelector("#evmClose").addEventListener("click",close);
+    el.addEventListener("click",function(ev){ if(ev.target===el) close(); });
+    var onEsc=function(ev){ if(ev.key==="Escape"){ close(); document.removeEventListener("keydown",onEsc); } };
+    document.addEventListener("keydown",onEsc);
+    el.querySelector("#evmSave").addEventListener("click",async function(){
+      var btn=this, msg=el.querySelector("#evmMsg");
+      var dishV=(el.querySelector("#evmDish").value||"").trim();
+      var pctRaw=(el.querySelector("#evmPct").value||"").trim();
+      var pct=pctRaw===""?0:Number(pctRaw);
+      if(!isFinite(pct)||pct<0||pct>90){ msg.className="ev-msg err"; msg.textContent="Chegirma 0–90% oralig'ida bo'lsin"; return; }
+      btn.disabled=true; msg.className="ev-msg"; msg.textContent="Saqlanmoqda...";
+      var r=(typeof STORE!=="undefined"&&STORE.saveEventAnswer)
+        ? await STORE.saveEventAnswer(e.id,{restDish:dishV,discountPct:pct}) : null;
+      btn.disabled=false;
+      if(!r||r.error){ msg.className="ev-msg err"; msg.textContent=(r&&r.error)||"Saqlab bo'lmadi"; return; }
+      msg.className="ev-msg ok"; msg.textContent="Saqlandi — mijoz kabinetida ko'rinadi";
+      toast("Tadbir javobi saqlandi");
+      setTimeout(function(){ close(); renderEventsRest(); }, 700);
+    });
   }
 
   function applyDiscount(){

@@ -165,8 +165,11 @@ a{color:inherit;text-decoration:none}
 .tbl .o-more{margin-top:3px;font-size:11px;font-weight:800;color:var(--red);letter-spacing:.2px}
 
 /* Taom qo'shish: tur tanlash tugmalari (Taom / Ichimlik / Shirinlik) */
-.nd-kind{border:2px solid var(--line,#eee);background:#fff;border-radius:12px;padding:10px 16px;
-  font-size:14px;font-weight:700;cursor:pointer;color:#777;transition:.12s;font-family:inherit}
+.nd-kind-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.nd-kind{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  border:2px solid var(--line,#eee);background:#fff;border-radius:12px;padding:10px 16px;
+  font-size:14px;font-weight:700;cursor:pointer;color:#777;transition:.12s;font-family:inherit;
+  white-space:nowrap;min-width:0}
 .nd-kind:hover{border-color:#f0c2c8}
 .nd-kind.active{background:var(--red,#C8102E);border-color:var(--red,#C8102E);color:#fff}
 
@@ -260,6 +263,13 @@ a{color:inherit;text-decoration:none}
 .time-input:focus{border-color:var(--red)}
 .select-input{border:2px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600;outline:none;background:var(--bg);-webkit-appearance:none;color:var(--ink);cursor:pointer;max-width:160px}
 .select-input:focus{border-color:var(--red)}
+/* Kichik raqam maydonlari (chegirma foizi, bonus maqsadi). Ilgari HTML ichida
+   `style="width:70px"` deb qotirilgan edi — inline uslub CSS'dan kuchli
+   bo'lgani uchun telefonда ham 70px bo'lib qolar, yonidagi yorliq siqilardi. */
+.num-sm{width:90px;max-width:100%;box-sizing:border-box}
+/* Ish vaqti oralig'i: «9 – 23» */
+.hours-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.hours-range .hr-h{width:76px;text-align:center;flex:none}
 
 /* ===== Taom tanlash tugmasi (rasmli) + modali ===== */
 .dishpick-btn{display:inline-flex;align-items:center;gap:8px;width:210px;max-width:100%;border:2px solid var(--line);border-radius:10px;background:var(--bg);padding:7px 10px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;transition:.15s}
@@ -267,7 +277,7 @@ a{color:inherit;text-decoration:none}
 .dishpick-btn.has-sel{background:#fff;border-color:var(--red)}
 .dishpick-btn .dpb-img{width:28px;height:28px;border-radius:7px;object-fit:cover;flex:none}
 .dishpick-btn .dpb-emoji{font-size:19px;flex:none;line-height:1}
-.dishpick-btn .dpb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dishpick-btn .dpb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto;text-align:left}
 .dishpick-btn .dpb-arrow{margin-left:auto;color:var(--grey);flex:none}
 
 .dpick-sheet{background:#fff;border-radius:20px;width:100%;max-width:560px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.32)}
@@ -425,14 +435,27 @@ a{color:inherit;text-decoration:none}
 .income-row .amount{font-weight:800;color:var(--red)}
 .promo-status{padding:10px;background:#E8F5EE;border-radius:10px;color:#1c6b3f;font-size:13px;margin-bottom:10px;display:none}
 .promo-status.show{display:block}
-.set-grid-dishes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* ===== «Taom qo'shish» formasi — HAR QANDAY telefonда to'liq ko'rinadi =====
+   Ilgari bu grid QAT'IY `1fr 1fr` edi (ya'ni telefonда ham ikki ustun): 360px
+   ekranда har maydon ~140px bo'lib qolar, «Tarkibi (ichidagi mahsulotlar)»
+   yoki «Bir buyurtmada maksimal dona» kabi yorliqlar uch qatorga bo'linib
+   ketar, yozilgan matn esa maydonga sig'masdi. Endi ustun joy YETSAGINA
+   qo'shiladi (auto-fit): telefon -> 1 ustun, planshet/kompyuter -> 2–3. */
+.set-grid-dishes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:end}
+/* Grid elementining standart `min-width:auto` qiymati uzun matn/yorliqда
+   maydonni ustundan kengaytirib, formani chetga chiqarib yuborardi. */
+.set-grid-dishes>*{min-width:0}
+/* Rasm tanlash va «+ Qo'shish» — butun qatorni egallaydi (tugma telefonда
+   ham barmoq bilan bosishga qulay bo'lsin). */
+.set-grid-dishes>.nd-wide{grid-column:1/-1}
+.set-grid-dishes>.set-save{grid-column:1/-1;width:100%;padding:13px 20px;margin-top:2px}
 /* .set-field o'zining bazaviy oralig'i yo'q edi — grid'dan tashqarida
    (Guruh/Tadbir/Izoh/Profil formalarida) maydonlar bir-biriga yopishib,
    tiqilib qolardi. Grid ichida esa gap allaqachon bor — bu yerда bekor qilamiz. */
-.set-field{margin-bottom:14px}
+.set-field{margin-bottom:14px;min-width:0}
 .set-grid-dishes>.set-field{margin-bottom:0}
-.set-field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px;color:var(--ink)}
-.set-field input,.set-field textarea,.set-field select{width:100%;border:2px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;outline:none;-webkit-appearance:none;background:#fff;transition:.15s}
+.set-field label{display:block;font-weight:600;font-size:13px;margin-bottom:5px;color:var(--ink);line-height:1.3}
+.set-field input,.set-field textarea,.set-field select{width:100%;max-width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:9px;padding:10px 12px;font-size:14px;outline:none;-webkit-appearance:none;background:#fff;transition:.15s}
 .set-field input:focus,.set-field textarea:focus{border-color:var(--red)}
 .set-save{background:var(--red);color:#fff;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:14px;cursor:pointer;touch-action:manipulation}
 .set-save:active{opacity:.9}
@@ -468,7 +491,11 @@ a{color:inherit;text-decoration:none}
   .steps-u{grid-template-columns:repeat(2,1fr)}
   .content{padding:18px 20px 48px}
   .topbar{height:56px;padding:0 20px}
-  .set-grid-dishes{grid-template-columns:2fr 1fr 0.6fr auto}
+  /* Kompyuterда kengroq maydonlar (auto-fit o'zi 2–3 ustun qiladi).
+     Ilgari bu yerда `2fr 1fr 0.6fr auto` turardi — o'shanda formada atigi
+     4 ta maydon bor edi; yangi maydonlar qo'shilgach, ular tasodifiy
+     ustunlarga tushib, «Tarkibi» kabi maydonlar 0.6fr ga siqilib qolardi. */
+  .set-grid-dishes{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
   .setting-item{padding:14px 18px}
   .settings-group-title{padding:10px 18px 8px}
   .settings-footer{padding:12px 18px}
@@ -529,13 +556,56 @@ a{color:inherit;text-decoration:none}
   .login-card{padding:100px 18px 26px}
   .settings-group-title{font-size:11px}
   .setting-name{font-size:13px}
-  .select-input{max-width:130px;font-size:12px}
-  .input-suffix input{width:75px;font-size:13px}
-  /* Tor ekranda matn maydonlari yorliqni siqib qo'ymasin */
-  .setting-control > input:not([type=checkbox]):not([type=radio]),
-  .setting-control > select,
-  .setting-control > textarea{width:175px}
-  .setting-control > .yz-pw-wrap{width:175px !important}
+}
+
+/* ===== SOZLAMA QATORI TOR EKRANDA — boshqaruv O'Z QATORIGA tushadi =====
+   `.setting-item` — chapda yorliq, o'ngda boshqaruv (input / select / tugma).
+   Telefonда bu ikkisi bitta qatorga sig'masdi:
+     • boshqaruv elementining standart `min-width:auto` qiymati uni ichidagi
+       matndan kichik qilmasdi — natijada u yorliq YOZUVLARI USTIGA chiqib
+       ketardi. «E'lon va chegirma → Taomga chegirma belgilash» bo'limidagi
+       «Taom tanlang» tugmasida aynan shu xato ko'rinardi;
+     • matn maydonlari 175px ga qotirilgani uchun 320–360px ekranда yorliq
+       siqilib, yozuv o'qilmas holga kelardi.
+   Endi joy yetmasa boshqaruv pastga tushib, TO'LIQ kenglikda turadi — har
+   bir input to'liq ko'rinadi. Kalit/toggle (`.toggle-switch`) esa yorliq
+   bilan bir qatorda qoladi (u qisqarmaydi va tanlovga xalaqit bermaydi). */
+@media(max-width:600px){
+  .setting-item:not(.column){flex-wrap:wrap;row-gap:10px}
+  .setting-item:not(.column)>.setting-label{flex:1 1 55%;min-width:0}
+  .setting-item:not(.column)>.setting-control,
+  .setting-item:not(.column)>.dishpick-btn,
+  .setting-item:not(.column)>.input-suffix,
+  .setting-item:not(.column)>.select-input,
+  .setting-item:not(.column)>.set-input,
+  .setting-item:not(.column)>.time-input,
+  .setting-item:not(.column)>select,
+  .setting-item:not(.column)>textarea,
+  .setting-item:not(.column)>input:not([type=checkbox]):not([type=radio]){
+    flex:1 1 100%;width:100%;max-width:none;min-width:0;box-sizing:border-box
+  }
+  .setting-control{align-items:stretch}
+  .setting-control>input:not([type=checkbox]):not([type=radio]),
+  .setting-control>select,
+  .setting-control>textarea,
+  .setting-control>.input-suffix,
+  .setting-control>.yz-pw-wrap{width:100%;max-width:none;box-sizing:border-box}
+  .setting-hint{text-align:left}
+  /* Qo'shimchali maydon (%, so'm) — raqam maydoni qolgan joyni oladi */
+  .input-suffix{width:100%;box-sizing:border-box}
+  .input-suffix input{flex:1 1 auto;width:auto;min-width:0;text-align:left}
+  .select-input{max-width:none}
+  .dishpick-btn{width:100%;min-width:0}
+  .num-sm{width:100%}
+  .hours-range{flex:1 1 100%;width:100%}
+  .hours-range .hr-h{flex:1 1 0;width:auto;min-width:0}
+  /* Taom qo'shish: tur tugmalari — uchtasi teng, ekranga sig'adi */
+  .nd-kind-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .nd-kind{padding:11px 6px;font-size:13px;gap:6px}
+  .nd-kind .yz-i{flex:none}
+  /* Telefonда qisqa yorliq: «Taom» / «Ichimlik» / «Shirinlik» —
+     "qo'shish" so'zi yashiriladi (bo'lim sarlavhasi allaqachon buni aytadi). */
+  .nd-k-sfx{display:none}
 }
 
 /* VERY SMALL */
@@ -1480,4 +1550,74 @@ a{color:inherit;text-decoration:none}
   .rest-head{padding:13px 14px;gap:11px}
   .rest-head-ava{width:52px;height:52px;font-size:26px;border-radius:13px}
   .rest-head-name{font-size:19px}
+}
+
+/* =========================================================
+   TADBIRLAR — kartochka + to'liq ma'lumot oynasi (restoran paneli)
+   Ilgari tadbir oddiy matn qatori edi va ustiga bosib bo'lmasdi: restoran
+   egasi tadbir haqidagi to'liq ma'lumotni (sana, necha kishi, manzil, qachon
+   so'ralgani) ko'ra olmasdi. Endi har tadbir — bosiladigan kartochka, oynada
+   esa hamma narsa + «tadbirga shu taom tayyorlanadi» javobi.
+   ========================================================= */
+.ev-card{
+  border:1px solid var(--line);border-radius:14px;background:#fff;
+  padding:13px 14px;margin-bottom:10px;cursor:pointer;transition:.15s;
+}
+.ev-card:hover{border-color:var(--red);box-shadow:0 6px 18px rgba(0,0,0,.07);transform:translateY(-1px)}
+.ev-card:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.ev-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ev-card-name{font-size:15px;line-height:1.3;word-break:break-word;min-width:0}
+.ev-card-meta{
+  display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;
+  font-size:12.5px;color:var(--grey);font-weight:600;
+}
+.ev-card-meta span{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.ev-left{color:var(--ink)}
+.ev-left.is-now{color:var(--red);font-weight:800}
+.ev-dish{
+  display:flex;align-items:flex-start;gap:7px;margin-top:8px;
+  background:#faf7f8;border-radius:9px;padding:7px 10px;
+  font-size:13px;line-height:1.35;word-break:break-word;
+}
+.ev-dish.is-rest{background:#E8F5EE;color:#1c6b3f}
+.ev-card-more{
+  margin-top:9px;font-size:12px;font-weight:700;color:var(--red);
+  display:flex;align-items:center;gap:5px;
+}
+
+/* --- To'liq ma'lumot oynasi --- */
+.ev-modal-back{
+  position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.ev-modal{
+  background:#fff;border-radius:20px;width:100%;max-width:440px;
+  max-height:90vh;overflow:auto;position:relative;
+  padding:20px 18px 18px;box-shadow:0 24px 64px rgba(0,0,0,.32);
+}
+.ev-modal-x{
+  position:absolute;top:13px;right:13px;border:none;background:#f1f1f4;
+  width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;
+}
+.ev-modal-head{display:flex;align-items:center;gap:10px;margin:0 40px 14px 0}
+.ev-modal-head h3{margin:0;font-size:18px;line-height:1.25;word-break:break-word}
+.ev-modal-body{display:flex;flex-direction:column;gap:9px;margin-bottom:16px}
+.ev-row{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;align-items:baseline}
+.ev-row>span{color:var(--grey);flex:none}
+.ev-row>b{text-align:right;min-width:0;word-break:break-word}
+.ev-row a{color:var(--red);text-decoration:none}
+.ev-none{color:var(--grey);font-weight:600}
+.ev-hot{color:var(--red)}
+.ev-modal-form{border-top:1px solid var(--line);padding-top:14px}
+.ev-hint{font-size:12px;color:var(--grey);margin:-8px 0 12px;line-height:1.45}
+.ev-msg{font-size:12.5px;font-weight:700;margin-top:9px;min-height:17px;color:var(--grey)}
+.ev-msg.ok{color:#16a34a}
+.ev-msg.err{color:var(--red)}
+/* Telefonда oyna pastdan chiqadigan varaqqa aylanadi — barmoqqa qulay */
+@media(max-width:520px){
+  .ev-modal-back{align-items:flex-end;padding:0}
+  .ev-modal{max-width:none;border-radius:20px 20px 0 0;max-height:92vh;padding:18px 14px calc(16px + env(safe-area-inset-bottom))}
+  .ev-row{flex-direction:column;gap:2px}
+  .ev-row>b{text-align:left}
 }

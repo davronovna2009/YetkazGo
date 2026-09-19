@@ -268,7 +268,8 @@ export function initSchema() {
       headcount     INTEGER DEFAULT 0,    -- necha kishilik
       advance_days  INTEGER DEFAULT 1,    -- necha kun oldin buyurtma berilishi kerak
       discount_pct  INTEGER DEFAULT 0,    -- admin/restoran belgilagan chegirma
-      status        TEXT NOT NULL DEFAULT 'pending',   -- pending | discounted
+      rest_dish     TEXT DEFAULT '',      -- RESTORAN javobi: tadbirga shu taom tayyorlanadi
+      status        TEXT NOT NULL DEFAULT 'pending',   -- pending | answered | discounted
       created_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -443,6 +444,10 @@ export function initSchema() {
     // Tadbir (event) uchun qaysi taom/nechta kerakligi — ilgari umuman
     // so'ralmasdi, restoran nima tayyorlashini bilmasdi.
     "ALTER TABLE events ADD COLUMN dish TEXT DEFAULT ''",
+    // RESTORAN JAVOBI: tadbirga AYNAN qaysi taom tayyorlanadi. Mijoz `dish`
+    // maydonida nima xohlaganini yozadi, restoran esa shu yerда nima
+    // tayyorlashini belgilaydi — javob mijoz kabinetида ko'rinadi.
+    "ALTER TABLE events ADD COLUMN rest_dish TEXT DEFAULT ''",
     // Profil rasmi (Telegram kabi) — HAR ROL uchun bitta umumiy ustun.
     // Kabinet/restoran/kuryer/admin "Sozlamalar"да o'rnatiladi, barcha
     // panellarda va o'sha kishi yozgan izohlarda ko'rinadi (routes/auth.js,

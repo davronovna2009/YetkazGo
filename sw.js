@@ -3,7 +3,20 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v37 — Emoji o'rniga ikon tizimi (assets/icons.svg) restoran/index/kuryer
+/* v38 — KATTA XATO TUZATILDI: bosh saytdan BOSHQA restoran (yoki kuryer)
+   login/paroli bilan kirsangiz ham panel ESKI akkauntni ochib berardi
+   (masalan doim "Shashlik" restorani). Sabab: yangi token faqat
+   localStorage'ga yozilar, panel esa tabdagi ESKI sessionStorage tokenini
+   birlamchi deb olardi. Endi kirish SHU TAB uchun yagona haqiqat.
+   Bundan tashqari:
+   • «Taom qo'shish» formasi telefonда to'g'ri ko'rinadi (bitta ustun, har
+     input to'liq, yorliqlar qisqarmaydi);
+   • «E'lon va chegirma → Taomga chegirma» da «Taom tanlang» tugmasi endi
+     yozuvlar ustiga chiqmaydi (tor ekranда o'z qatoriga tushadi);
+   • «Tadbirlar» — har tadbir bosiladigan kartochka: to'liq ma'lumot oynasi
+     (sana, qolgan kun, necha kishi, mijoz, manzil, so'ralgan taom) va yangi
+     «Tadbirga tayyorlanadigan taom» maydoni — javob mijoz kabinetida ko'rinadi.
+   (v37 — Emoji o'rniga ikon tizimi (assets/icons.svg) restoran/index/kuryer
    panellarida; profil rasmi (Telegram uslubida, Sozlamalar'да o'rnatiladi,
    izohlarda ko'rinadi); restoranga like tuzatildi; BITTA umumiy PWA (har
    panel alohida ilova emas — manifest.webmanifest hammaga umumiy,
@@ -122,7 +135,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v37';
+const CACHE = 'yetkaz-v38';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css', '/assets/css/kabinet-cards.css',

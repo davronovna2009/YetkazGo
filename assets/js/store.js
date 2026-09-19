@@ -122,6 +122,28 @@ const STORE = (function () {
     if (t) { ssWrite(key, t); lsWrite(key, t); }
     else { ssDel(key); try { localStorage.removeItem(key); } catch (e) {} }
   }
+  /* ===== BOSHQA ROL kalitiga kirish yozish (bosh saytdan panelga o'tish) =====
+     MUHIM: SHU TAB ning sessionStorage'iga HAM yozamiz. Ilgari faqat
+     localStorage'ga yozilardi va bu OG'IR xatoga olib kelardi:
+       • bu tabда ilgari "Shashlik" restorani kirgan bo'lsa, sessionStorage'да
+         uning tokeni qolardi;
+       • bosh saytdа BOSHQA restoran (masalan "ECO FISH") login/parolini yozса,
+         yangi token faqat localStorage'ga tushardi;
+       • tab restoran.html ga o'tganда setPanelRole sessionStorage'ni
+         BIRLAMCHI deb biladi — ya'ni ESKI "Shashlik" tokeni ishlatilardi va
+         panel ALLAQACHON boshqa akkaunt bilan kirilgan bo'lsa ham eski
+         restoranni ochib berardi (kuryer panelida ham AYNAN shunday edi).
+     Endi kirish SHU TAB uchun har doim eng oxirgi (haqiqiy) akkaunt bo'ladi;
+     boshqa tablar esa o'z sessionStorage'i bilan o'zgarishsiz qoladi (ikki
+     restoran panelini yonma-yon ochish imkoni saqlanadi). */
+  function writeRoleAuth(role, token, account) {
+    const r = String(role || "").trim();
+    if (!r || !token) return false;
+    const tk = K.token + "_" + r, sk = K.sess + "_" + r;
+    ssWrite(tk, token); lsWrite(tk, token);
+    if (account) { ssWrite(sk, account); lsWrite(sk, account); }
+    return true;
+  }
 
   /* ---- MAXFIY keshni tozalash (akkaunt almashganда aralashmasin) ----
      Buyurtmalar HAR AKKAUNTGA XOS (restoran o'ziniki, kuryer o'ziniki). Ular
@@ -690,6 +712,16 @@ const STORE = (function () {
       try { return await api("/events/" + id, { method: "PATCH", body: { discountPct }, auth: true }); }
       catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
     },
+    /* Restoran javobi: chegirma + tadbirga AYNAN qaysi taom tayyorlanadi.
+       Ikkisi BIRGA yuboriladi (restoran panelidagi tadbir oynasi) — server
+       maydonlarni alohida yangilaydi, ya'ni biri ikkinchisini o'chirmaydi. */
+    async saveEventAnswer(id, data) {
+      const body = {};
+      if (data && data.discountPct !== undefined) body.discountPct = data.discountPct;
+      if (data && data.restDish !== undefined) body.restDish = data.restDish;
+      try { return await api("/events/" + id, { method: "PATCH", body, auth: true }); }
+      catch (e) { return { error: (e.data && e.data.error) || e.message || "Xatolik" }; }
+    },
 
     /* ---- GURUH BUYURTMASI (bir nechta a'zo, har biri o'z ulushini to'laydi) ---- */
     async createGroup(rest) {
@@ -745,11 +777,18 @@ const STORE = (function () {
           clearPrivateCache();
           /* Bosh saytdан restoran/kuryer kirса — tokenни O'SHA panel kalitiga
              yozamiz (yz_token_restoran / _kuryer), yo'naltirilgan panel darrov
-             tayyor bo'lsin (qayta kirish shart emas). */
+             tayyor bo'lsin (qayta kirish shart emas).
+             KIRISH — SHU TAB uchun YAGONA haqiqat: writeRoleAuth sessionStorage
+             va localStorage'ga birga yozadi, shu sabab tabда qolgan ESKI
+             akkaunt tokeni yangi kirishni bosib keta olmaydi. */
           const accRole = (r.account && r.account.role) || PANEL_ROLE;
           if (accRole && accRole !== PANEL_ROLE) {
-            lsWrite(K.token + "_" + accRole, r.token);
-            lsWrite(K.sess + "_" + accRole, r.account);
+            writeRoleAuth(accRole, r.token, r.account);
+            /* Bu tabда o'sha panel keyin ochiladi — joriy panel (masalan
+               "user") sessiyasi esa BOSHQA akkauntniki bo'lib qolmasin.
+               FAQAT shu tab tozalanadi (sessionStorage): boshqa tablarда
+               ochiq turgan sessiya buzilmaydi. */
+            if (PANEL_ROLE) { ssDel(sessKey()); ssDel(tokenKey()); }
           } else {
             setToken(r.token); this.setSession(r.account);
           }
