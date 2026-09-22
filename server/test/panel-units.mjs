@@ -361,16 +361,14 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   eq(m.length, 1, 'store.payMethods: hammasi o\'chirilса -> naqd majburan (buyurtма bo\'lsin)');
 }
 
-/* ---------- store.js — HAR PANEL O'Z tokeni (bitta brauzerда admin+kuryer) ---------- */
+/* ---------- store.js — HAR PANEL O'Z tokeni (bitta brauzerda admin+kuryer)
+     + XODIM PANELI KIRISHI ESLAB QOLINMAYDI (login/parolsiz kirib bo'lmaydi) ---------- */
 {
   const src = JS('store.js');
-  /* Soxta localStorage + window */
-  const LS = new Map();
-  const localStorage = {
-    getItem: (k) => (LS.has(k) ? LS.get(k) : null),
-    setItem: (k, v) => LS.set(k, String(v)),
-    removeItem: (k) => LS.delete(k),
-  };
+  /* Soxta localStorage + sessionStorage + window */
+  const LS = new Map(), SS = new Map();
+  const mkStore = (M) => ({ getItem: (k) => (M.has(k) ? M.get(k) : null), setItem: (k, v) => M.set(k, String(v)), removeItem: (k) => M.delete(k) });
+  const localStorage = mkStore(LS);
   const fakeEl = () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, appendChild() {}, addEventListener() {}, remove() {}, querySelector: () => null, querySelectorAll: () => [], innerHTML: '', textContent: '' });
   const doc = {
     readyState: 'complete', addEventListener: () => {},
@@ -378,7 +376,7 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
     createElement: () => fakeEl(), head: fakeEl(), body: fakeEl(), documentElement: fakeEl(),
   };
   const win = {
-    localStorage,
+    localStorage, sessionStorage: mkStore(SS),
     location: { protocol: 'https:', origin: 'https://x', href: 'https://x/' },
     addEventListener: () => {}, setInterval: () => 0, setTimeout: (f) => { try { f(); } catch (e) {} },
     fetch: () => Promise.reject(new Error('offline')),
@@ -409,16 +407,25 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   S.setPanelRole('restoran');
   eq(S.session().name, 'RestUser', 'store: restoran panel -> restoran sessiyasi');
 
-  /* localStorage'да alohida kalitlar */
-  eq(LS.has('yz_session_admin') && LS.has('yz_session_kuryer') && LS.has('yz_session_restoran'), true,
-    'store: yz_session_<rol> alohida saqlanadi');
+  /* ===== XAVFSIZLIK: xodim sessiyasi DISKDA (localStorage) qolmaydi =====
+     Aks holda brauzer yopilib qayta ochilганда ham panel login/parolsiz
+     ochilaverardi (footerdagi «Kuryer bo'lib ishlash» havolasi orqali ham). */
+  eq(LS.has('yz_session_admin') || LS.has('yz_session_kuryer') || LS.has('yz_session_restoran'), false,
+    'store: XODIM sessiyasi localStorage\'ga YOZILMAYDI');
+  eq(SS.has('yz_session_admin') && SS.has('yz_session_kuryer') && SS.has('yz_session_restoran'), true,
+    'store: xodim sessiyasi faqat shu TAB uchun (sessionStorage)');
+
+  /* MIJOZ (user) esa aksincha — eslab qolinadi: bosh sahifada profili turadi */
+  S.setPanelRole('user');
+  S.setSession({ role: 'user', name: 'Mijoz', login: 'mijoz1' });
+  eq(LS.has('yz_session_user'), true, 'store: MIJOZ sessiyasi eslab qolinadi (localStorage)');
 
   /* Kuryer chiqdi — admin/restoran sessiyasiga TEGMAYDI */
   S.setPanelRole('kuryer');
   S.clearSession();
   eq(S.session(), null, 'store: kuryer chiqdi -> kuryer sessiyasi yo\'q');
   S.setPanelRole('admin');
-  eq(S.session().name, 'AdminUser', 'store: kuryer chiqqач ham admin sessiyasi joyida');
+  eq(S.session().name, 'AdminUser', 'store: kuryer chiqqach ham admin sessiyasi joyida');
 
   /* Bosh saytdан (PANEL_ROLE=user) restoran kirса — token yz_token_restoran ga yoziladi */
   LS.clear();
@@ -429,28 +436,36 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
   };
+  SS.clear();
   S.setPanelRole('user');
   await S.login('rest1', 'p');
-  eq(LS.get('yz_token_restoran'), '"RESTOK"', 'store: bosh saytdан restoran kirса -> yz_token_restoran ga yozildi');
-  eq(LS.has('yz_token_user'), false, 'store: user kalitига yozilmadi (restoran token)');
+  eq(SS.get('yz_token_restoran'), '"RESTOK"', 'store: bosh saytdan restoran kirsa -> shu TABda yz_token_restoran');
+  eq(LS.has('yz_token_restoran'), false, 'store: xodim tokeni diskka yozilmaydi (parolsiz qayta kirish yo\'q)');
+  eq(LS.has('yz_token_user'), false, 'store: user kalitiga yozilmadi (restoran token)');
   S.setPanelRole('restoran');
-  eq(S.session().name, 'R', 'store: restoran panelига o\'tganда sessiya tayyor (qayta kirish shart emas)');
+  eq(S.session().name, 'R', 'store: restoran panelига o\'tganda sessiya tayyor (qayta kirish shart emas)');
   ctx.fetch = () => Promise.reject(new Error('offline'));
 
-  /* Migratsiya: eski umumiy yz_token/yz_session -> shu panelniki */
-  LS.clear();
+  /* ===== Eski (avvalgi versiyadan qolgan) diskdagi XODIM tokeni =====
+     KO'CHIRILMAYDI, balki O'CHIRILADI: u bilan parolsiz kirib bo'lmasin. */
+  LS.clear(); SS.clear();
   LS.set('yz_token', '"legacyKuryerTok"');
+  LS.set('yz_token_kuryer', '"oldKuryerTok"');
+  LS.set('yz_session_kuryer', JSON.stringify({ role: 'kuryer', name: 'Old', login: 'k' }));
   LS.set('yz_session', JSON.stringify({ role: 'kuryer', name: 'Old', login: 'k' }));
   S.setPanelRole('kuryer');
-  eq(LS.get('yz_token_kuryer'), '"legacyKuryerTok"', 'store: eski token -> yz_token_kuryer ga ko\'chdi');
+  eq(LS.has('yz_token_kuryer'), false, 'store: diskdagi eski kuryer tokeni tozalandi');
+  eq(LS.has('yz_session_kuryer'), false, 'store: diskdagi eski kuryer sessiyasi tozalandi');
   eq(LS.has('yz_token'), false, 'store: eski umumiy token tozalandi');
-  /* Rol mos kelmasa — ko'chirilmaydi */
-  LS.clear();
-  LS.set('yz_token', '"legacyAdminTok"');
-  LS.set('yz_session', JSON.stringify({ role: 'admin', name: 'A', login: 'admin' }));
-  S.setPanelRole('kuryer');
-  eq(LS.has('yz_token_kuryer'), false, 'store: admin tokeni kuryer panelга ko\'chmaydi');
-  eq(LS.get('yz_token'), '"legacyAdminTok"', 'store: admin uchun eski token saqlanib qoldi');
+  eq(S.session(), null, 'store: kuryer paneli login ekranida qoladi (parolsiz kirish yo\'q)');
+
+  /* MIJOZ uchun esa eski umumiy token SAQLANADI (profili yo'qolmasin) */
+  LS.clear(); SS.clear();
+  LS.set('yz_token', '"legacyUserTok"');
+  LS.set('yz_session', JSON.stringify({ role: 'user', name: 'Mijoz', login: 'm1' }));
+  S.setPanelRole('user');
+  eq(LS.get('yz_token_user'), '"legacyUserTok"', 'store: mijozning eski tokeni -> yz_token_user ga ko\'chdi');
+  eq(S.session().name, 'Mijoz', 'store: mijoz qayta kirmaydi (profili saqlanadi)');
 }
 
 /* ---------- store.js — IKKI RESTORAN paneli bitta brauzerда (HAR TAB O'ZINIKI) ---------- */
@@ -481,10 +496,11 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   A.setSession({ role: 'restoran', name: 'Shashlik', login: 'shashlik' });
   eq(A.session().name, 'Shashlik', 'TAB A: Shashlik sessiyasi');
 
-  /* TAB B — xuddi shu brauzerда 2-restoran paneli ochildi, "ECO FISH" kirdi */
+  /* TAB B — xuddi shu brauzerda 2-restoran paneli ochildi.
+     XAVFSIZLIK: yangi tab AVTOMATIK kirmaydi — login/parol so'raladi. */
   const B = mkTab();
   B.setPanelRole('restoran');
-  eq(B.session().name, 'Shashlik', 'TAB B: ochilганда oxirgi kirishни (Shashlik) qabul qildi');
+  eq(B.session(), null, 'TAB B: yangi tab avtomatik kirmaydi (login/parol so\'raladi)');
   B.setSession({ role: 'restoran', name: 'ECO FISH', login: 'ecofish' });
   eq(B.session().name, 'ECO FISH', 'TAB B: ECO FISH kirdi');
 
@@ -561,6 +577,29 @@ const EXP_GMV = 162000, EXP_COMM = 32400, EXP_NET = 129600, EXP_FEE = 36000;
   const k2 = mkPage('kuryer');
   k2.setPanelRole('kuryer');
   eq(k2.session().login, 'kur2', 'bitta tab: kuryer paneli YANGI kuryerni ochadi (eskisi emas!)');
+}
+
+/* ---------- hours.js — YETKAZISH VAQTI: MINIMUM 29 DAQIQA ----------
+   Sayt bo'ylab YAGONA chegara: bosh sayt, kabinet, restoran/kuryer/admin
+   panellari va Telegram ilovasi shu funksiyadan o'tkazadi. Server ham AYNAN
+   shu chegarani qo'llaydi (server/src/orders-core.js: clampEta). */
+{
+  const src = JS('hours.js');
+  const ctx = { console, JSON, Date, Math, Object, Array, String, Number, isFinite };
+  vm.createContext(ctx);
+  vm.runInContext('var window = this; var global = this;\n' + src + '\n;this.YZ_TIME=window.YZ_TIME;', ctx);
+  const T = ctx.YZ_TIME;
+  eq(T.MIN_ETA, 29, 'hours: minimal yetkazish vaqti — 29 daqiqa');
+  eq(T.eta(0), 29, 'hours: 0 -> 29');
+  eq(T.eta(null), 29, 'hours: bo\'sh -> 29');
+  eq(T.eta(undefined), 29, 'hours: berilmagan -> 29');
+  eq(T.eta('abc'), 29, 'hours: xato qiymat -> 29');
+  eq(T.eta(10), 29, 'hours: 10 daqiqa -> 29 (minimumga ko\'tariladi)');
+  eq(T.eta(15), 29, 'hours: 15 daqiqa -> 29');
+  eq(T.eta(28), 29, 'hours: 28 daqiqa -> 29');
+  eq(T.eta(29), 29, 'hours: 29 — o\'zgarmaydi');
+  eq(T.eta(45), 45, 'hours: 45 — o\'zgarmaydi (restoran o\'zi belgilagan)');
+  eq(T.eta(1000), 120, 'hours: juda katta qiymat -> 120 (maksimum)');
 }
 
 console.log(`\npanel-units: ${PASS} o‘tdi, ${FAIL} yiqildi`);

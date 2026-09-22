@@ -244,8 +244,23 @@
     return pad(p.d) + '.' + pad(p.mo) + '.' + p.y + ' · ' + pad(p.h) + ':' + pad(p.mi);
   }
 
+  /* ===== YETKAZISH VAQTI — SAYT BO'YLAB YAGONA MINIMUM =====
+     Yetkazib berish vaqti HECH QAYERDA 29 daqiqadan kam ko'rsatilmaydi va
+     kam yozilmaydi: bosh sayt, kabinet, restoran/kuryer/admin panellari va
+     Telegram ilovasi — hammasi shu yerдan oladi. Server ham AYNAN shu
+     chegarani qo'llaydi (server/src/orders-core.js: MIN_ETA). */
+  var MIN_ETA = 29;
+  var MAX_ETA = 120;
+  /* Har qanday qiymatni ruxsat etilgan oraliqqa qisadi (bo'sh/xato -> 29) */
+  function eta(v) {
+    var n = Math.round(Number(v));
+    if (!isFinite(n) || n <= 0) n = MIN_ETA;
+    return Math.max(MIN_ETA, Math.min(MAX_ETA, n));
+  }
+
   global.YZ_TIME = {
     TZ: TZ,
+    MIN_ETA: MIN_ETA, MAX_ETA: MAX_ETA, eta: eta,
     parts: parts, hour: hour, nowClock: nowClock, pad: pad,
     norm: norm, isOpen: isOpen, text: text, nextChangeText: nextChangeText,
     restOpen: restOpen, restHours: restHours, restNext: restNext,

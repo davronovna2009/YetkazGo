@@ -13,6 +13,7 @@
    paneli esa AYNAN shu chegaralarni o'zi hisoblab ekranda ko'rsatadi. */
 import { db } from './db.js';
 import { notifyOpsOverdue } from './bot.js';
+import { clampEta } from './orders-core.js';
 
 /* Hali yetkazilmagan bosqichlar — shular kuzatiladi */
 const ACTIVE = "('new','accepted','ready','ontheway')";
@@ -52,7 +53,7 @@ export function checkDeadlines() {
   for (const o of rows) {
     const created = stamp(o.created_at);
     if (!created) continue;
-    const eta = Math.max(5, Math.min(120, Number(o.eta) || 15));
+    const eta = clampEta(o.eta);
     const deadline = created + eta * 60000;
     /* ceil: 40 soniya qolganда "0 daqiqa" (= vaqt tugadi) deb hisoblamaslik uchun.
        Muddat haqiqatan o'tgandagina manfiy/0 bo'ladi. */

@@ -1143,7 +1143,7 @@
   function orderDelivered(o){ return YZ_TIME.fmtDateTime((o&&o.done_at)||""); }
   /* Taxminiy yetib borish vaqti = buyurtma vaqti + eta (daqiqa) */
   function orderArrival(o){
-    return YZ_TIME.fmtPlus((o&&o.created_at)||"", (o&&Number(o.eta))||15) || "—";
+    return YZ_TIME.fmtPlus((o&&o.created_at)||"", YZ_TIME.eta(o&&o.eta)) || "—";
   }
   function openOrderModal(o){
     if(!o) return;
@@ -1338,9 +1338,12 @@
     if(typeof STORE!=="undefined" && STORE.verifySession){
       try{
         var v=await STORE.verifySession();
+        /* FAQAT server tasdiqlagan token bilan kiriladi. Ilgari «tarmoq yo'q»
+           holatida keshdagi sessiya bilan kirilardi — u OLIB TASHLANDI:
+           login/parolni bilmagan kishi panelga o'ta olmasin. */
         if(v.ok && v.account.role==="restoran"){ await enterFromSession(v.account); }
-        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="restoran"){
-          await enterFromSession(v.session);   // tarmoq yo'q — keshdagi holat bilan
+        else if(!v.ok && v.reason==="offline"){
+          var le2=$("#loginErr"); if(le2) le2.textContent="Serverga ulanib bo'lmadi. Internetni tekshiring va qaytadan kiring.";
         }
       }catch(e){}
     }

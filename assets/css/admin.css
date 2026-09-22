@@ -1647,3 +1647,258 @@ a{color:inherit;text-decoration:none}
   .ev-row{flex-direction:column;gap:2px}
   .ev-row>b{text-align:left}
 }
+
+/* ==========================================================================
+   KURYER KARTOCHKASI — buyurtma kuzatuv oynasida («Yo'lda» bosqichi)
+   --------------------------------------------------------------------------
+   Ilgari kuryer ismi va telefon raqami BITTA qatorga tiqilar edi: telefonda
+   uzun ism yoki raqam tugmadan chiqib ketar, matn kesilib ko'rinardi.
+   Endi ikki qavatli kartochka: tepada ism (sig'masa "..." bilan qisqaradi),
+   pastda butun enli qo'ng'iroq tugmasi.
+   ========================================================================== */
+.trk-courier {
+  border: 1px solid var(--line, #eee);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 0 0 12px;
+  background: #fff;
+  text-align: left
+}
+
+.trk-courier .tc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 10px
+}
+
+.trk-courier .tc-ava {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FCEEDF, #F7E2E5);
+  color: var(--red, #C8102E)
+}
+
+.trk-courier .tc-ava .yz-i {
+  width: 21px;
+  height: 21px
+}
+
+.trk-courier .tc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1
+}
+
+.trk-courier .tc-info small {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: var(--grey, #9a8d83)
+}
+
+.trk-courier .tc-info b {
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.trk-courier .tc-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--red, #C8102E);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15.5px;
+  text-decoration: none;
+  box-sizing: border-box
+}
+
+.trk-courier .tc-call .yz-i {
+  width: 18px;
+  height: 18px;
+  flex: none
+}
+
+.trk-courier .tc-call:active {
+  transform: scale(.985)
+}
+
+/* Raqam — bitta qatorda, sig'masa harflar orasi siqiladi (kesilmaydi) */
+.trk-courier .tc-num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .2px
+}
+
+@media(max-width:400px) {
+  .trk-courier {
+    padding: 10px
+  }
+
+  .trk-courier .tc-ava {
+    width: 36px;
+    height: 36px
+  }
+
+  .trk-courier .tc-info b {
+    font-size: 14.5px
+  }
+
+  .trk-courier .tc-call {
+    font-size: 14.5px;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 8px
+  }
+}
+
+@media(max-width:340px) {
+  .trk-courier .tc-call {
+    font-size: 13.5px
+  }
+}
+
+/* ==========================================================================
+   BUYURTMA KUZATUV OYNASI (kabinet) — BOSH SAYT bilan BIR XIL
+   --------------------------------------------------------------------------
+   Mijoz paneli va bosh sayt bir xil ko'rinishda bo'lsin: katta taom rasmi,
+   «Buyurtma qabul qilindi!», tarkib ro'yxati, orqaga sanaydigan taymer,
+   5 bosqichli yo'lak va kuryer kartochkasi (styles.css dagi .track* bilan
+   AYNAN bir xil qiymatlar).
+   ========================================================================== */
+.track {
+  text-align: center
+}
+
+.timer {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--red);
+  margin: 5px 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1
+}
+
+.timer.done {
+  color: var(--green)
+}
+
+.track-status {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 14px
+}
+
+.track-bar {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 18px 3px
+}
+
+.track-bar::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 4%;
+  right: 4%;
+  height: 3px;
+  background: var(--line);
+  z-index: 0
+}
+
+.track-step {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  flex: 1;
+  font-size: 10px;
+  color: var(--grey)
+}
+
+.track-step .dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--line);
+  margin: 0 auto 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: .3s
+}
+
+.track-step.active .dot {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff
+}
+
+.track-step.done-step .dot {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff
+}
+
+.track-step.active {
+  color: var(--red);
+  font-weight: 700
+}
+
+/* Kuzatuv oynasidagi tugmalar — kabinet uslubida */
+.track .trk-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px 16px;
+  border-radius: 13px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-sizing: border-box
+}
+
+.track .trk-btn.ok {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff
+}
+
+.track .trk-btn:active {
+  transform: scale(.985)
+}
+
+@media(max-width:380px) {
+  .timer {
+    font-size: 40px
+  }
+
+  .track-step {
+    font-size: 9px
+  }
+}

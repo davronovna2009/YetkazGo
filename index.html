@@ -60,6 +60,14 @@
           <span class="cart-count" id="cartCount">0</span>
         </button>
         <button class="btn btn-primary" id="loginBtn">Kirish</button>
+        <!-- RO'YXATDAN O'TGAN MIJOZ: «Kirish» o'rnida profili turadi (rasm + ism).
+             Bosilsa parol so'ralmaydi — to'g'ridan-to'g'ri kabinetiga kiradi. -->
+        <a class="profile-chip" id="profileBtn" href="kabinet.html" hidden>
+          <span class="pc-ava" id="pcAva"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg></span>
+          <span class="pc-name" id="pcName">Profil</span>
+        </a>
+        <!-- Profildan chiqish (desktop). Mobilda bu tugma burger menyusida. -->
+        <button class="profile-out" id="profileOut" title="Profildan chiqish" aria-label="Profildan chiqish" hidden><svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg></button>
         <button class="nav-burger" id="navBurger" aria-label="Menyu" aria-expanded="false"><svg class="yz-i"><use href="assets/icons.svg#menu"/></svg></button>
       </div>
     </div>
@@ -101,7 +109,7 @@
     <div class="container stats">
       <div class="stat"><b>9+</b><span data-i18n="stat_rest">Restoran</span></div>
       <div class="stat"><b>20+</b><span data-i18n="stat_dish">Taom turi</span></div>
-      <div class="stat"><b>~15</b><span data-i18n="stat_eta">daqiqada yetkazish</span></div>
+      <div class="stat"><b>~29</b><span data-i18n="stat_eta">daqiqada yetkazish</span></div>
       <div class="stat"><b>4.8★</b><span data-i18n="stat_rating">o'rtacha reyting</span></div>
     </div>
   </section>
@@ -250,10 +258,10 @@
       </svg>
     </div>
 
-    <!-- Chap: Kirish -->
+    <!-- Chap: Kirish / PROFIL (ro'yxatdan o'tgan bo'lsa rasm + ism) -->
     <button class="mbb-item mbb-login" id="mbbLogin" aria-label="Kirish">
-      <span class="mbb-icon"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg></span>
-      <span class="mbb-label">Kirish</span>
+      <span class="mbb-icon" id="mbbAva"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg></span>
+      <span class="mbb-label" id="mbbLoginLabel">Kirish</span>
     </button>
 
     <!-- Savat: MARKAZDA, KATTA va ko'zga tashlanadi -->
@@ -274,12 +282,22 @@
 
   </nav>
 
-  <!-- MOBIL NAV (burger bosganda) -->
-  <nav class="main-nav" id="mobileMainNav">
+  <!-- MOBIL NAV (burger bosganda) — orqa fon pardasi bilan -->
+  <div class="mnav-backdrop" id="mnavBackdrop" aria-hidden="true"></div>
+  <nav class="main-nav" id="mobileMainNav" aria-label="Menyu">
+    <!-- PROFIL kartasi — faqat ro'yxatdan o'tgan mijoz uchun -->
+    <a class="mnav-profile" id="mnavProfile" href="kabinet.html" hidden>
+      <span class="mnav-ava" id="mnavAva"><svg class="yz-i"><use href="assets/icons.svg#user"/></svg></span>
+      <span class="mnav-pi"><b id="mnavName">Profil</b><small id="mnavPhone"></small></span>
+      <svg class="yz-i mnav-go"><use href="assets/icons.svg#chevron-right"/></svg>
+    </a>
     <a href="#restaurants"><svg class="yz-i"><use href="assets/icons.svg#store"/></svg> <span data-i18n="nav_restaurants">Restoranlar</span></a>
     <a href="#dishes"><svg class="yz-i"><use href="assets/icons.svg#utensils"/></svg> <span data-i18n="nav_dishes">Taomlar</span></a>
     <a href="#reviews"><svg class="yz-i"><use href="assets/icons.svg#star"/></svg> <span data-i18n="nav_reviews">Izohlar</span></a>
     <a href="#about"><svg class="yz-i"><use href="assets/icons.svg#help-circle"/></svg> <span data-i18n="nav_about">Sayt haqida</span></a>
+    <!-- Kirish / PROFILDAN CHIQISH -->
+    <button type="button" class="mnav-auth" id="mnavLogin"><svg class="yz-i"><use href="assets/icons.svg#lock"/></svg> <span>Kirish / Ro'yxatdan o'tish</span></button>
+    <button type="button" class="mnav-auth mnav-out" id="mnavLogout" hidden><svg class="yz-i"><use href="assets/icons.svg#log-out"/></svg> <span>Profildan chiqish</span></button>
   </nav>
 
   <script src="assets/js/safe.js"></script>
@@ -298,6 +316,7 @@
   /* ===== MOBIL BOTTOM BAR ===== */
   document.addEventListener('DOMContentLoaded', function(){
     var mobileNav  = document.getElementById('mobileMainNav');
+    var navBackdrop= document.getElementById('mnavBackdrop');
     /* Burger endi PASTKI barda emas, yuqoridagi headerda (#navBurger) */
     var mbbBurger  = document.getElementById('navBurger');
     var mbbBurgerIcon = null;
@@ -312,22 +331,31 @@
     var navOpen = false;
     function openMobNav(){
       if(mobileNav) mobileNav.classList.add('open');
-      if(mbbBurger){ mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#x"/></svg>'; mbbBurger.setAttribute('aria-expanded','true'); }
+      if(navBackdrop) navBackdrop.classList.add('open');
+      if(mbbBurger){ mbbBurger.classList.add('on'); mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#x"/></svg>'; mbbBurger.setAttribute('aria-expanded','true'); }
+      /* Menyu ochiq ekan sahifa orqada suriladigan bo'lib qolmasin */
+      document.body.classList.add('nav-locked');
       navOpen = true;
     }
     function closeMobNav(){
       if(mobileNav) mobileNav.classList.remove('open');
-      if(mbbBurger){ mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#menu"/></svg>'; mbbBurger.setAttribute('aria-expanded','false'); }
+      if(navBackdrop) navBackdrop.classList.remove('open');
+      if(mbbBurger){ mbbBurger.classList.remove('on'); mbbBurger.innerHTML = '<svg class="yz-i"><use href="assets/icons.svg#menu"/></svg>'; mbbBurger.setAttribute('aria-expanded','false'); }
+      document.body.classList.remove('nav-locked');
       navOpen = false;
     }
+    /* app.js ham yopa olishi uchun (profil/chiqish bosilganda) */
+    window.YZ_NAV = { close: closeMobNav, open: openMobNav };
+    if(navBackdrop) navBackdrop.addEventListener('click', closeMobNav);
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && navOpen) closeMobNav(); });
 
     mbbBurger && mbbBurger.addEventListener('click', function(e){
       e.stopPropagation();
       navOpen ? closeMobNav() : openMobNav();
     });
 
-    /* Nav havola bosilganda */
-    mobileNav && mobileNav.querySelectorAll('a').forEach(function(a){
+    /* Nav havola/tugma bosilganda */
+    mobileNav && mobileNav.querySelectorAll('a,button').forEach(function(a){
       a.addEventListener('click', closeMobNav);
     });
 
@@ -347,9 +375,12 @@
       if(btn) btn.click();
     });
 
-    /* ---- Kirish ---- */
+    /* ---- Kirish / Profil ----
+         Ro'yxatdan o'tgan mijoz uchun bu tugma PROFIL bo'ladi va uni app.js
+         boshqaradi (kabinetga o'tadi). Kirmagan bo'lsa — kirish oynasi. */
     mbbLogin && mbbLogin.addEventListener('click', function(){
       closeMobNav();
+      if(mbbLogin.dataset.profile === '1'){ try{ location.href = 'kabinet.html'; }catch(e){} return; }
       var btn = document.getElementById('loginBtn');
       if(btn) btn.click();
     });

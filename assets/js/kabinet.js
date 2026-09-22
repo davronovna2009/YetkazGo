@@ -21,6 +21,12 @@
     return I18N.current()==="cyr" ? YZ_TRANSLIT.toCyr(o.nameCyr||o.name) : YZ_TRANSLIT.toLat(o.name);
   }catch(e){ return o.name; } };
   const trTxt = s => { try{ return I18N.current()==="cyr" ? YZ_TRANSLIT.toCyr(s) : YZ_TRANSLIT.toLat(s); }catch(e){ return s; } };
+  /* Yetkazish vaqti (daqiqa) — sayt bo'ylab MINIMUM 29 (YZ_TIME.eta — yagona
+     manba; server ham AYNAN shu chegarani qo'llaydi: orders-core.js MIN_ETA). */
+  function etaMin(v){ try{ return YZ_TIME.eta(v); }catch(e){ const n=Math.round(Number(v)); return (isFinite(n)&&n>29)?Math.min(120,n):29; } }
+  function etaOf(restName){
+    try{ const r=(STORE.restaurants()||[]).find(x=>x&&x.name===restName); return etaMin(r&&r.eta); }catch(e){ return etaMin(0); }
+  }
   /* Geolokatsiya — manzilni qurilma joylashuvidan to'ldiradi */
   function detectLocation(inputEl, btn){
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni qo'llamaydi","error"); return; }
@@ -79,7 +85,7 @@
        kechagi) sana bilan ko'rinardi. */
     const date = (o.created_at && YZ_TIME.fmtDate(o.created_at)) || YZ_TIME.fmtDate(new Date().toISOString()) || "";
     return { id:o.id, dish:o.item, emoji:o.emoji, rest:o.rest, date:date, amount:o.amount,
-      addr:o.addr, pay:o.pay, deliveredIn:o.eta, promised:(o.eta||15)+3, reviewed:rid.has(String(o.id)), status:o.status, reason:o.reason||"",
+      addr:o.addr, pay:o.pay, deliveredIn:o.eta, promised:etaMin(o.eta)+3, reviewed:rid.has(String(o.id)), status:o.status, reason:o.reason||"",
       /* To'liq tafsilot modali uchun — items (rasm/chegirma), kuryer, guruh va h.k. */
       items:o.items||[], qtyTotal:o.qtyTotal||0, courier:o.courier||"", courierPhone:o.courierPhone||"",
       deliveryMin:o.deliveryMin||0, source:o.source||"", created_at:o.created_at||"",
@@ -1569,7 +1575,9 @@
       localStorage.setItem("yz_user_phone", USER.phone||"");
       localStorage.setItem("yz_user_name", USER.name||"");
     }catch(e){}
-    const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=(Math.random()<0.5?10:20);
+    /* Yetkazish vaqti — restoran belgilagani, lekin MINIMUM 29 daqiqa
+       (bosh sayt va server bilan bir xil: YZ_TIME.eta / orders-core.js). */
+    const total=cartTotal(), first=cart[0], more=cart.length>1?` +${cart.length-1} ta`:"", eta=etaOf(first&&first.rest);
     const orderLocalId=Date.now();
     const itemLabel=(first?nm(first):"")+more;
     const savedCart=cart.map(i=>({...i}));   // server rad etsa — savatni qaytaramiz
@@ -1622,27 +1630,84 @@
     if(st===403||st===429){ showKabWarn({ warn:err.message, blocked:st===403 }); return; }
     toast((err && err.message) || "Buyurtma qabul qilinmadi","error");
   }
-  /* REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s yangilaydi).
-     Bekor qilinса — bekor ko'rsatadi; "arrived" bo'lса mijoz "Qabul qildim" bosadi -> backendga done. */
+  /* ===== Buyurtma tarkibi (rasm + nom + dona) — bosh saytdagi bilan bir xil ===== */
+  function koItemsHtml(o){
+    var list=[]; try{ list=YZ_ITEMS.lines(o)||[]; }catch(e){ list=[]; }
+    if(!list.length) return "";
+    var rows=list.map(function(it,idx){
+      var bt = idx>0 ? "border-top:1px solid var(--line);" : "";
+      var th = ""; try{ th=YZ_ITEMS.thumb(it,38); }catch(e){ th=ic('food-generic','yz-i-lg'); }
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;'+bt+'">'
+           + '<div style="flex:none;display:flex">'+th+'</div>'
+           + '<div style="flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(trTxt(it.name||""))+'</div>'
+           + '<b style="flex:none;font-size:13px;color:var(--grey)">×'+(it.qty||1)+'</b></div>';
+    }).join("");
+    return '<div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin:10px 0;max-height:230px;overflow-y:auto;text-align:left">'+rows+'</div>';
+  }
+  /* Kuryer kartochkasi — "Yo'lda" bosqichida (bosh saytdagi bilan AYNAN bir xil,
+     CSS: admin.css .trk-courier). Telefonda ism/raqam uzun bo'lsa ham buzilmaydi. */
+  function koCourierHtml(o){
+    var phone=String((o&&o.courierPhone)||"").trim();
+    if(!phone) return "";
+    var dial=phone.replace(/[^\d+]/g,"");
+    var name=(o&&o.courier)?String(o.courier):"";
+    return '<div class="trk-courier">'
+      + '<div class="tc-head"><span class="tc-ava">'+ic('scooter')+'</span>'
+      + '<span class="tc-info"><small>Kuryeringiz</small><b>'+esc(trTxt(name)||"Kuryer")+'</b></span></div>'
+      + '<a class="tc-call" href="tel:'+esc(dial)+'">'+ic('phone')+'<span class="tc-num">'+esc(phone)+'</span></a></div>';
+  }
+
+  /* ===== "Buyurtma qabul qilindi" oynasi — BOSH SAYT bilan BIR XIL =====
+     REAL kuzatuv: backenddagi haqiqiy status bo'yicha (STORE har 5s
+     yangilaydi). Bekor qilinsa — bekor ko'rsatadi; "arrived" bo'lsa mijoz
+     "Qabul qildim" bosadi -> backendga done.
+     Ilgari kabinetda faqat ikon, status va bosqichlar bor edi. Endi bosh
+     sahifadagi kabi: taom rasmi, tarkib ro'yxati, orqaga sanaydigan TAYMER,
+     5 bosqichli yo'lak, vaqt tugaganda ogohlantirish va kuryer kartochkasi.
+     Ishlashi ham bir xil: status serverdan (STORE har 5s yangilaydi),
+     "Yetkazildi" bo'lganda "Qabul qildim" tugmasi chiqadi. */
   function startTrack(addr,created,emoji,label){
     emoji=emoji||""; label=label||"Buyurtma";
     const kt4=typeof KT==="function"?KT:function(k){return k;};
-    const steps=[kt4('st_accepted')||"Qabul qilindi",kt4('st_cooking')||"Tayyorlanmoqda",kt4('st_ready')||"Tayyor",kt4('st_ontheway')||"Yo'lda",kt4('st_arrived')||"Yetib keldi"], stepIcons=["inbox","flame","check-circle","scooter","party"];
+    /* Bosqich nomlari — BOSH SAYT bilan bir xil lug'atdan (I18N). Ilgari KT()
+       ishlatilar edi, lekin kabinet lug'atida bu kalitlar yo'q — ekranda
+       "st_accepted" degan xom kalit chiqib qolardi. */
+    const stName=(k,def)=>{ try{ const v=I18N.t(k); if(v&&v!==k) return v; }catch(e){} const v2=kt4(k); return (v2&&v2!==k)?v2:def; };
+    const steps=[stName('st_accepted',"Qabul qilindi"),stName('st_cooking',"Tayyorlanmoqda"),stName('st_ready',"Tayyor"),stName('st_ontheway',"Yo'lda"),stName('st_arrived',"Yetib keldi")], stepIcons=["inbox","flame","check-circle","scooter","party"];
+    /* Yetkazish muddati — buyurtma berilgan payt + eta (minimum 29 daqiqa) */
+    const etaMinutes = etaMin(created && created.eta);
+    const arriveAt = Date.now() + etaMinutes*60000;
+    const firstLine = (function(){ try{ return (YZ_ITEMS.lines(created)||[])[0]||null; }catch(e){ return null; } })();
+    const bigThumb = (function(){ try{ return YZ_ITEMS.thumb(firstLine,72); }catch(e){ return ic('package','yz-i-xxl'); } })();
+    const pad2 = n => String(n).padStart(2,"0");
+    const left0 = Math.max(0, arriveAt-Date.now());
+
     $("#koContent").innerHTML=`
-      <div class="ko-track" style="text-align:center">
-        <div style="font-size:48px;margin-bottom:6px;color:var(--brand,#ff5722)">${ic('package','yz-i-xxl')}</div>
-        <h2 style="font-size:19px;margin-bottom:4px">${kt4('qabul')||'Buyurtma qabul qilindi!'}</h2>
-        <p class="ko-sub">${ic('map-pin')} ${addr} · ${esc(payLabelOf(koPay))}</p>
-        <p style="font-size:13px;color:var(--grey);background:#f0f9f4;border-radius:10px;padding:10px;margin:10px 0">
-          ${ic('scooter')} Buyurtmangiz real vaqtда kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
-        </p>
-        <div class="ko-status" id="koStatus" style="font-weight:800;margin:6px 0">${steps[0]}</div>
-        <div class="ko-steps">${steps.map((s,i)=>`<div class="ko-step"><div class="dot">${ic(stepIcons[i])}</div><span>${s}</span></div>`).join("")}</div>
+      <div class="track ko-track">
+        <div style="text-align:center;margin-bottom:4px">
+          <div id="koThumb" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#FCEEDF,#F7E2E5)">${bigThumb}</div>
+        </div>
+        <h2 style="font-size:19px;margin:8px 0 4px;text-align:center">${kt4('qabul')||'Buyurtma qabul qilindi!'}</h2>
+        <p class="ko-sub" style="text-align:center;margin-bottom:2px">${esc(trTxt(label))}</p>
+        <p class="ko-sub" style="text-align:center">${ic('map-pin')} ${esc(trTxt(addr))} · ${esc(payLabelOf(koPay))}</p>
+        <div id="koItems">${koItemsHtml(created)}</div>
+        <div class="timer" id="koTimer">${pad2(Math.floor(left0/60000))}:${pad2(Math.floor((left0%60000)/1000))}</div>
+        <div class="track-status" id="koStatus">${steps[0]}</div>
+        <div class="track-bar" id="koBar">
+          ${steps.map((st,i)=>`<div class="track-step${i===0?" active":""}"><div class="dot">${ic(stepIcons[i])}</div><span>${st}</span></div>`).join("")}
+        </div>
+        <div style="background:#f0f9f4;border-radius:12px;padding:12px;margin:14px 0;font-size:13px;color:#1c6b3f;text-align:center">
+          ${ic('scooter')} Buyurtmangiz real vaqtda kuzatilmoqda. Ushbu oynani yopsangiz ham davom etadi.
+        </div>
+        <div id="koExpired" style="display:none;background:#fdecea;border-radius:12px;padding:12px;margin:0 0 14px;font-size:13px;color:#a61b1b;text-align:center;font-weight:600">
+          ${ic('clock')} Belgilangan vaqt tugadi. Iltimos, kuryer bilan bog'laning.
+        </div>
+        <div id="koCourierBox"></div>
         <div id="koTrackAction"></div>
-        <button class="set-save" id="koDone" style="width:100%;margin-top:12px;background:#eee;color:#333">${kt4('ok_btn')||'Tushunarli, yopish'}</button>
+        <button type="button" class="trk-btn" id="koDone">${kt4('ok_btn')||'Tushunarli, yopish'}</button>
       </div>`;
     $("#koDone").addEventListener("click", closeCheckoutKeepOrder);
-    const els=$$("#koContent .ko-step");
+    const els=$$("#koContent .track-step");
     const stepColors=["#f97316","#eab308","#22c55e","#3b82f6","#16a34a"];
     /* 'review' — katta buyurtma administrator tekshiruvida (server/src/order-rules.js).
        Restoranga hali bormagan, shuning uchun birinchi bosqichda turadi. */
@@ -1655,8 +1720,20 @@
     let finished=false, reviewShown=false;
     function tick(){
       const o=orderNow(); const s=(o&&o.status)||"new";
-      if(s==="cancelled"){ clearInterval(poll); paint(0); showKabCancelled(o&&o.reason,emoji); return; }
+      if(s==="cancelled"){ clearInterval(poll); clearInterval(clockT); paint(0); showKabCancelled(o&&o.reason,emoji); return; }
       paint(STMAP[s]!=null?STMAP[s]:0);
+      /* Server javobi kelgach tarkib to'liq (nom + rasm) bo'ladi — yangilaymiz.
+         Birinchi chizishda faqat {id, qty} bo'lishi mumkin edi. */
+      const itemsBox=$("#koItems");
+      if(itemsBox){ const ih=koItemsHtml(o); if(itemsBox.dataset.k!==ih){ itemsBox.dataset.k=ih; itemsBox.innerHTML=ih; } }
+      const thumbBox=$("#koThumb");
+      if(thumbBox){
+        let th=""; try{ th=YZ_ITEMS.thumb((YZ_ITEMS.lines(o)||[])[0],72); }catch(e){}
+        if(th && thumbBox.dataset.k!==th){ thumbBox.dataset.k=th; thumbBox.innerHTML=th; }
+      }
+      /* Kuryer yo'lga chiqqach — ismi va telefoni (bosh saytdagi kabi kartochka) */
+      const cb=$("#koCourierBox");
+      if(cb){ const h=koCourierHtml(o); if(cb.dataset.k!==h){ cb.dataset.k=h; cb.innerHTML=h; } }
       /* Tekshiruvda turgan buyurtma — mijoz nima kutayotganini bilsin.
          Oyna FAQAT BIR MARTA (birinchi aniqlanganda) chiqadi. */
       if(s==="review"){
@@ -1666,7 +1743,7 @@
       const act=$("#koTrackAction");
       if(s==="arrived" && act && !act.dataset.on){
         act.dataset.on="1";
-        act.innerHTML='<button class="set-save" id="koGotIt" style="width:100%;background:#16a34a">'+ic('check-circle')+' '+(kt4('yetib_keldi')||'Qabul qildim')+'</button>';
+        act.innerHTML='<button type="button" class="trk-btn ok" id="koGotIt">'+ic('check-circle')+' '+(kt4('yetib_keldi')||'Qabul qildim')+'</button>';
         const gi=$("#koGotIt");
         if(gi) gi.addEventListener("click",async ()=>{
           if(!(o&&o.id&&STORE.confirmReceived)) return;
@@ -1679,10 +1756,25 @@
           }
         });
       }
-      if(s==="done" && !finished){ finished=true; clearInterval(poll); setTimeout(()=>showKabArrived(emoji,label),300); }
+      if(s==="done" && !finished){ finished=true; clearInterval(poll); clearInterval(clockT); setTimeout(()=>showKabArrived(emoji,label),300); }
     }
-    const poll=setInterval(tick, 2500); tick();
-    koTimers=[poll];
+    /* Taymer — har soniyada orqaga sanaydi (bosh saytdagi kabi). Vaqt tugasa
+       "kuryer bilan bog'laning" ogohlantirishi chiqadi. */
+    function clock(){
+      const t=$("#koTimer"); if(!t) return;
+      const o=orderNow(), s=(o&&o.status)||"new";
+      const done=(s==="arrived"||s==="done");
+      const left=Math.max(0, arriveAt-Date.now());
+      t.classList.toggle("done", done);
+      t.textContent=pad2(Math.floor(left/60000))+":"+pad2(Math.floor((left%60000)/1000));
+      const expired = left<=0 && !done && s!=="review" && s!=="cancelled";
+      t.style.color = expired ? "#c0392b" : "";
+      const exp=$("#koExpired"); if(exp) exp.style.display = expired ? "block" : "none";
+    }
+    const poll=setInterval(tick, 2500);
+    const clockT=setInterval(clock, 1000);
+    tick(); clock();
+    koTimers=[poll, clockT];
   }
   /* Bekor qilingan buyurtma oynasi */
   function showKabCancelled(reason,emoji){
@@ -1835,7 +1927,7 @@
           <h3>${esc(nm(r))}</h3>
           <div class="rest-meta">
             <span class="star">${ic('star','yz-i-fill yz-i-amber')} ${r.rating}</span>
-            <span>${ic('clock')} ${r.eta} ${typeof KT==="function"?KT('daq'):'daq'}</span>
+            <span>${ic('clock')} ${etaMin(r.eta)} ${typeof KT==="function"?KT('daq'):'daq'}</span>
             <span>${ic('map-pin')} ${esc(trTxt(r.dist||""))}</span>
           </div>
           <div class="rest-info2">
@@ -1893,7 +1985,7 @@
     if(be.addr) rows.push(row(ic('map-pin'),"Manzil",esc(trTxt(be.addr))));
     if(be.area) rows.push(row(ic('scooter'),"Yetkazish hududi",esc(trTxt(be.area))));
     if(be.email) rows.push(row(ic('mail'),"Aloqa",esc(be.email)));
-    rows.push(row(ic('star'),"Reyting",(be.rating?be.rating:"—")+(be.ratingCount?" · "+be.ratingCount+" ta baho":"")+" · "+(be.eta||20)+" daq"));
+    rows.push(row(ic('star'),"Reyting",(be.rating?be.rating:"—")+(be.ratingCount?" · "+be.ratingCount+" ta baho":"")+" · "+etaMin(be.eta)+" daq"));
     return `<div class="panel" style="margin-bottom:12px;overflow:hidden">
       ${photo?`<div style="height:130px;margin:-1px -1px 0;background:#f3eef0"><img src="${esc(photo)}" alt="" style="width:100%;height:100%;object-fit:cover" data-onerr="remove"></div>`:""}
       <div class="panel-body">

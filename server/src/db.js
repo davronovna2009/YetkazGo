@@ -42,7 +42,7 @@ export function initSchema() {
       emoji      TEXT DEFAULT '',
       kw         TEXT DEFAULT '',
       rating     REAL DEFAULT 0,            -- ESKI ustun — ENDI ISHLATILMAYDI (ratings.js jonli hisoblaydi)
-      eta        INTEGER DEFAULT 20,
+      eta        INTEGER DEFAULT 29,      -- minimal yetkazish vaqti (orders-core.js: MIN_ETA)
       dist       TEXT DEFAULT '',
       photo      TEXT DEFAULT '',
       login      TEXT DEFAULT '',
@@ -79,7 +79,7 @@ export function initSchema() {
       pay        TEXT DEFAULT 'card',
       courier    TEXT DEFAULT '',
       status     TEXT DEFAULT 'new',         -- new | ontheway | done
-      eta        INTEGER DEFAULT 15,
+      eta        INTEGER DEFAULT 29,      -- minimal yetkazish vaqti (orders-core.js: MIN_ETA)
       time       TEXT DEFAULT '',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -454,6 +454,13 @@ export function initSchema() {
     // routes/reviews.js).
     "ALTER TABLE accounts ADD COLUMN avatar TEXT DEFAULT ''",
   ]) { try { db.exec(col); } catch (e) { /* bor */ } }
+
+  /* ===== YETKAZISH VAQTI: minimum 29 daqiqa (bir martalik tuzatish) =====
+     Eski bazada restoranlarга 15/20 daqiqa yozilgan bo'lishi mumkin. Sayt
+     endi HECH QAYERDA 29 daqiqadan kam vaqt ko'rsatmaydi, shuning uchun
+     jadvaldagi past qiymatlarni ham bir marta ko'taramiz (aks holda admin
+     har bir restoranni qo'lда tahrirlashi kerak bo'lardi). */
+  try { db.exec('UPDATE restaurants SET eta = 29 WHERE eta IS NULL OR eta < 29'); } catch (e) { /* jim */ }
 
   reconcileLogins();
 }

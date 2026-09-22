@@ -5444,3 +5444,493 @@ body {
     font-size: 13px
   }
 }
+
+/* ==========================================================================
+   MIJOZ PROFILI BOSH SAHIFADA  +  BURGER MENYU (responsiv)
+   --------------------------------------------------------------------------
+   Ro'yxatdan o'tgan mijoz uchun «Kirish» tugmasi o'rnida uning PROFILI
+   turadi: rasm (qo'ygan bo'lsa) yoki ikon + ism. Bosilsa parol so'ralmaydi —
+   to'g'ridan-to'g'ri kabinetiga kiradi. Burger menyu esa pastki varaq
+   ko'rinishida: parda (backdrop), profil kartasi, bo'limlar va «Profildan
+   chiqish» tugmasi bilan.
+   ========================================================================== */
+
+/* ---- Desktop header: profil chipi ---- */
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  max-width: 190px;
+  padding: 0 14px 0 5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: .18s;
+  touch-action: manipulation
+}
+
+.profile-chip:hover {
+  border-color: var(--red);
+  color: var(--red);
+  box-shadow: 0 3px 12px rgba(200, 16, 46, .12)
+}
+
+.profile-chip:active {
+  transform: scale(.97)
+}
+
+.profile-chip[hidden] {
+  display: none
+}
+
+.pc-ava {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FCEEDF, #F7E2E5);
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none
+}
+
+.pc-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block
+}
+
+.pc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+/* Desktopdagi «Profildan chiqish» tugmasi (mobilda burger menyusida) */
+.profile-out {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  color: var(--grey);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: .18s;
+  touch-action: manipulation
+}
+
+.profile-out .yz-i {
+  width: 18px;
+  height: 18px
+}
+
+.profile-out:hover {
+  border-color: var(--red);
+  color: var(--red)
+}
+
+.profile-out:active {
+  transform: scale(.94)
+}
+
+.profile-out[hidden] {
+  display: none
+}
+
+/* ---- Burger tugmasi — ko'zga tashlanadigan, bosish oson ---- */
+.nav-burger {
+  border: 1.5px solid var(--line);
+  background: #fff;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .05)
+}
+
+.nav-burger .yz-i {
+  width: 22px;
+  height: 22px
+}
+
+.nav-burger:active {
+  transform: scale(.94)
+}
+
+.nav-burger.on {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff
+}
+
+/* ---- Menyu pardasi (faqat mobilda ko'rinadi) ---- */
+.mnav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  background: rgba(24, 12, 14, .42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity .2s
+}
+
+.mnav-backdrop.open {
+  opacity: 1
+}
+
+/* Menyu ochiq — orqadagi sahifa surilmaydi */
+body.nav-locked {
+  overflow: hidden
+}
+
+/* ---- Menyu ichidagi profil kartasi ---- */
+.mnav-profile {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px !important;
+  margin-bottom: 6px;
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #FFF3E9, #FDE9EC);
+  border: 1px solid rgba(200, 16, 46, .14) !important;
+  text-decoration: none;
+  color: var(--ink);
+  min-width: 0
+}
+
+.mnav-profile[hidden] {
+  display: none !important
+}
+
+.mnav-ava {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .08)
+}
+
+.mnav-ava img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block
+}
+
+.mnav-ava .yz-i {
+  width: 24px;
+  height: 24px
+}
+
+.mnav-pi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1
+}
+
+.mnav-pi b {
+  font-size: 16px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.mnav-pi small {
+  font-size: 12.5px;
+  color: var(--grey);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.mnav-go {
+  width: 18px;
+  height: 18px;
+  color: var(--red);
+  flex: none
+}
+
+/* ---- Menyu pastidagi Kirish / Chiqish tugmalari ---- */
+.mnav-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--red);
+  background: var(--red);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation
+}
+
+.mnav-auth[hidden] {
+  display: none
+}
+
+.mnav-auth:active {
+  transform: scale(.98)
+}
+
+.mnav-auth.mnav-out {
+  background: #fff;
+  color: var(--red);
+  border-color: rgba(200, 16, 46, .35)
+}
+
+/* Desktopda burger menyu va uning pardasi umuman yo'q */
+@media(min-width:769px) {
+
+  .mnav-backdrop,
+  .mnav-profile,
+  .mnav-auth {
+    display: none !important
+  }
+}
+
+@media(max-width:768px) {
+
+  /* Desktop profil chipi va chiqish tugmasi mobilda headerda ko'rinmaydi —
+     profil pastki barda, chiqish esa burger menyusida */
+  .header-actions>#profileBtn,
+  .header-actions>#profileOut {
+    display: none !important
+  }
+
+  .mnav-backdrop {
+    display: block
+  }
+
+  /* ===== Menyu varag'i (pastki sheet) =====
+     MUHIM TUZATISH: `.main-nav` desktop qolipida `margin-left:14px` va
+     `align-items:center` bor edi. Mobil varaqда ular bekor qilinmagani uchun
+     menyu o'ngga 14px surilib, eni ekrandan tor bo'lib qolar, bandlari esa
+     o'rtaga siqilib, har biri har xil kenglikda ko'rinardi. */
+  .main-nav,
+  #mobileMainNav {
+    margin-left: 0;
+    margin-right: 0;
+    align-items: stretch;
+    flex: none
+  }
+
+  #mobileMainNav {
+    z-index: 51
+  }
+
+  /* Menyu bandlari chapga tekis (ikon + matn), bir xil balandlikda */
+  .main-nav a,
+  #mobileMainNav a {
+    justify-content: flex-start;
+    width: 100%
+  }
+
+  #mobileMainNav>a:not(.mnav-profile) .yz-i {
+    width: 20px;
+    height: 20px;
+    color: var(--red);
+    flex: none
+  }
+
+  /* Pastki bardagi profil rasmi */
+  .mbb-item.mbb-login .mbb-icon.has-ava {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: inline-flex;
+    box-shadow: 0 0 0 2px rgba(200, 16, 46, .25)
+  }
+
+  .mbb-item.mbb-login .mbb-icon.has-ava img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block
+  }
+
+  .mbb-item.mbb-login .mbb-label {
+    max-width: 82px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap
+  }
+}
+
+/* Juda tor ekran (≤360px) — burger va chip siqilmasin */
+@media(max-width:360px) {
+  .nav-burger {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px
+  }
+
+  #mobileMainNav a {
+    font-size: 16px;
+    padding: 12px 14px
+  }
+
+  .mnav-auth {
+    font-size: 14.5px;
+    padding: 13px 14px
+  }
+}
+
+/* ==========================================================================
+   KURYER KARTOCHKASI — buyurtma kuzatuv oynasida («Yo'lda» bosqichi)
+   --------------------------------------------------------------------------
+   Ilgari kuryer ismi va telefon raqami BITTA qatorga tiqilar edi: telefonda
+   uzun ism yoki raqam tugmadan chiqib ketar, matn kesilib ko'rinardi.
+   Endi ikki qavatli kartochka: tepada ism (sig'masa "..." bilan qisqaradi),
+   pastda butun enli qo'ng'iroq tugmasi.
+   ========================================================================== */
+.trk-courier {
+  border: 1px solid var(--line, #eee);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 0 0 12px;
+  background: #fff;
+  text-align: left
+}
+
+.trk-courier .tc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 10px
+}
+
+.trk-courier .tc-ava {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #FCEEDF, #F7E2E5);
+  color: var(--red, #C8102E)
+}
+
+.trk-courier .tc-ava .yz-i {
+  width: 21px;
+  height: 21px
+}
+
+.trk-courier .tc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1
+}
+
+.trk-courier .tc-info small {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  color: var(--grey, #9a8d83)
+}
+
+.trk-courier .tc-info b {
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.trk-courier .tc-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--red, #C8102E);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15.5px;
+  text-decoration: none;
+  box-sizing: border-box
+}
+
+.trk-courier .tc-call .yz-i {
+  width: 18px;
+  height: 18px;
+  flex: none
+}
+
+.trk-courier .tc-call:active {
+  transform: scale(.985)
+}
+
+/* Raqam — bitta qatorda, sig'masa harflar orasi siqiladi (kesilmaydi) */
+.trk-courier .tc-num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .2px
+}
+
+@media(max-width:400px) {
+  .trk-courier {
+    padding: 10px
+  }
+
+  .trk-courier .tc-ava {
+    width: 36px;
+    height: 36px
+  }
+
+  .trk-courier .tc-info b {
+    font-size: 14.5px
+  }
+
+  .trk-courier .tc-call {
+    font-size: 14.5px;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 8px
+  }
+}
+
+@media(max-width:340px) {
+  .trk-courier .tc-call {
+    font-size: 13.5px
+  }
+}

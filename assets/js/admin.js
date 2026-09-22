@@ -1731,7 +1731,7 @@
         </div>
         <p style="color:var(--grey);font-size:12px;margin:-2px 0 8px">Tungi smena mumkin (20 → 02), bir xil son = 24 soat. Vaqt Toshkent (UTC+5) bo'yicha.</p>
         <div class="add-row">
-          <div class="add-field"><label>Yetkazish vaqti (daqiqa)</label><input id="edrEta" type="number" min="5" max="120" value="${r.eta||(beR&&beR.eta)||20}"></div>
+          <div class="add-field"><label>Yetkazish vaqti (daqiqa)</label><input id="edrEta" type="number" min="29" max="120" value="${YZ_TIME.eta(r.eta||(beR&&beR.eta))}"></div>
           <div class="add-field"><label>Masofa (matn)</label><input id="edrDist" value="${esc(r.dist||(beR&&beR.dist)||'')}" placeholder="2.5 km"></div>
         </div>
         <div class="add-field"><label>Kategoriya / kalit so'z (kw)</label><input id="edrKw" value="${esc(r.kw||(beR&&beR.kw)||'')}" placeholder="milliy / fastfood / shirinlik"></div>
@@ -1780,7 +1780,8 @@
       const oh=Math.max(0,Math.min(23,Number.isFinite(rawOh)?rawOh:9));
       const ch=Math.max(0,Math.min(24,Number.isFinite(rawCh)?rawCh:23));
       const rawEta=parseInt($("#edrEta")&&$("#edrEta").value,10);
-      const eta=Math.max(5,Math.min(120,Number.isFinite(rawEta)?rawEta:20));
+      /* Yetkazish vaqti — sayt bo'ylab MINIMUM 29 daqiqa (YZ_TIME.eta) */
+      const eta=YZ_TIME.eta(rawEta);
       const emojiV=val("edrEmoji")||r.emoji||"🏪";
       const emailV=val("edrEmail");
       if(emailV && window.YZ_EMAIL && !YZ_EMAIL.valid(emailV)){ toast("Email noto'g'ri formatda"); return; }
@@ -2772,12 +2773,13 @@
     }
     if(typeof STORE!=="undefined" && STORE.verifySession){
       STORE.verifySession().then(v=>{
+        /* FAQAT server tasdiqlagan token bilan kiriladi. «Tarmoq yo'q» holati
+           uchun ilgari keshdagi sessiya bilan kirish bor edi — u OLIB
+           TASHLANDI: serverni o'chirib (yoki oflayn qilib) parolsiz panelga
+           kirib bo'lmasin. Oflaynda panel baribir hech narsa qila olmaydi. */
         if(v.ok && v.account.role==="admin"){ enterAdmin(); }
-        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="admin"){
-          /* Tarmoq yo'q — keshdagi ma'lumot bilan ishlaymiz (yozuvlar baribir
-             serverга yetmaydi, shuning uchun ogohlantiramiz) */
-          enterAdmin();
-          toast("⚠️ Serverga ulanib bo'lmadi — ma'lumot eskirgan bo'lishi mumkin");
+        else if(!v.ok && v.reason==="offline"){
+          $("#loginErr").textContent="Serverga ulanib bo'lmadi. Internetni tekshiring va qaytadan kiring.";
         }
         /* aks holda: login ekrani ochiq qoladi */
       }).catch(()=>{});

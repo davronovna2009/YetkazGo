@@ -10,7 +10,7 @@
    Bot bilan bog'liq HAR QANDAY xato ushlanadi — hech qachon saytni yiqitmaydi. */
 import { Router } from 'express';
 import { db } from './db.js';
-import { createOrder, OrderError, orderMoney } from './orders-core.js';
+import { createOrder, OrderError, orderMoney, clampEta } from './orders-core.js';
 /* Bekor qilish hisobi — botdan bekor qilish ham AYNAN saytdagi qoidalarga
    bo'ysunadi (2-marta ogohlantirish + pauza, 3-marta blok). */
 import { registerCancel } from './blocks.js';
@@ -691,7 +691,7 @@ botRouter.post('/api/tg/order', async (req, res) => {
     + `📞 Telefon: ${esc(o.phone)}\n`
     + `💳 To'lov: ${o.pay === 'cash' ? '💵 Naqd' : '💳 Karta'}\n`
     + (o.courier ? `🛵 Kuryer: <b>${esc(o.courier)}</b>\n` : '')
-    + `⏱ Taxminiy vaqt: <b>${Number(o.eta) || 15} daqiqa</b>\n\n`
+    + `⏱ Taxminiy vaqt: <b>${clampEta(o.eta)} daqiqa</b>\n\n`
     + "Iltimos, kuting — restoran buyurtmani tayyorlay boshladi. Holat o'zgarishi haqida shu yerда xabar beramiz.\n\n"
     + '<i>Fikringiz o`zgarsa — quyidagi tugma bilan bekor qilishingiz mumkin (kuryer yo`lga chiqqunicha).</i>',
     { reply_markup: customerKeyboard(o) || mainKeyboard() });

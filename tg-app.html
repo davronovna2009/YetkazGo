@@ -415,7 +415,7 @@ function renderHeader(){
   $('hName').textContent = REST || 'Restoran';
   $('hEmoji').textContent = (INFO && INFO.emoji) || '🏪';
   $('hSub').textContent = MENU.length ? MENU.length + ' ta taom' : 'Menyu';
-  $('hEta').textContent = '⏱ ~' + ((INFO && INFO.eta) || 20) + ' daq';
+  $('hEta').textContent = '⏱ ~' + Math.max(29, Number(INFO && INFO.eta) || 29) + ' daq';
 
   const b = $('hOpen');
   b.textContent = (open ? '🟢 Ochiq · ' : '🔴 Yopiq · ') + hoursText();
@@ -797,7 +797,7 @@ function showRegisterGate(msg, hasAccount){
 /* "Tasdiqlandi — kuting" ekrani, so'ng ilova o'zi yopiladi */
 function showAccepted(d){
   const num = d && d.id ? '#' + d.id : '';
-  const eta = d && d.eta ? d.eta : 15;
+  const eta = Math.max(29, Number(d && d.eta) || 29);
   try { tg.MainButton.hide(); tg.BackButton.hide(); } catch(e){}
   document.body.innerHTML = html`
     <div class="nope" style="text-align:center;padding:40px 22px">

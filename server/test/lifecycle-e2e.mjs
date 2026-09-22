@@ -44,11 +44,14 @@ async function main() {
   eq((ovr.added || []).filter((d) => d.rest === 'Osh Markazi').length, 3, 'mijoz: 3 ta taom katalogда');
 
   /* ---- 2. MIJOZ: buyurtma beradi (2 Osh + 1 Salat + izoh) ---- */
+  /* `eta: 10` ATAYLAB yuborilmoqda — server uni MINIMUM 29 daqiqaga
+     ko'tarishi shart (orders-core.js: clampEta; frontend: YZ_TIME.eta). */
   const o1 = await api('POST', '/orders', {
-    user: 'Aziz', phone: '+998901234701', pay: 'cash', addr: 'Yunusobod 1',
+    user: 'Aziz', phone: '+998901234701', pay: 'cash', addr: 'Yunusobod 1', eta: 10,
     items: [{ id: 8001, qty: 2, note: 'achchiq solmang' }, { id: 8002, qty: 1 }],
   });
   eq(o1.status, 201, 'mijoz: buyurtma yaratildi');
+  eq(o1.data.eta, 29, 'yetkazish vaqti: 10 yuborilsa ham MINIMUM 29 daqiqa');
   eq(o1.data.amount, 71000, 'mijoz: summa 2*28000 + 15000 = 71000');
   eq(o1.data.status, 'new', 'buyurtma statusi new');
   eq(o1.data.courier, 'Kuryer Vali', 'kuryer avtomatik biriktirildi');

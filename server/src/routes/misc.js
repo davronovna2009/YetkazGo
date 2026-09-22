@@ -9,6 +9,7 @@ import { liveRatings } from '../ratings.js';
 import { publicSettings, setSetting, KEYS } from '../settings.js';
 import { toImageUrl } from './upload.js';
 import { detectHabit } from '../habit.js';
+import { clampEta } from '../orders-core.js';
 
 const router = Router();
 
@@ -32,7 +33,8 @@ function restRow(r, live, withCommission = false) {
   const out = {
     id: r.id, name: r.name, nameCyr: r.name_cyr, emoji: r.emoji, kw: r.kw,
     rating: lr ? lr.rating : 0, ratingCount: lr ? lr.count : 0,
-    eta: r.eta, dist: r.dist, photo: r.photo, login: r.login,
+    /* Yetkazish vaqti — sayt bo'ylab minimum 29 daqiqa (eski yozuvlar ham) */
+    eta: clampEta(r.eta), dist: r.dist, photo: r.photo, login: r.login,
     openH: r.open_h != null ? r.open_h : 9, closeH: r.close_h != null ? r.close_h : 23,
     addr: r.addr || '', owner: r.owner || '', email: r.email || '', descr: r.descr || '', hours: r.hours || '', area: r.area || '',
     active: !!r.active,
@@ -275,7 +277,7 @@ router.post('/restaurants', requireRole('admin'), (req, res) => {
       .run(login, hashPassword(pass), 'restoran', name, String(b.phone || ''), 'restoran.html');
     db.prepare('INSERT INTO restaurants (name, name_cyr, emoji, kw, rating, eta, dist, photo, login, commission, addr, owner, email, descr, hours, area, open_h, close_h) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(name, String(b.nameCyr || ''), String(b.emoji || '🏪'), String(b.kw || ''), Number(b.rating) || 0,
-           Number(b.eta) || 20, String(b.dist || ''), String(b.photo || ''), login, commission,
+           clampEta(b.eta), String(b.dist || ''), String(b.photo || ''), login, commission,
            String(b.addr || ''), String(b.owner || ''), String(b.email || ''), String(b.descr || ''), String(b.hours || ''), String(b.area || ''),
            openH, closeH);
   });
@@ -432,8 +434,8 @@ router.patch('/restaurants', requireRole('admin'), (req, res) => {
   }
   /* Kirill nomi (frontend camelCase yuboradi) */
   if (b.nameCyr != null) db.prepare('UPDATE restaurants SET name_cyr = ? WHERE login = ?').run(String(b.nameCyr).slice(0, 120), login);
-  /* Yetkazish vaqti (daqiqa) — 5..120 */
-  if (b.eta != null) db.prepare('UPDATE restaurants SET eta = ? WHERE login = ?').run(Math.max(5, Math.min(120, Number(b.eta) || 20)), login);
+  /* Yetkazish vaqti (daqiqa) — minimum 29, maksimum 120 (orders-core.js) */
+  if (b.eta != null) db.prepare('UPDATE restaurants SET eta = ? WHERE login = ?').run(clampEta(b.eta), login);
   if (b.pass) db.prepare("UPDATE accounts SET pass_hash = ? WHERE login = ? AND role = 'restoran'").run(hashPassword(String(b.pass)), login);
 
   res.json(restRow(db.prepare('SELECT * FROM restaurants WHERE login = ?').get(login), null, true));

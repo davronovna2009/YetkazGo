@@ -53,6 +53,12 @@
       if(be&&be.length) return be; }catch(e){}
     return (typeof RESTAURANTS!=="undefined")?RESTAURANTS:[];
   }
+  /* Yetkazish vaqti (daqiqa) — MINIMUM 29 (YZ_TIME.eta). Restoran o'z vaqtini
+     belgilagan bo'lsa o'sha (lekin 29 dan kam emas), aks holda 29. */
+  function etaMin(v){ try{ return YZ_TIME.eta(v); }catch(e){ const n=Math.round(Number(v)); return (isFinite(n)&&n>29)?Math.min(120,n):29; } }
+  function etaOf(restName){
+    try{ const r=restList().find(x=>x&&x.name===restName); return etaMin(r&&r.eta); }catch(e){ return etaMin(0); }
+  }
   /* Restoran nomi o'zgargan bo'lsa: data.js dagi eski nom -> backenddagi yangi nom */
   function renameMap(){
     const m={};
@@ -428,7 +434,7 @@
     if(be.area)  rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('scooter')}</span><div><div class="rinfo-k">${I18N.t("ri_area")}</div><div class="rinfo-v">${esc(trTxt(be.area))}</div></div></div>`);
     /* Email — HARFLANMAYDI (manzil buzilib qolmasin) */
     if(be.email) rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('mail')}</span><div><div class="rinfo-k">${I18N.t("ri_contact")}</div><div class="rinfo-v">${esc(be.email)}</div></div></div>`);
-    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('star')}</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ${ic('clock')} ${r.eta} ${I18N.t("min_eta")} · ${ic('map-pin')} ${esc(trTxt(r.dist||""))}</div></div></div>`);
+    rows.push(`<div class="rinfo-row"><span class="rinfo-ico">${ic('star')}</span><div><div class="rinfo-k">${I18N.t("ri_rating")}</div><div class="rinfo-v">${restStarTxt(r)} · ${ic('clock')} ${etaMin(r.eta)} ${I18N.t("min_eta")} · ${ic('map-pin')} ${esc(trTxt(r.dist||""))}</div></div></div>`);
     const desc = be.descr ? `<p class="rinfo-desc">${esc(trTxt(be.descr))}</p>` : "";
     return `<div class="rinfo-card">
       <div class="rinfo-title">${ic('store')} ${esc(nm(r))} ${I18N.t("ri_about")}</div>
@@ -514,7 +520,7 @@
           <div class="rhero-emoji">${raw(ic('store'))}</div>
           <h1>${nm(r)}</h1>
           <div class="rhero-meta">
-            <span>${raw(restStarTxt(r))}</span><span>${raw(ic('clock'))} ${r.eta} ${I18N.t("min_eta")}</span>
+            <span>${raw(restStarTxt(r))}</span><span>${raw(ic('clock'))} ${etaMin(r.eta)} ${I18N.t("min_eta")}</span>
             <span>${raw(ic('map-pin'))} ${r.dist}</span><span class="rhero-open">${raw(restOpenLabel(r.name))}</span>
           </div>
         </div>
@@ -597,7 +603,7 @@
           <h3>${nm(r)}</h3>
           <div class="rest-meta">
             <span class="star">${restStarTxt(r)}</span>
-            <span>${ic('clock')} ${r.eta} ${I18N.t("min_eta")}</span>
+            <span>${ic('clock')} ${etaMin(r.eta)} ${I18N.t("min_eta")}</span>
             <span>${ic('map-pin')} ${esc(trTxt(r.dist))}</span>
           </div>
           <div class="rest-info2">
@@ -866,6 +872,124 @@
     else{ note.classList.remove("warn"); note.textContent=I18N.t("min_note",{min:fmt(MIN_ORDER_())}); }
   }
 
+  /* ============================================================
+     RO'YXATDAN O'TGAN MIJOZ — BOSH SAHIFA UNING ASOSIY SAHIFASI
+     ------------------------------------------------------------
+     Kirgandan keyin sahifadan CHIQARILMAYDI (ilgari darhol kabinet.html ga
+     otib yuborardi). «Kirish» tugmasi o'rnida profili turadi: rasm qo'ygan
+     bo'lsa rasmi, bo'lmasa ikon + ismi. Bosilsa parol so'ralmaydi — sessiya
+     saqlanadi (store.js: role="user" uchun localStorage), shuning uchun
+     kabinetga to'g'ridan-to'g'ri kiradi. Buyurtma ham SHU profil nomidan
+     ketadi: ism/telefon/manzil akkauntdan oldindan to'ldiriladi.
+     ============================================================ */
+  let ACC = null;          // joriy mijoz akkaunti (yo'q bo'lsa — mehmon)
+
+  /* Profil rasmi: faqat serverdan kelgan qisqa yo'l (/img/... yoki /uploads/...) */
+  function accAva(a){
+    const p = a && a.avatar ? String(a.avatar) : "";
+    return /^\/(?:img|uploads)\/|^https?:|^data:/.test(p) ? p : "";
+  }
+  /* Akkaunt manzili — kabinet «Sozlamalar»да saqlangan tuman/mahalla/ko'cha */
+  function accAddr(a){
+    if(!a) return "";
+    const parts=[];
+    if(a.addrRegion)  parts.push(String(a.addrRegion).trim());
+    if(a.addrMahalla) parts.push(String(a.addrMahalla).trim()+" mahallasi");
+    if(a.addrStreet)  parts.push(String(a.addrStreet).trim());
+    return parts.join(", ");
+  }
+
+  /* Akkaunt ma'lumotini buyurtma maydonlariga ko'chiramiz — mijoz har safar
+     qaytadan yozmasin (kabinet bilan BIR XIL manba). */
+  function adoptAccount(a){
+    ACC = a || null;
+    if(!a) return;
+    user.name    = a.name  || user.name;
+    user.phone   = a.phone || user.phone;
+    const ad = accAddr(a);
+    if(ad) user.address = ad;
+    try{
+      if(a.name)  localStorage.setItem(CK.name,  a.name);
+      if(a.phone) localStorage.setItem(CK.phone, a.phone);
+      if(ad)      localStorage.setItem(CK.addr,  ad);
+    }catch(e){}
+  }
+
+  /* Header / pastki bar / burger menyu — kirgan yoki kirmaganga qarab */
+  function renderAuthUI(){
+    const a = ACC;
+    const ava = accAva(a);
+    const name = (a && (a.name || a.login)) || "";
+    const avaHtml = ava
+      ? '<img src="'+esc(ava)+'" alt="">'
+      : '<svg class="yz-i"><use href="assets/icons.svg#user"/></svg>';
+
+    /* Desktop header */
+    const lb=$("#loginBtn"), pb=$("#profileBtn"), po=$("#profileOut");
+    if(lb) lb.hidden = !!a;
+    if(lb) lb.style.display = a ? "none" : "";
+    if(po) po.hidden = !a;
+    if(pb){
+      pb.hidden = !a;
+      if(a){
+        const av=$("#pcAva"), nmEl=$("#pcName");
+        if(av) av.innerHTML = avaHtml;
+        if(nmEl) nmEl.textContent = name;
+      }
+    }
+
+    /* Mobil pastki bar */
+    const mbb=$("#mbbLogin");
+    if(mbb){
+      const icoEl=$("#mbbAva"), lblEl=$("#mbbLoginLabel");
+      mbb.dataset.profile = a ? "1" : "";
+      mbb.setAttribute("aria-label", a ? name : "Kirish");
+      if(icoEl){
+        icoEl.innerHTML = avaHtml;
+        icoEl.classList.toggle("has-ava", !!ava);
+      }
+      if(lblEl) lblEl.textContent = a ? (name || "Profil") : "Kirish";
+    }
+
+    /* Burger menyu: profil kartasi + Kirish/Chiqish tugmalari */
+    const mp=$("#mnavProfile"), mlogin=$("#mnavLogin"), mout=$("#mnavLogout");
+    if(mp){
+      mp.hidden = !a;
+      if(a){
+        const mav=$("#mnavAva"), mnm=$("#mnavName"), mph=$("#mnavPhone");
+        if(mav) mav.innerHTML = avaHtml;
+        if(mnm) mnm.textContent = name;
+        if(mph) mph.textContent = (a.phone || "Mening kabinetim");
+      }
+    }
+    if(mlogin) mlogin.hidden = !!a;
+    if(mout)   mout.hidden   = !a;
+  }
+
+  /* Sessiyani SERVERда tekshiramiz (localStorage'даgi yozuvga ishonmaymiz) */
+  function loadAccount(){
+    if(typeof STORE==="undefined" || !STORE.verifySession) return;
+    STORE.verifySession().then(v=>{
+      let a=null;
+      if(v.ok && v.account && v.account.role==="user") a=v.account;
+      /* Tarmoq yo'q — mijoz uchun keshdagi profil bilan ko'rsatamiz (bu
+         panel emas, faqat ism/rasm; maxfiy amal bajarilmaydi). */
+      else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="user") a=v.session;
+      if(a){ adoptAccount(a); }
+      renderAuthUI();
+    }).catch(()=>{ renderAuthUI(); });
+  }
+
+  /* Profildan chiqish — sessiya o'chadi, sahifa mehmon holatiga qaytadi */
+  function logoutUser(){
+    try{ if(typeof STORE!=="undefined") STORE.clearSession(); }catch(e){}
+    ACC=null;
+    user.name=""; user.phone=""; user.address="";
+    try{ localStorage.removeItem(CK.name); localStorage.removeItem(CK.phone); localStorage.removeItem(CK.addr); }catch(e){}
+    renderAuthUI();
+    toast("Profildan chiqdingiz","success");
+  }
+
   /* ---------- MODAL ---------- */
   /* ===== App-uslubidagi ORTGA QAYTISH =====
      Modal yoki savat ochiq bo'lsa, brauzer/Android "back" tugmasi sahifadan
@@ -925,7 +1049,14 @@
     if(acc && acc.offline){ $("#lg-err").textContent="Serverga ulanib bo'lmadi. Saytni server orqali oching (masalan http://localhost:5050) va internetni tekshiring."; return; }
     if(!acc){ $("#lg-err").textContent="Login yoki parol xato. Akkountingiz bo'lmasa, ro'yxatdan o'ting."; return; }
     if(resume){ resumeAfterAuth(acc, resume); return; }
-    /* Rolga qarab paneliga yo'naltiramiz: admin->admin.html, restoran->restoran.html, kuryer->kuryer.html, user->kabinet.html */
+    /* MIJOZ — bosh sahifada QOLADI (bu uning asosiy sahifasi): oyna yopiladi,
+       «Kirish» o'rnida profili chiqadi. XODIM (admin/restoran/kuryer) esa
+       o'z paneliga yo'naltiriladi. */
+    if(acc.role==="user"){
+      adoptAccount(acc); renderAuthUI(); closeModal();
+      toast("Xush kelibsiz, "+(acc.name||acc.login)+"!","success");
+      return;
+    }
     try{ window.location.href=acc.target || "kabinet.html"; }catch(e){}
   }
   function openRegister(resume, prefill){
@@ -967,6 +1098,13 @@
     if(!acc) return err("Ro'yxatdan o'tishda xatolik");
     if(acc.error) return err(acc.error);
     if(resume){ resumeAfterAuth(acc, resume); return; }
+    /* Ro'yxatdan o'tgach ham BOSH SAHIFA — uning asosiy sahifasi bo'lib
+       qoladi: profili pastda/tepada ko'rinadi, buyurtma shu profildan ketadi. */
+    if(acc.role==="user" || !acc.target || acc.target==="kabinet.html"){
+      adoptAccount(acc); renderAuthUI(); closeModal();
+      toast("Ro'yxatdan o'tdingiz — xush kelibsiz, "+(acc.name||acc.login)+"!","success");
+      return;
+    }
     try{ window.location.href=acc.target; }catch(e){}
   }
   /* Checkout jarayonida (guest-limit gate) kirish/ro'yxatdan o'tish
@@ -975,6 +1113,8 @@
      setPanelRole eski/umumiy tokenni O'SHA rol kalitiga ko'chiradi). */
   function resumeAfterAuth(acc, resume){
     try{ if(acc && acc.role && typeof STORE!=="undefined" && STORE.setPanelRole) STORE.setPanelRole(acc.role); }catch(e){}
+    /* Checkout davom etadi, lekin profil tepada/pastda darhol ko'rinsin */
+    try{ if(acc && acc.role==="user"){ adoptAccount(acc); renderAuthUI(); } }catch(e){}
     closeModal();
     try{ resume(acc); }catch(e){}
   }
@@ -985,7 +1125,14 @@
   const CK = { name:"yz_user_name", phone:"yz_user_phone", addr:"yz_user_addr" };
   function lastContact(){
     const get=(k)=>{ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } };
-    return { name:user.name||get(CK.name), phone:user.phone||get(CK.phone), addr:user.address||get(CK.addr) };
+    /* Ro'yxatdan o'tgan mijoz uchun BIRINCHI manba — uning profili
+       (kabinet «Sozlamalar»да saqlagan ism/telefon/manzil). */
+    const a=ACC||null, aAddr=accAddr(a);
+    return {
+      name:  (a&&a.name)  || user.name    || get(CK.name),
+      phone: (a&&a.phone) || user.phone   || get(CK.phone),
+      addr:  user.address || aAddr        || get(CK.addr),
+    };
   }
   function rememberContact(name,phone,addr){
     try{ localStorage.setItem(CK.name,name); localStorage.setItem(CK.phone,phone); localStorage.setItem(CK.addr,addr); }catch(e){}
@@ -1004,7 +1151,8 @@
       <h2>${I18N.t("login_title")}</h2>
       <p class="modal-sub">Yetkazish manzili va telefon raqamini tasdiqlang</p>
       <div class="field" id="f-name"><label>${I18N.t("lbl_name")}</label>
-        <input id="in-name" value="${esc(last.name)}" placeholder="${I18N.t("ph_name")}"><div class="err">${I18N.t("err_name")}</div></div>
+        <input id="in-name" value="${esc(last.name)}" placeholder="${I18N.t("ph_name")}"${ACC?' readonly style="opacity:.75;cursor:not-allowed"':''}><div class="err">${I18N.t("err_name")}</div>
+        ${ACC?`<div style="font-size:12px;color:var(--grey);margin-top:4px">${ic('user')} Buyurtma <b>${esc(ACC.name||ACC.login)}</b> profilidan beriladi. Ismni kabinet «Sozlamalar» bo'limida o'zgartirasiz.</div>`:""}</div>
       <div class="field" id="f-phone"><label>${I18N.t("lbl_phone")}</label>
         <input id="in-phone" type="tel" value="${esc(last.phone)}" placeholder="${I18N.t("ph_phone")}" autocomplete="tel"><div class="err">${I18N.t("err_phone")}</div></div>
       <div class="field" id="f-addr"><label>${I18N.t("lbl_address")}</label>
@@ -1014,10 +1162,18 @@
     const geoBtn=$("#geoBtn"); if(geoBtn) geoBtn.addEventListener("click",()=>detectLocation($("#in-addr"), geoBtn));
     if(window.YZ_PHONE) YZ_PHONE.attach($("#in-phone"));
     $("#authNext").addEventListener("click",async ()=>{
-      const name=$("#in-name").value.trim(), phone=$("#in-phone").value.trim(), addr=$("#in-addr").value.trim();
+      /* Kirgan mijoz uchun ism — HAR DOIM akkaunt ismi: buyurtma uning
+         profiliga bog'lanadi (kabinet «Buyurtmalarim» shu nom bo'yicha
+         ko'rsatadi, server ham `user` bo'yicha filtrlaydi). */
+      const name=ACC ? String(ACC.name||ACC.login||"").trim() : $("#in-name").value.trim();
+      const phone=$("#in-phone").value.trim(), addr=$("#in-addr").value.trim();
       let ok=true;
       const setErr=(id,bad)=>{ $(id).classList.toggle("invalid",bad); if(bad) ok=false; };
-      setErr("#f-name", name.length<4);   // ism kamida 4 harf
+      /* Ism kamida 4 harf — MEHMON uchun (soxta "aa" kabi nomlarga qarshi).
+         Kirgan mijozning ismi akkauntdan olinadi va tahrirlanmaydi, shuning
+         uchun uni bu yerда qayta tekshirmaymiz (aks holda qisqa ismli
+         foydalanuvchi buyurtma bera olmay qolardi). */
+      setErr("#f-name", !ACC && name.length<4);
       const phoneOk = window.YZ_PHONE ? YZ_PHONE.valid(phone) : phone.replace(/\D/g,"").length>=9;
       setErr("#f-phone", !phoneOk);
       setErr("#f-addr", addr.length<4);
@@ -1029,7 +1185,12 @@
          yakuniy nazorat qiladi — orders-core.js: guestOrderStatus). */
       const btn=$("#authNext"); if(btn){ btn.disabled=true; }
       let gs=null;
-      try{ if(typeof STORE!=="undefined" && STORE.guestStatus) gs=await STORE.guestStatus(prettyPh); }catch(e){}
+      /* Ro'yxatdan o'tgan mijozdan QAYTA ro'yxatdan o'tish so'ralmaydi —
+         mehmon chegarasi faqat tizimga kirmaganlarga tegishli (server ham
+         shunday: orders-core.js `opts.authed`). */
+      if(!ACC){
+        try{ if(typeof STORE!=="undefined" && STORE.guestStatus) gs=await STORE.guestStatus(prettyPh); }catch(e){}
+      }
       if(btn){ btn.disabled=false; }
       user.name=name; user.phone=prettyPh; user.address=addr;
       rememberContact(user.name, user.phone, user.address);
@@ -1139,6 +1300,25 @@
     }).join("");
     return `<div style="border:1px solid var(--line);border-radius:14px;padding:0 12px;margin:10px 0;max-height:230px;overflow-y:auto;text-align:left">${rows}</div>`;
   }
+  /* ===== KURYER KARTOCHKASI (mijoz «Yo'lda» bosqichida ko'radi) =====
+     Telefonда ism va raqam uzun bo'lsa ham buzilmaydi: ism bir qatorda
+     qisqaradi, raqam esa butun enli tugmada turadi (CSS: .trk-courier). */
+  function courierCardHtml(be){
+    const phone = String((be && be.courierPhone) || "").trim();
+    if(!phone) return "";
+    const dial = phone.replace(/[^\d+]/g,"");
+    const name = (be && be.courier) ? String(be.courier) : "";
+    return `<div class="trk-courier">
+      <div class="tc-head">
+        <span class="tc-ava">${ic('scooter')}</span>
+        <span class="tc-info">
+          <small>${esc(trTxt("Kuryeringiz"))}</small>
+          <b>${esc(trTxt(name) || trTxt("Kuryer"))}</b>
+        </span>
+      </div>
+      <a class="tc-call" href="tel:${esc(dial)}">${ic('phone')}<span class="tc-num">${esc(phone)}</span></a>
+    </div>`;
+  }
   function saveOrders(arr){ try{ localStorage.setItem(ORDER_KEY,JSON.stringify(arr)); }catch(e){} }
 
   function genOrderId(){ return Date.now()+"_"+Math.random().toString(36).slice(2,7); }
@@ -1244,7 +1424,9 @@
 
   /* Step 3: tracking + timer */
   function startTracking(){
-    const eta = 10 + Math.floor(Math.random()*3)*5; // 10, 15 yoki 20 daqiqa
+    /* Yetkazish vaqti — restoran belgilagan vaqt, lekin sayt bo'ylab
+       MINIMUM 29 daqiqa (YZ_TIME.eta — yagona manba, server ham shuni qo'llaydi). */
+    const eta = etaOf((cart[0] && cart[0].rest) || "");
     const eta_ms = eta * 60 * 1000;
     const now = Date.now();
     const arriveAt = now + eta_ms;
@@ -1520,9 +1702,11 @@
       const tCour = document.getElementById("tCourierBox");
       if(tCour){
         if(be && be.courierPhone){
-          const dial = String(be.courierPhone).replace(/[^\d+]/g,"");
-          const nameLine = be.courier ? `<div style="font-weight:700;margin-bottom:8px;text-align:center">${ic('scooter')} ${esc(be.courier)}</div>` : "";
-          tCour.innerHTML = `${nameLine}<a href="tel:${dial}" class="btn btn-outline btn-block" style="margin:0 0 10px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none">${ic('phone')} ${esc(trTxt("Kuryer bilan bog'lanish"))}: ${esc(be.courierPhone)}</a>`;
+          /* Ilgari ism va raqam BITTA qatorga tiqilar edi — telefonda uzun ism
+             yoki raqam tugmadan chiqib ketardi. Endi alohida kartochka:
+             yuqorida ism (sig'masa "..." bilan qisqaradi), pastda esa butun
+             enli "Qo'ng'iroq qilish" tugmasi va raqam (styles.css: .trk-courier). */
+          tCour.innerHTML = courierCardHtml(be);
         } else if(tCour.innerHTML) {
           tCour.innerHTML = "";
         }
@@ -2359,6 +2543,13 @@
     $("#cartClose").addEventListener("click",closeCart);
     $("#checkoutBtn").addEventListener("click",checkout);
     $("#loginBtn").addEventListener("click",()=>openLogin());
+    /* ===== Profil (ro'yxatdan o'tgan mijoz) ===== */
+    renderAuthUI(); loadAccount();
+    const mnLogin=$("#mnavLogin"); if(mnLogin) mnLogin.addEventListener("click",()=>{ try{ YZ_NAV&&YZ_NAV.close(); }catch(e){} openLogin(); });
+    const mnOut=$("#mnavLogout");  if(mnOut)   mnOut.addEventListener("click",()=>{ try{ YZ_NAV&&YZ_NAV.close(); }catch(e){} logoutUser(); });
+    const pOut=$("#profileOut");   if(pOut)    pOut.addEventListener("click",logoutUser);
+    /* Profil rasmi/ismi kabinetда o'zgarsa — shu sahifa ham yangilanadi */
+    window.addEventListener("focus",()=>{ if(ACC) loadAccount(); });
     $("#modalClose").addEventListener("click",closeModal);
     $("#modalBackdrop").addEventListener("click",closeModal);
     $("#heroSearchBtn").addEventListener("click",()=>document.getElementById("dishes").scrollIntoView({behavior:"smooth"}));
@@ -2369,7 +2560,7 @@
         <h2 style="margin:8px 0;color:#16a34a">Bepul va tez yetkazib berish!</h2>
         <div style="background:#eafaf0;border:1px solid #bdebd0;border-radius:12px;padding:12px;margin:8px 0;color:#16a34a;font-weight:700">${ic('party')} Aksiya doirasida yetkazib berish BEPUL</div>
         <div style="text-align:left;color:var(--ink);font-size:14px;line-height:1.8;margin-top:6px">
-          ${ic('clock')} O'rtacha yetkazish vaqti: <b>15–25 daqiqa</b>.<br>
+          ${ic('clock')} O'rtacha yetkazish vaqti: <b>29–40 daqiqa</b>.<br>
           ${ic('wallet')} Aksiya kunlari yetkazib berish <b>butunlay bepul</b>.<br>
           ${ic('scooter')} Eng yaqin va bo'sh kuryer <b>avtomatik</b> biriktiriladi.<br>
           ${ic('package')} Buyurtmani jonli kuzatasiz: qabul → tayyor → yo'lda → yetdi.<br>

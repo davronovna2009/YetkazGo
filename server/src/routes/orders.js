@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import { authRequired, requireRole } from '../auth.js';
 /* Buyurtma yaratish/o'qish yordamchilari — sayt va bot uchun BITTA manba */
-import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee, courierPhoneOf, guestOrderStatus, validPhone } from '../orders-core.js';
+import { createOrder, OrderError, rowToOrder, parseItems, prettyPhone, assignCourier, sealCourierFee, courierPhoneOf, guestOrderStatus, validPhone, clampEta } from '../orders-core.js';
 /* Katta/shubhali buyurtma qoidalari (kuryer qo'ng'irog'i, admin tekshiruvi) */
 import { rulesSnapshot } from '../order-rules.js';
 /* Telegram xabarlari (bot o'chiq bo'lsa — jim o'tadi).
@@ -361,6 +361,8 @@ router.patch('/:id', requireRole('restoran', 'kuryer', 'admin'), (req, res) => {
 
   const sets = [], params = [];
   for (const k of ALLOWED) {
+    /* Yetkazish vaqti — sayt bo'ylab minimum 29 daqiqa (orders-core.js) */
+    if (k === 'eta' && k in patch) { sets.push('eta = ?'); params.push(clampEta(patch.eta)); continue; }
     if (k in patch) { sets.push(`${k} = ?`); params.push(patch[k]); }
   }
   /* "done" ga o'tganda — aniq yetkazilgan vaqtni bir marta yozamiz (server tomonда, UTC) */

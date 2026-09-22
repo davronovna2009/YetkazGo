@@ -10,6 +10,18 @@ import { phoneStatus, checkSpam } from './blocks.js';
 import { callRule, suspicionCheck, totalQty } from './order-rules.js';
 import { payMethodAllowed, deliveryFeeAmount } from './settings.js';
 
+/* ===== YETKAZISH VAQTI — YAGONA MINIMUM (29 daqiqa) =====
+   Sayt, kabinet, Telegram ilovasi va panellar qanday qiymat yuborishidan
+   qat'i nazar, buyurtmaga yoziladigan va ko'rsatiladigan yetkazish vaqti
+   29 daqiqadan kam bo'lmaydi (frontendда: assets/js/hours.js — YZ_TIME.eta). */
+export const MIN_ETA = 29;
+export const MAX_ETA = 120;
+export function clampEta(v) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n) || n <= 0) return MIN_ETA;
+  return Math.max(MIN_ETA, Math.min(MAX_ETA, n));
+}
+
 /* --- Telefon: O'zbekiston (+998 va 9 ta raqam) --- */
 const UZ_OPERATORS = ['20', '33', '50', '55', '77', '87', '88', '90', '91', '93', '94', '95', '97', '98', '99'];
 export function normalizePhone(p) {
@@ -112,7 +124,8 @@ export function rowToOrder(r) {
        kerak bo'lgan payt). Bundan oldin (tayyorlanmoqda bosqichida) ko'rsatish
        shart emas — kuryer haliям buyurtmani olmagan bo'lishi mumkin. */
     courierPhone: (r.courier && (r.status === 'ontheway' || r.status === 'arrived')) ? courierPhoneOf(r.courier) : '',
-    status: r.status, eta: r.eta, time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
+    /* eta — mijozga ko'rsatiladigan yetkazish vaqti: minimum 29 daqiqa */
+    status: r.status, eta: clampEta(r.eta), time: r.time, reason: r.reason || '', delivery: r.delivery || 0,
     /* Buyurtma qayerdan kelgan — panellarda ko'rsatiladi ('sayt' | 'telegram') */
     source: r.source || (r.tg_chat_id ? 'telegram' : 'sayt'),
     paid: r.paid ? 1 : 0, paid_at: r.paid_at || '',
@@ -184,7 +197,7 @@ function courierFreeAt(name) {
   for (const o of rows) {
     const t = stampUtc(o.created_at);
     if (!t) continue;
-    const eta = Math.max(5, Math.min(120, Number(o.eta) || 15));
+    const eta = clampEta(o.eta);
     latest = Math.max(latest, t + eta * 60000);
   }
   return latest;
@@ -336,8 +349,9 @@ export function createOrder(b = {}, opts = {}) {
   /* Sabotajga qarshi maxfiy "track token" — mehmon shu token bilan buyurtmasini
      bekor qila/qabul qila oladi. Token faqat shu javobda qaytadi. */
   const token = randomBytes(16).toString('hex');
-  /* eta — mijoz beradi, lekin aqlli oraliqqa qisamiz (0 bo'lsa frontendда NaN chiqadi) */
-  const eta = Math.max(5, Math.min(120, Number(b.eta) || 15));
+  /* eta — mijoz beradi, lekin YAGONA oraliqqa qisamiz: minimum 29 daqiqa
+     (0 yoki kichik qiymat yuborilsa ham mijozga 29 daqiqa va'da qilinadi). */
+  const eta = clampEta(b.eta);
   const tgChatId = b.tgChatId ? String(b.tgChatId) : '';
 
   /* Manba: Telegram chat_id bo'lsa — botning mini ilovasidan, aks holda saytdan.

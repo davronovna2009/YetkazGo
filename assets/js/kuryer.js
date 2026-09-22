@@ -143,7 +143,7 @@
   const KACTIVE=["new","accepted","ready","ontheway"];
   function kDeadline(o){
     var t=YZ_TIME.stamp((o&&o.created_at)||""); if(!t) return 0;
-    var eta=Math.max(5,Math.min(120,Number(o&&o.eta)||15));
+    var eta=YZ_TIME.eta(o&&o.eta);
     return t+eta*60000;
   }
   function kMinutesLeft(o){
@@ -153,7 +153,7 @@
   }
   function kLevel(o){
     var m=kMinutesLeft(o); if(m===null) return 0;
-    var eta=Math.max(5,Math.min(120,Number(o&&o.eta)||15));
+    var eta=YZ_TIME.eta(o&&o.eta);
     if(m<=0) return 4;
     if(m<=2) return 3;
     if(m<=5) return 2;
@@ -650,9 +650,12 @@
     }
     if(typeof STORE!=="undefined" && STORE.verifySession){
       STORE.verifySession().then(v=>{
+        /* FAQAT server tasdiqlagan token bilan kiriladi. Ilgari «tarmoq yo'q»
+           holatida keshdagi sessiya bilan kirilardi — u OLIB TASHLANDI:
+           login/parolni bilmagan kishi panelga o'ta olmasin. */
         if(v.ok && v.account.role==="kuryer"){ enterFromSession(v.account); }
-        else if(!v.ok && v.reason==="offline" && v.session && v.session.role==="kuryer"){
-          enterFromSession(v.session);   // tarmoq yo'q — keshdagi holat bilan
+        else if(!v.ok && v.reason==="offline"){
+          var le2=$("#loginErr"); if(le2) le2.textContent="Serverga ulanib bo'lmadi. Internetni tekshiring va qaytadan kiring.";
         }
       }).catch(()=>{});
     }

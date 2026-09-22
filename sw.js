@@ -3,7 +3,27 @@
    MUHIM: /api va /uploads umuman ushlanmaydi — backend xatti-harakati o'zgarmaydi.
    Statik fayllar uchun "network-first": onlayn bo'lsa HAR DOIM yangi versiya,
    offline bo'lsangina keshdan beriladi (eskirish bo'lmaydi). */
-/* v39 — Kabinet (mijoz paneli): bonus shartini bajarsa yoki tadbirga restoran
+/* v40 — MIJOZ PROFILI BOSH SAHIFADA + PANEL XAVFSIZLIGI + 29 DAQIQA:
+   • Ro'yxatdan o'tgan mijoz uchun bosh sahifa ASOSIY sahifa bo'lib qoladi:
+     kirgandan keyin kabinetga otib yuborilmaydi, «Kirish» tugmasi o'rnida
+     PROFILI (rasm + ism) turadi. Bosilsa parol so'ralmaydi — kabinetiga
+     to'g'ridan-to'g'ri kiradi. Buyurtma ham shu profildan ketadi:
+     ism/telefon/manzil akkauntdan oldindan to'ldiriladi va kirgan mijozdan
+     qayta ro'yxatdan o'tish so'ralmaydi.
+   • Burger menyu qayta ishlangan: orqa fon pardasi, profil kartasi,
+     «Profildan chiqish» tugmasi; menyu endi butun enli va bandlari chapga
+     tekis (ilgari `margin-left:14px` tufayli surilib, siqilib turardi).
+   • XAVFSIZLIK: admin/restoran/kuryer panellariga LOGIN VA PAROLSIZ kirib
+     bo'lmaydi. Xodim tokeni endi faqat sessionStorage'da (diskda qolmaydi),
+     eski nusxalar tozalanadi, «tarmoq yo'q» holatida keshdagi sessiya bilan
+     kirish olib tashlandi.
+   • Yetkazish vaqti HAMMA joyda MINIMUM 29 daqiqa (sayt, kabinet, panellar,
+     Telegram ilovasi va server — YZ_TIME.eta / orders-core.js clampEta).
+   • Kabinetdagi «Buyurtma qabul qilindi» oynasi bosh saytdagi bilan bir xil:
+     taom rasmi, tarkib ro'yxati, orqaga sanaydigan taymer, 5 bosqichli yo'lak.
+   • Kuryer ismi va telefoni endi alohida kartochkada — telefonda uzun ism yoki
+     raqam tugmadan chiqib ketmaydi.
+   v39 — Kabinet (mijoz paneli): bonus shartini bajarsa yoki tadbirga restoran
    javob bersa (taom/chegirma belgilasa), mijozning O'ZIGA — ilgari FAQAT
    admin/restoran ko'rardi — rasmli/zarrachali (confetti) yutuq modali
    chiqadi. Savatga taom qo'shilganda rasm index.html'dagi kabi savat
@@ -140,7 +160,7 @@
    (v15 — taom cheklovi + 3 xil taom, jonli reyting, bot/sayt statistikasi,
     mehmon mijozlar, kuryer daromadi, shikoyatlar; v14 — buyurtma tarkibi rasm
     bilan; v13 — bot FAQAT MIJOZ uchun; v6 — narx serverda + CSP/nonce.) */
-const CACHE = 'yetkaz-v39';
+const CACHE = 'yetkaz-v40';
 const ASSETS = [
   '/index.html', '/admin.html', '/restoran.html', '/kuryer.html', '/kabinet.html',
   '/assets/css/styles.css', '/assets/css/admin.css', '/assets/css/kabinet-cards.css',

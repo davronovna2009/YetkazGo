@@ -78,15 +78,39 @@ const STORE = (function () {
         alohida yangilash mumkin — biri ikkinchisiga aylanib qolmaydi (ilgari
         ikkalasi bir localStorage kalitini bo'lishib, oxirgi kirgani hammasini
         bosib ketardi).
-     3) localStorage'да ham nusxa turadi — YANGI tab oxirgi kirishни qabul qiladi
-        (PWA qayta ochilса ham foydalanuvchi qayta kirmaydi).
+     3) localStorage'да nusxa FAQAT MIJOZ (role="user") uchun turadi — u qayta
+        kirmaydi, bosh sahifada profili ochiq qoladi. XODIM (admin/restoran/
+        kuryer) uchun nusxa YO'Q (pastdagi «XODIM PANELLARI» izohiga qarang).
      `STORE.setPanelRole('restoran')` — panel yuklanganда birinchi CHAQIRILADI. */
+  /* ===== XODIM PANELLARI — KIRISH ESLAB QOLINMAYDI =====
+     Admin / restoran / kuryer panellari MAXFIY. Ilgari ularning tokeni
+     localStorage'ga ham yozilardi: kim bir marta kirgan bo'lsa, o'sha
+     qurilmada (yoki bosh sayt footeridagi «Kuryer bo'lib ishlash» /
+     «Restoran qo'shish» havolasidan) LOGIN VA PAROLSIZ panel ochilaverardi —
+     token 7 kun yashardi. Endi xodim tokeni FAQAT sessionStorage'da:
+       • brauzer (yoki tab) yopilsa — kirish o'chadi, qaytadan login/parol;
+       • boshqa tab/oyna avtomatik kira olmaydi;
+       • bosh saytdan xodim login/parol bilan kirsa — o'sha tabda panel
+         darhol ochiladi (writeRoleAuth sessionStorage'ga yozadi).
+     MIJOZ (role="user") uchun esa AKSINCHA — kirish eslab qolinadi
+     (localStorage): bosh sahifada uning profili turadi va har safar
+     login/parol so'ralmaydi. */
+  const STAFF_ROLES = ["admin", "restoran", "kuryer"];
+  function isStaff(r) { return STAFF_ROLES.indexOf(String(r || "").trim()) >= 0; }
+
   let PANEL_ROLE = "";
   function setPanelRole(r) {
     PANEL_ROLE = String(r || "").trim();
     if (!PANEL_ROLE) return;
     try {
       const tk = tokenKey(), sk = sessKey();
+      /* XODIM paneli: localStorage'dagi eski nusxalar (avvalgi versiyalardan
+         qolgani ham) TOZALANADI — ular bilan parolsiz kirib bo'lmasin. */
+      if (isStaff(PANEL_ROLE)) {
+        try { localStorage.removeItem(tk); localStorage.removeItem(sk); } catch (e) {}
+        try { localStorage.removeItem(K.token); localStorage.removeItem(K.sess); } catch (e) {}
+        return;
+      }
       /* Bu tab hali O'Z sessiyasига ega emas — localStorage'даги oxirgi kirishни
          (yoki eski umumiy tokenни) shu tabga QABUL qilamiz. Shundan keyin bu tab
          faqat O'Z sessionStorage'ini ishlatadi va boshqa tab boshqa akkaunt
@@ -113,13 +137,24 @@ const STORE = (function () {
   function sessKey() { return PANEL_ROLE ? (K.sess + "_" + PANEL_ROLE) : K.sess; }
   function getToken() {
     /* Bu TAB ning tokeni (sessionStorage) — birlamchi */
-    if (PANEL_ROLE) { const st = ssRead(tokenKey(), null); if (st) return st; }
+    if (PANEL_ROLE) {
+      const st = ssRead(tokenKey(), null);
+      if (st) return st;
+      /* Xodim paneli: sessionStorage'da yo'q bo'lsa — kirish YO'Q.
+         localStorage'ga (yoki eski umumiy kalitga) TUSHMAYMIZ. */
+      if (isStaff(PANEL_ROLE)) return null;
+    }
     const t = lsRead(tokenKey(), null);
     return t || (PANEL_ROLE ? lsRead(K.token, null) : null);
   }
   function setToken(t) {
     const key = tokenKey();
-    if (t) { ssWrite(key, t); lsWrite(key, t); }
+    if (t) {
+      ssWrite(key, t);
+      /* Xodim — diskka yozilmaydi (parolsiz qayta kirish bo'lmasin) */
+      if (isStaff(PANEL_ROLE)) { try { localStorage.removeItem(key); } catch (e) {} }
+      else lsWrite(key, t);
+    }
     else { ssDel(key); try { localStorage.removeItem(key); } catch (e) {} }
   }
   /* ===== BOSHQA ROL kalitiga kirish yozish (bosh saytdan panelga o'tish) =====
@@ -140,8 +175,13 @@ const STORE = (function () {
     const r = String(role || "").trim();
     if (!r || !token) return false;
     const tk = K.token + "_" + r, sk = K.sess + "_" + r;
-    ssWrite(tk, token); lsWrite(tk, token);
-    if (account) { ssWrite(sk, account); lsWrite(sk, account); }
+    ssWrite(tk, token);
+    if (account) ssWrite(sk, account);
+    /* XODIM (admin/restoran/kuryer) — kirish FAQAT shu tab uchun, diskka
+       yozilmaydi: brauzer yopilsa panel yana login/parol so'raydi.
+       MIJOZ — eslab qolinadi (bosh sahifada profili turadi). */
+    if (isStaff(r)) { try { localStorage.removeItem(tk); localStorage.removeItem(sk); } catch (e) {} }
+    else { lsWrite(tk, token); if (account) lsWrite(sk, account); }
     return true;
   }
 
@@ -887,10 +927,21 @@ const STORE = (function () {
     setPanelRole,
     /* Bu TAB ning sessiyasi (sessionStorage) — birlamchi; bo'lmasa localStorage */
     session() {
-      if (PANEL_ROLE) { const s = ssRead(sessKey(), null); if (s) return s; }
+      if (PANEL_ROLE) {
+        const s = ssRead(sessKey(), null);
+        if (s) return s;
+        /* Xodim paneli: shu tabда sessiya yo'q -> KIRILMAGAN (diskdagi eski
+           nusxaga tayanmaymiz — parolsiz kirish bo'lmasin). */
+        if (isStaff(PANEL_ROLE)) return null;
+      }
       return lsRead(sessKey(), null) || (PANEL_ROLE ? lsRead(K.sess, null) : null);
     },
-    setSession(s) { ssWrite(sessKey(), s); lsWrite(sessKey(), s); },
+    setSession(s) {
+      ssWrite(sessKey(), s);
+      /* Xodim sessiyasi diskda qolmaydi (yuqoridagi izoh: parolsiz kirish yo'q) */
+      if (isStaff(PANEL_ROLE)) { try { localStorage.removeItem(sessKey()); } catch (e) {} }
+      else lsWrite(sessKey(), s);
+    },
     /* Chiqishда FAQAT sessiya emas, MAXFIY (akkauntga tegishli) keshni ham
        tozalaymiz. Aks holda restoran A chiqib, kuryer B shu qurilmaга kirса,
        B paneli A ning buyurtmalarini (mijoz telefoni/manzili bilan) keshda
